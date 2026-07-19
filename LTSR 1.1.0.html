@@ -1,0 +1,3205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Voxel — a tiny world</title>
+<style>
+  :root {
+    --ink: #1a1410;
+    --panel: rgba(24, 18, 12, 0.82);
+    --panel-line: rgba(214, 178, 120, 0.35);
+    --gold: #d6b278;
+    --gold-bright: #f2d9a0;
+    --slot: rgba(40, 32, 22, 0.9);
+    --slot-line: rgba(214, 178, 120, 0.25);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #0d0b08; }
+  body {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+    color: #f2e9d8;
+    -webkit-user-select: none; user-select: none;
+    touch-action: none;
+  }
+  #game { position: fixed; inset: 0; display: block; }
+
+  /* crosshair */
+  #crosshair {
+    position: fixed; left: 50%; top: 50%;
+    width: 22px; height: 22px; transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 5; opacity: 0.85;
+    mix-blend-mode: difference;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ""; position: absolute; background: #fff;
+  }
+  #crosshair::before { left: 50%; top: 3px; width: 2px; height: 16px; transform: translateX(-50%); }
+  #crosshair::after { top: 50%; left: 3px; height: 2px; width: 16px; transform: translateY(-50%); }
+
+  /* hotbar */
+  #hotbar {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    display: flex; gap: 6px; padding: 7px; z-index: 6;
+    background: var(--panel); border: 1px solid var(--panel-line);
+    border-radius: 4px; backdrop-filter: blur(6px);
+  }
+  .slot {
+    width: 54px; height: 54px; position: relative;
+    background: var(--slot); border: 1px solid var(--slot-line);
+    border-radius: 3px; display: grid; place-items: center;
+    transition: border-color .12s, transform .12s;
+  }
+  .slot.active {
+    border-color: var(--gold-bright);
+    box-shadow: 0 0 0 1px var(--gold-bright), 0 0 14px rgba(242,217,160,.35);
+    transform: translateY(-3px);
+  }
+  .slot .swatch {
+    width: 34px; height: 34px; border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), inset 3px 3px 6px rgba(255,255,255,.12), inset -3px -3px 6px rgba(0,0,0,.3);
+  }
+  .slot .count {
+    position: absolute; right: 4px; bottom: 2px;
+    font-size: 12px; font-weight: 700; color: var(--gold-bright);
+    text-shadow: 0 1px 2px #000; letter-spacing: -.5px;
+  }
+  .slot .key {
+    position: absolute; left: 4px; top: 2px; font-size: 9px;
+    color: var(--gold); opacity: .6;
+  }
+  .slot .name {
+    position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; white-space: nowrap; color: var(--gold-bright);
+    opacity: 0; transition: opacity .12s; text-shadow: 0 1px 2px #000;
+  }
+  .slot.active .name { opacity: .9; }
+
+  /* HUD readouts */
+  #hud {
+    position: fixed; left: 14px; top: 12px; z-index: 6;
+    font-size: 11px; line-height: 1.6; color: var(--gold);
+    text-shadow: 0 1px 2px #000; pointer-events: none;
+  }
+  #hud b { color: var(--gold-bright); font-weight: 700; }
+
+  /* start / pause overlay */
+  #overlay {
+    position: fixed; inset: 0; z-index: 20;
+    display: grid; place-items: center;
+    background: radial-gradient(ellipse at 50% 30%, rgba(40,30,18,.7), rgba(8,6,4,.94));
+    backdrop-filter: blur(3px);
+  }
+  #overlay.hidden { display: none; }
+  .card {
+    text-align: center; padding: 40px 46px;
+    border: 1px solid var(--panel-line); border-radius: 6px;
+    background: var(--panel); max-width: 440px;
+  }
+  .card h1 {
+    font-size: 34px; letter-spacing: 6px; font-weight: 700;
+    color: var(--gold-bright); margin-bottom: 4px;
+    text-shadow: 0 2px 10px rgba(0,0,0,.6);
+  }
+  .card .tag { font-size: 11px; letter-spacing: 3px; color: var(--gold); opacity: .7; margin-bottom: 22px; }
+  .card p { font-size: 12px; line-height: 1.9; color: #d8caae; margin-bottom: 6px; }
+  .card .keys { margin: 20px 0 26px; font-size: 11px; color: var(--gold); line-height: 2; }
+  .card .keys kbd {
+    background: var(--slot); border: 1px solid var(--slot-line);
+    border-radius: 3px; padding: 1px 6px; color: var(--gold-bright);
+    font-family: inherit; font-size: 10px;
+  }
+  #playBtn {
+    font-family: inherit; font-size: 13px; letter-spacing: 2px;
+    color: var(--ink); background: var(--gold-bright);
+    border: none; border-radius: 4px; padding: 12px 34px; cursor: pointer;
+    font-weight: 700; transition: transform .1s, box-shadow .1s;
+    box-shadow: 0 4px 16px rgba(242,217,160,.28);
+  }
+  #playBtn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(242,217,160,.4); }
+  #playBtn:active { transform: translateY(0); }
+
+  /* mobile controls */
+  #touch { position: fixed; inset: 0; z-index: 7; pointer-events: none; display: none; }
+  body.touch #touch { display: block; }
+  #stick {
+    position: absolute; left: 26px; bottom: 26px; width: 128px; height: 128px;
+    border: 1px solid var(--panel-line); border-radius: 50%;
+    background: rgba(24,18,12,.5); pointer-events: auto;
+  }
+  #nub {
+    position: absolute; left: 50%; top: 50%; width: 52px; height: 52px;
+    margin: -26px 0 0 -26px; border-radius: 50%;
+    background: var(--gold); opacity: .8;
+  }
+  .tbtn {
+    position: absolute; pointer-events: auto; width: 64px; height: 64px;
+    border: 1px solid var(--panel-line); border-radius: 8px;
+    background: var(--panel); color: var(--gold-bright);
+    font-family: inherit; font-size: 10px; letter-spacing: 1px;
+    display: grid; place-items: center;
+  }
+  #btnJump { right: 26px; bottom: 110px; }
+  #btnMine { right: 100px; bottom: 42px; background: rgba(120,40,30,.55); }
+  #btnPlace { right: 26px; bottom: 42px; background: rgba(40,90,50,.55); }
+  #btnCraft { right: 100px; bottom: 110px; background: rgba(90,70,40,.6); }
+  #btnEat { right: 174px; bottom: 42px; background: rgba(120,70,40,.6); }
+  #saveToast {
+    position: fixed; left: 50%; top: 14px; transform: translateX(-50%);
+    z-index: 30; background: var(--panel); border: 1px solid var(--panel-line);
+    color: var(--gold-bright); font-size: 11px; padding: 7px 16px; border-radius: 4px;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  #saveToast.show { opacity: 1; }
+
+  /* survival stat bars */
+  #statBars {
+    position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+    z-index: 6; display: flex; flex-direction: column; gap: 4px; align-items: center;
+    pointer-events: none;
+  }
+  .stat-row { display: flex; gap: 3px; }
+  .pip { width: 15px; height: 15px; position: relative; }
+  .pip svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 1px rgba(0,0,0,.7)); }
+  #statBars.hidden { display: none; }
+
+  #damageFlash {
+    position: fixed; inset: 0; z-index: 8; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(150,0,0,0.55) 100%);
+    opacity: 0; transition: opacity .1s;
+  }
+  #damageFlash.show { opacity: 1; }
+
+  .death {
+    position: fixed; inset: 0; z-index: 45; display: grid; place-items: center;
+    background: rgba(60,0,0,0.55); backdrop-filter: blur(4px);
+  }
+  .death.hidden { display: none; }
+  .death-card { text-align: center; padding: 40px 50px; }
+  .death-card h1 {
+    font-size: 44px; letter-spacing: 4px; color: #e85030; font-weight: 700;
+    text-shadow: 0 3px 14px rgba(0,0,0,.7); margin-bottom: 12px;
+  }
+  .death-card p { font-size: 13px; color: #e8c8b8; margin-bottom: 26px; }
+  #respawnBtn {
+    font-family: inherit; font-size: 13px; letter-spacing: 2px; font-weight: 700;
+    color: var(--ink); background: var(--gold-bright); border: none;
+    border-radius: 4px; padding: 12px 34px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(242,217,160,.3);
+  }
+  #respawnBtn:hover { transform: translateY(-1px); }
+
+  /* secondary actions under the play button */
+  .secondary-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+  .minor-btn {
+    font-family: inherit; font-size: 11px; letter-spacing: 1px;
+    color: var(--gold); background: transparent;
+    border: 1px solid var(--panel-line); border-radius: 4px;
+    padding: 8px 14px; cursor: pointer; transition: all .12s;
+  }
+  .minor-btn:hover { color: var(--gold-bright); border-color: var(--gold-bright); }
+  .minor-btn.danger { color: #d98a7a; border-color: rgba(200,90,70,.4); }
+  .minor-btn.danger:hover { color: #ff9a86; border-color: rgba(220,100,80,.8); background: rgba(120,40,30,.2); }
+
+  /* reset confirmation modal */
+  .modal {
+    position: fixed; inset: 0; z-index: 40;
+    display: grid; place-items: center;
+    background: rgba(6,4,3,.85); backdrop-filter: blur(6px);
+  }
+  .modal.hidden { display: none; }
+  .modal-card {
+    text-align: center; max-width: 420px; padding: 34px 38px;
+    background: var(--panel); border: 1px solid rgba(200,90,70,.4);
+    border-radius: 8px; box-shadow: 0 10px 50px rgba(0,0,0,.6);
+  }
+  .modal-card.hidden { display: none; }
+  .modal-icon { font-size: 40px; margin-bottom: 10px; }
+  .modal-card h2 { font-size: 20px; color: var(--gold-bright); letter-spacing: 1px; margin-bottom: 14px; }
+  .modal-card p { font-size: 12px; line-height: 1.8; color: #d8caae; margin-bottom: 10px; }
+  .modal-card p.modal-warn { color: #ff9a86; font-weight: 700; letter-spacing: 1px; }
+  .modal-input {
+    width: 100%; margin: 8px 0 4px; padding: 10px 12px;
+    font-family: inherit; font-size: 14px; letter-spacing: 3px; text-align: center;
+    color: var(--gold-bright); background: var(--slot);
+    border: 1px solid var(--slot-line); border-radius: 4px; outline: none;
+  }
+  .modal-input:focus { border-color: var(--gold-bright); }
+  .modal-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+  .modal-btn {
+    font-family: inherit; font-size: 12px; letter-spacing: 1px;
+    padding: 10px 18px; border-radius: 4px; cursor: pointer; border: 1px solid transparent;
+    transition: all .12s;
+  }
+  .modal-btn.cancel { color: var(--gold-bright); background: var(--slot); border-color: var(--slot-line); }
+  .modal-btn.cancel:hover { border-color: var(--gold-bright); }
+  .modal-btn.danger { color: #fff; background: #a83c2c; }
+  .modal-btn.danger:hover { background: #c44838; }
+  .modal-btn.danger:disabled { background: #5a3a34; color: #9a8a86; cursor: not-allowed; }
+
+  /* crafting / inventory screen */
+  .craft {
+    position: fixed; inset: 0; z-index: 35;
+    display: grid; place-items: center;
+    background: rgba(6,4,3,.8); backdrop-filter: blur(5px);
+  }
+  .craft.hidden { display: none; }
+  .craft-panel {
+    width: min(760px, 94vw); max-height: 88vh; display: flex; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--panel-line);
+    border-radius: 8px; box-shadow: 0 12px 50px rgba(0,0,0,.6); overflow: hidden;
+  }
+  .craft-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid var(--panel-line);
+  }
+  .craft-header h2 { font-size: 16px; color: var(--gold-bright); letter-spacing: 2px; }
+  .craft-close {
+    font-family: inherit; font-size: 11px; color: var(--gold);
+    background: var(--slot); border: 1px solid var(--slot-line);
+    border-radius: 4px; padding: 6px 12px; cursor: pointer;
+  }
+  .craft-close:hover { color: var(--gold-bright); border-color: var(--gold-bright); }
+  .craft-body { display: flex; gap: 18px; padding: 18px 20px; overflow: hidden; flex: 1; }
+  .craft-col { display: flex; flex-direction: column; min-width: 0; }
+  .craft-col.wide { flex: 1; }
+  .craft-label { font-size: 10px; letter-spacing: 2px; color: var(--gold); opacity: .7; margin-bottom: 8px; text-transform: uppercase; }
+  .inv-grid {
+    display: grid; grid-template-columns: repeat(4, 52px); gap: 6px;
+    align-content: start; overflow-y: auto; padding-right: 4px;
+  }
+  .inv-cell {
+    width: 52px; height: 52px; position: relative;
+    background: var(--slot); border: 1px solid var(--slot-line); border-radius: 3px;
+    display: grid; place-items: center;
+  }
+  .inv-cell .swatch { width: 32px; height: 32px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+  .inv-cell .count { position: absolute; right: 3px; bottom: 1px; font-size: 11px; font-weight: 700; color: var(--gold-bright); text-shadow: 0 1px 2px #000; }
+  .inv-cell .tip { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 9px; white-space: nowrap; background: #000; color: var(--gold-bright); padding: 2px 6px; border-radius: 3px; opacity: 0; pointer-events: none; transition: opacity .1s; z-index: 2; }
+  .inv-cell:hover .tip { opacity: .95; }
+  .inv-empty { font-size: 11px; color: #9a8a76; opacity: .7; grid-column: 1/-1; padding: 10px 0; }
+  .recipe-search {
+    width: 100%; margin-bottom: 10px; padding: 8px 12px;
+    font-family: inherit; font-size: 12px; color: var(--gold-bright);
+    background: var(--slot); border: 1px solid var(--slot-line); border-radius: 4px; outline: none;
+  }
+  .recipe-search:focus { border-color: var(--gold-bright); }
+  .recipe-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+  .recipe {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    background: var(--slot); border: 1px solid var(--slot-line); border-radius: 4px;
+    cursor: pointer; transition: all .1s;
+  }
+  .recipe.can { border-color: rgba(106,168,79,.6); }
+  .recipe.can:hover { border-color: #8fd06a; background: rgba(60,90,50,.3); }
+  .recipe.cant { opacity: .5; cursor: not-allowed; }
+  .recipe .r-swatch { width: 30px; height: 30px; border-radius: 2px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+  .recipe .r-info { flex: 1; min-width: 0; }
+  .recipe .r-name { font-size: 12px; color: var(--gold-bright); font-weight: 700; }
+  .recipe .r-hint { font-size: 10px; color: #c8b896; opacity: .8; }
+  .recipe .r-qty { font-size: 11px; color: var(--gold); }
+  .craft-hint { font-size: 10px; color: #b8a888; padding: 12px 20px; border-top: 1px solid var(--panel-line); opacity: .8; }
+  .assign-bar { margin-bottom: 10px; }
+  .assign-label { font-size: 10px; color: var(--gold); opacity: .7; margin-bottom: 5px; }
+  .assign-slots { display: flex; gap: 4px; }
+  .assign-slot { width: 34px; height: 40px; background: var(--slot); border: 1px solid var(--slot-line); border-radius: 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: 9px; color: var(--gold); gap: 2px; }
+  .assign-slot.active { border-color: var(--gold-bright); box-shadow: 0 0 0 1px var(--gold-bright); }
+  .assign-slot .mini { width: 20px; height: 20px; border-radius: 2px; }
+  .inv-cell.clickable { cursor: pointer; }
+  .inv-cell.clickable:hover { border-color: var(--gold-bright); }
+
+  /* tabs */
+  .craft-tabs { display: flex; gap: 4px; }
+  .craft-tab {
+    font-family: inherit; font-size: 12px; letter-spacing: 1px;
+    color: var(--gold); background: transparent; border: none;
+    padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all .12s;
+  }
+  .craft-tab:hover { color: var(--gold-bright); }
+  .craft-tab.active { color: var(--gold-bright); border-bottom-color: var(--gold-bright); }
+  .tab-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+  .tab-panel.hidden { display: none; }
+
+  /* block encyclopedia */
+  .block-body { padding-bottom: 8px; }
+  .block-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  .block-filter {
+    font-family: inherit; font-size: 10px; letter-spacing: .5px;
+    color: var(--gold); background: var(--slot); border: 1px solid var(--slot-line);
+    border-radius: 3px; padding: 4px 9px; cursor: pointer; transition: all .1s;
+  }
+  .block-filter:hover { color: var(--gold-bright); }
+  .block-filter.active { color: var(--ink); background: var(--gold-bright); border-color: var(--gold-bright); }
+  .block-list { overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-right: 4px; align-content: start; }
+  .block-entry {
+    display: flex; gap: 10px; padding: 8px 10px; align-items: flex-start;
+    background: var(--slot); border: 1px solid var(--slot-line); border-radius: 4px;
+  }
+  .block-entry .b-swatch { width: 34px; height: 34px; border-radius: 3px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), inset 2px 2px 4px rgba(255,255,255,.12), inset -2px -2px 4px rgba(0,0,0,.3); }
+  .block-entry .b-info { min-width: 0; flex: 1; }
+  .block-entry .b-name { font-size: 12px; color: var(--gold-bright); font-weight: 700; }
+  .block-entry .b-tag { display: inline-block; font-size: 8px; letter-spacing: .5px; text-transform: uppercase; color: var(--gold); background: rgba(214,178,120,.12); border-radius: 2px; padding: 1px 5px; margin: 3px 0; }
+  .block-entry .b-desc { font-size: 10px; line-height: 1.5; color: #c8b896; }
+  .block-entry .b-have { font-size: 9px; color: #8fd06a; margin-top: 3px; }
+
+  /* manual */
+  .manual-body { overflow-y: auto; padding: 22px 28px; flex: 1; }
+  .manual-body h3 { font-size: 14px; color: var(--gold-bright); letter-spacing: 1px; margin: 18px 0 8px; }
+  .manual-body h3:first-child { margin-top: 0; }
+  .manual-body p { font-size: 12px; line-height: 1.9; color: #d8caae; margin-bottom: 8px; }
+  .manual-body .m-key {
+    display: inline-block; background: var(--slot); border: 1px solid var(--slot-line);
+    border-radius: 3px; padding: 1px 7px; color: var(--gold-bright); font-size: 11px; margin: 0 2px;
+  }
+  .manual-body ul { list-style: none; margin: 4px 0 12px; }
+  .manual-body li { font-size: 12px; line-height: 1.8; color: #d8caae; padding-left: 16px; position: relative; }
+  .manual-body li::before { content: "▸"; position: absolute; left: 0; color: var(--gold); }
+  .manual-body .m-tip { background: rgba(214,178,120,.08); border-left: 2px solid var(--gold); padding: 8px 14px; margin: 10px 0; font-size: 11px; color: #c8b896; border-radius: 0 4px 4px 0; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="crosshair"></div>
+
+<div id="hud">
+  <div><b id="fps">60</b> fps</div>
+  <div>xyz <b id="pos">0 0 0</b></div>
+  <div id="modeLine">mode <b id="mode">survival</b></div>
+  <div>time <b id="clock">--:--</b></div>
+</div>
+
+<!-- survival stat bars (hearts + hunger) sit just above the hotbar -->
+<div id="statBars">
+  <div id="healthBar" class="stat-row"></div>
+  <div id="hungerBar" class="stat-row"></div>
+</div>
+
+<div id="damageFlash"></div>
+
+<div id="deathScreen" class="death hidden">
+  <div class="death-card">
+    <h1>You Died</h1>
+    <p id="deathCause">The world got the better of you.</p>
+    <button id="respawnBtn">Respawn</button>
+  </div>
+</div>
+
+<div id="hotbar"></div>
+
+<div id="touch">
+  <div id="stick"><div id="nub"></div></div>
+  <button class="tbtn" id="btnJump">JUMP</button>
+  <button class="tbtn" id="btnMine">MINE</button>
+  <button class="tbtn" id="btnPlace">PLACE</button>
+  <button class="tbtn" id="btnCraft">CRAFT</button>
+  <button class="tbtn" id="btnEat">EAT</button>
+</div>
+
+<div id="saveToast">world saved</div>
+
+<!-- Inventory + crafting screen (open with E) -->
+<div id="craftScreen" class="craft hidden">
+  <div class="craft-panel">
+    <div class="craft-header">
+      <div class="craft-tabs">
+        <button class="craft-tab active" data-tab="craft">Craft</button>
+        <button class="craft-tab" data-tab="blocks">Blocks</button>
+        <button class="craft-tab" data-tab="manual">Manual</button>
+      </div>
+      <button id="craftClose" class="craft-close">✕ close (E)</button>
+    </div>
+
+    <!-- CRAFT TAB -->
+    <div class="tab-panel" data-panel="craft">
+      <div class="craft-body">
+        <div class="craft-col">
+          <div class="craft-label">Your materials</div>
+          <div id="invGrid" class="inv-grid"></div>
+        </div>
+        <div class="craft-col wide">
+          <div class="craft-label">Recipe book</div>
+          <input id="recipeSearch" class="recipe-search" type="text" placeholder="Search recipes… (e.g. torch, pickaxe)" spellcheck="false" autocomplete="off" />
+          <div id="recipeList" class="recipe-list"></div>
+        </div>
+      </div>
+      <div class="craft-hint">Green recipes = you have the materials. Click one to craft. Crafted blocks go to your hotbar automatically.</div>
+    </div>
+
+    <!-- BLOCKS TAB -->
+    <div class="tab-panel hidden" data-panel="blocks">
+      <div class="craft-body block-body">
+        <div class="craft-col wide">
+          <div class="craft-label">Block encyclopedia — every block, where to find it, what it's for</div>
+          <div class="block-filters" id="blockFilters"></div>
+          <input id="blockSearch" class="recipe-search" type="text" placeholder="Search blocks… (e.g. stone, wool, torch)" spellcheck="false" autocomplete="off" />
+          <div id="blockList" class="block-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUAL TAB -->
+    <div class="tab-panel hidden" data-panel="manual">
+      <div class="manual-body" id="manualBody"></div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="card">
+    <h1>VOXEL</h1>
+    <div class="tag">A TINY WORLD</div>
+    <p>Mine blocks. Gather them. Build something.</p>
+    <p>Your world saves to this browser automatically.</p>
+    <div class="keys">
+      <div><kbd>W A S D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>Shift</kbd> sprint</div>
+      <div><kbd>Mouse</kbd> look &nbsp; <kbd>Left</kbd> mine &nbsp; <kbd>Right</kbd> place</div>
+      <div><kbd>1–8</kbd> select &nbsp; <kbd>E</kbd> menu &nbsp; <kbd>Q</kbd> eat &nbsp; <kbd>F</kbd> fly &nbsp; <kbd>Esc</kbd> pause</div>
+      <div style="margin-top:5px; opacity:.7">Left-click mobs to fight · watch your hearts &amp; hunger · press <kbd>E</kbd> → Manual for the full guide</div>
+      <div style="margin-top:6px; opacity:.7">New here? Press <kbd>E</kbd> in-game and open the <b>Manual</b> tab.</div>
+    </div>
+    <button id="playBtn">ENTER WORLD</button>
+    <div class="secondary-actions">
+      <button id="surfaceBtn" class="minor-btn">↑ Teleport to surface</button>
+      <button id="resetBtn" class="minor-btn danger">Reset world</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset confirmation flow: multiple deliberate layers so it can't happen by accident -->
+<div id="resetModal" class="modal hidden">
+  <div class="modal-card" id="resetStep1">
+    <div class="modal-icon">⚠️</div>
+    <h2>Reset your world?</h2>
+    <p>This permanently deletes <b>everything</b> — every block you've mined or placed, your inventory, your position, and the time of day. A fresh world will be generated.</p>
+    <p class="modal-warn">This cannot be undone.</p>
+    <div class="modal-buttons">
+      <button class="modal-btn cancel" data-reset-cancel>Keep my world</button>
+      <button class="modal-btn danger" id="resetGo1">Continue…</button>
+    </div>
+  </div>
+
+  <div class="modal-card hidden" id="resetStep2">
+    <div class="modal-icon">🧨</div>
+    <h2>Are you absolutely sure?</h2>
+    <p>There is no backup. Once you reset, your current world is gone forever. If you want to keep it, back out now.</p>
+    <div class="modal-buttons">
+      <button class="modal-btn cancel" data-reset-cancel>No, keep it</button>
+      <button class="modal-btn danger" id="resetGo2">Yes, I understand</button>
+    </div>
+  </div>
+
+  <div class="modal-card hidden" id="resetStep3">
+    <div class="modal-icon">⌨️</div>
+    <h2>Final confirmation</h2>
+    <p>Type <b>RESET</b> below to permanently erase this world.</p>
+    <input id="resetInput" class="modal-input" type="text" autocomplete="off" spellcheck="false" placeholder="Type RESET here" />
+    <div class="modal-buttons">
+      <button class="modal-btn cancel" data-reset-cancel>Cancel</button>
+      <button class="modal-btn danger" id="resetGo3" disabled>Erase world</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* ============================================================================
+   VOXEL — a small single-player Minecraft-like.
+   Single file. Three.js r128. Chunked greedy-ish culled meshing,
+   worker-free but chunked-over-frames generation, AABB collision,
+   raycast mine/place, hotbar inventory, localStorage save.
+   ============================================================================ */
+
+// ---- Block registry --------------------------------------------------------
+const AIR = 0;
+const BLOCKS = {
+  1: { name: "Grass",  top:0x6aa84f, side:0x7a6a4a, bottom:0x5a4a34, solid:true, hardness:0.6 },
+  2: { name: "Dirt",   all:0x6b4f34, solid:true, hardness:0.6 },
+  3: { name: "Stone",  all:0x8a8a8a, solid:true, hardness:2.2 },
+  4: { name: "Sand",   all:0xd9c88f, solid:true, hardness:0.5 },
+  5: { name: "Wood",   top:0xa9834f, side:0x7a5a34, bottom:0xa9834f, solid:true, hardness:1.6 },
+  6: { name: "Leaves", all:0x3f7a3f, solid:true, alpha:true, cutout:true, hardness:0.25 },
+  7: { name: "Plank",  all:0xb08a52, solid:true, hardness:1.4 },
+  8: { name: "Water",  all:0x3b6ea5, solid:false, alpha:true, hardness:999, liquid:true },
+  9: { name: "Glass",  all:0xbfe3ef, solid:true, alpha:true, hardness:0.4 },
+  10:{ name: "Brick",  all:0x9c4a3a, solid:true, hardness:3.0 },
+  // --- ores (found underground / in caves) ---
+  11:{ name: "Coal Ore",   all:0x8a8a8a, solid:true, hardness:2.6, ore:true },
+  12:{ name: "Iron Ore",   all:0x8a8a8a, solid:true, hardness:3.0, ore:true },
+  13:{ name: "Gold Ore",   all:0x8a8a8a, solid:true, hardness:3.2, ore:true },
+  14:{ name: "Diamond Ore", all:0x8a8a8a, solid:true, hardness:4.5, ore:true },
+  // --- building blocks ---
+  15:{ name: "Cobble",     all:0x808080, solid:true, hardness:2.4 },
+  16:{ name: "Stone Brick", all:0x8f8f8f, solid:true, hardness:2.8 },
+  17:{ name: "Mossy Brick", all:0x6f7a5a, solid:true, hardness:2.8 },
+  18:{ name: "Sandstone",  all:0xd9c88f, solid:true, hardness:2.0 },
+  19:{ name: "Dark Brick", all:0x5a3a34, solid:true, hardness:3.2 },
+  // --- light sources ---
+  20:{ name: "Torch",  all:0xffd070, solid:false, alpha:true, cutout:true, hardness:0.1, light:14 },
+  21:{ name: "Glowstone", all:0xf7e08a, solid:true, hardness:1.0, light:15 },
+
+  // === NEW: raw materials you find ===
+  22:{ name: "Birch Wood",  top:0xe8dcc0, side:0xd8cba8, bottom:0xe8dcc0, solid:true, hardness:1.6 },
+  23:{ name: "Spruce Wood", top:0x5a3f28, side:0x4a3420, bottom:0x5a3f28, solid:true, hardness:1.6 },
+  24:{ name: "Granite",  all:0xa06a54, solid:true, hardness:2.4 },
+  25:{ name: "Andesite", all:0x8a8a90, solid:true, hardness:2.4 },
+  26:{ name: "Diorite",  all:0xdcdcdc, solid:true, hardness:2.4 },
+  27:{ name: "Gravel",   all:0x8a8078, solid:true, hardness:0.7 },
+  28:{ name: "Clay",     all:0xa0a6b0, solid:true, hardness:0.8 },
+  29:{ name: "Snow",     all:0xf4f8ff, solid:true, hardness:0.3 },
+  30:{ name: "Obsidian", all:0x1a1428, solid:true, hardness:9.0 },
+
+  // === NEW: refined building blocks (each a distinct look/use) ===
+  31:{ name: "Birch Plank",  all:0xe4d8b8, solid:true, hardness:1.4 },
+  32:{ name: "Spruce Plank", all:0x6a4f34, solid:true, hardness:1.4 },
+  33:{ name: "Polished Granite",  all:0xb47a64, solid:true, hardness:2.4 },
+  34:{ name: "Polished Andesite", all:0x9a9aa0, solid:true, hardness:2.4 },
+  35:{ name: "Polished Diorite",  all:0xececec, solid:true, hardness:2.4 },
+  36:{ name: "Terracotta", all:0xb06a4a, solid:true, hardness:2.0 },
+  37:{ name: "Ice",        all:0x9cc8f0, solid:true, alpha:true, hardness:0.5 },
+  38:{ name: "Packed Snow", all:0xeef4ff, solid:true, hardness:0.6 },
+  39:{ name: "Chiseled Sandstone", all:0xcab878, solid:true, hardness:2.0 },
+  40:{ name: "Smooth Stone", all:0x9a9a9a, solid:true, hardness:2.2 },
+
+  // === NEW: storage/functional blocks ===
+  41:{ name: "Crafting Table", top:0x9a6a3a, side:0x8a5a2a, bottom:0xb08a52, solid:true, hardness:1.6, station:"craft" },
+  42:{ name: "Furnace",  top:0x6a6a6a, side:0x5a5a5a, bottom:0x5a5a5a, solid:true, hardness:3.0, station:"smelt" },
+  43:{ name: "Chest",    top:0x9a7040, side:0x8a6030, bottom:0x8a6030, solid:true, hardness:1.6, station:"chest" },
+  44:{ name: "Bookshelf", top:0xb08a52, side:0x9a6a3a, bottom:0xb08a52, solid:true, hardness:1.4 },
+  45:{ name: "Ladder",   all:0x9a7b4a, solid:false, alpha:true, cutout:true, hardness:0.4, climb:true },
+  46:{ name: "Iron Block", all:0xe8e8e8, solid:true, hardness:5.0 },
+  47:{ name: "Gold Block", all:0xf2d24a, solid:true, hardness:3.0 },
+  48:{ name: "Diamond Block", all:0x6fe6e0, solid:true, hardness:5.0 },
+  49:{ name: "Glass Pane", all:0xcfe8f0, solid:true, alpha:true, cutout:true, hardness:0.4 },
+
+  // === NEW: colored wool (real building palette) ===
+  50:{ name: "White Wool",  all:0xf0f0f0, solid:true, hardness:0.8 },
+  51:{ name: "Red Wool",    all:0xb03030, solid:true, hardness:0.8 },
+  52:{ name: "Blue Wool",   all:0x3050b0, solid:true, hardness:0.8 },
+  53:{ name: "Green Wool",  all:0x40904a, solid:true, hardness:0.8 },
+  54:{ name: "Yellow Wool", all:0xe0c040, solid:true, hardness:0.8 },
+  55:{ name: "Black Wool",  all:0x2a2a2a, solid:true, hardness:0.8 },
+};
+
+// === Shape variants: stairs / slabs / walls generated from base materials ===
+// These are REAL distinct blocks (own id, own name), giving genuine building
+// utility — slabs for half-height detail, stairs for slopes, walls for barriers.
+// They reuse the parent material's texture, so no new art is needed.
+// Variant ids start at 200 to stay clear of base blocks and items(100-199).
+const VARIANTS = {};           // childId -> {parent, shape}
+const SHAPE_OF = {};           // childId -> "stairs"|"slab"|"wall"
+let _vid = 200;
+// materials that get shape variants (id, display name)
+const SHAPE_SOURCE = [
+  [7,"Oak Plank"],[31,"Birch Plank"],[32,"Spruce Plank"],
+  [15,"Cobble"],[16,"Stone Brick"],[17,"Mossy Brick"],[18,"Sandstone"],
+  [3,"Stone"],[40,"Smooth Stone"],[24,"Granite"],[25,"Andesite"],[26,"Diorite"],
+  [33,"Pol. Granite"],[34,"Pol. Andesite"],[35,"Pol. Diorite"],
+  [10,"Brick"],[19,"Dark Brick"],[39,"Chiseled Sandstone"],[36,"Terracotta"],
+];
+const STAIR_ID={}, SLAB_ID={}, WALL_ID={};
+for(const [pid,label] of SHAPE_SOURCE){
+  const p=BLOCKS[pid];
+  const base={ solid:true, hardness:p.hardness||2, variantOf:pid };
+  const col = p.all!==undefined ? {all:p.all} : {top:p.top,side:p.side,bottom:p.bottom};
+  // stairs
+  const sid=_vid++; BLOCKS[sid]={ name:`${label} Stairs`, ...col, ...base, shape:"stairs" };
+  VARIANTS[sid]={parent:pid,shape:"stairs"}; SHAPE_OF[sid]="stairs"; STAIR_ID[pid]=sid;
+  // slab
+  const slid=_vid++; BLOCKS[slid]={ name:`${label} Slab`, ...col, ...base, shape:"slab" };
+  VARIANTS[slid]={parent:pid,shape:"slab"}; SHAPE_OF[slid]="slab"; SLAB_ID[pid]=slid;
+  // wall (only for stone-like materials)
+  const wid=_vid++; BLOCKS[wid]={ name:`${label} Wall`, ...col, ...base, shape:"wall" };
+  VARIANTS[wid]={parent:pid,shape:"wall"}; SHAPE_OF[wid]="wall"; WALL_ID[pid]=wid;
+}
+// map each variant's tiles to its parent's tiles
+function parentTiles(childId){ const v=VARIANTS[childId]; return v?BLOCK_TILES[v.parent]:null; }
+
+// queue of generated blocks needing a solid-color tile (stained glass etc.)
+const _extraTiles=[];
+function BLOCK_TILES_EXTRA(id,color){ _extraTiles.push([id,color]); }
+
+// === More useful families: fences/gates (wood), carpets (wool), stained glass ===
+const FENCE_ID={}, GATE_ID={}, CARPET_ID={}, STAINGLASS_ID={}, STAINPANE_ID={}, TRAPDOOR_ID={};
+// fences + gates from wood/plank materials (barriers)
+const FENCE_SOURCE=[[7,"Oak"],[31,"Birch"],[32,"Spruce"]];
+for(const [pid,label] of FENCE_SOURCE){
+  const p=BLOCKS[pid], col=p.all!==undefined?{all:p.all}:{top:p.top,side:p.side,bottom:p.bottom};
+  const fid=_vid++; BLOCKS[fid]={name:`${label} Fence`,...col,solid:true,hardness:p.hardness,variantOf:pid,shape:"fence"}; VARIANTS[fid]={parent:pid,shape:"fence"}; SHAPE_OF[fid]="fence"; FENCE_ID[pid]=fid;
+  const gid=_vid++; BLOCKS[gid]={name:`${label} Gate`,...col,solid:true,hardness:p.hardness,variantOf:pid,shape:"gate"}; VARIANTS[gid]={parent:pid,shape:"gate"}; SHAPE_OF[gid]="gate"; GATE_ID[pid]=gid;
+  const tid=_vid++; BLOCKS[tid]={name:`${label} Trapdoor`,...col,solid:true,hardness:p.hardness,variantOf:pid,shape:"trapdoor"}; VARIANTS[tid]={parent:pid,shape:"trapdoor"}; SHAPE_OF[tid]="trapdoor"; TRAPDOOR_ID[pid]=tid;
+}
+// carpets from all 6 wool colors (thin floor covering)
+const WOOL_IDS=[[50,"White"],[51,"Red"],[52,"Blue"],[53,"Green"],[54,"Yellow"],[55,"Black"]];
+for(const [pid,label] of WOOL_IDS){
+  const p=BLOCKS[pid];
+  const cid=_vid++; BLOCKS[cid]={name:`${label} Carpet`,all:p.all,solid:true,hardness:0.4,variantOf:pid,shape:"carpet"}; VARIANTS[cid]={parent:pid,shape:"carpet"}; SHAPE_OF[cid]="carpet"; CARPET_ID[pid]=cid;
+}
+// stained glass + panes from glass + dye (6 colors) — reuse glass tile with a tint
+const GLASS_COLORS=[[0xf0f0f0,"White",126],[0xb03030,"Red",121],[0x3050b0,"Blue",122],[0x40904a,"Green",123],[0xe0c040,"Yellow",124],[0x2a2a2a,"Black",125]];
+for(const [color,label,dye] of GLASS_COLORS){
+  const gid=_vid++; BLOCKS[gid]={name:`${label} Glass`,all:color,solid:true,alpha:true,hardness:0.4,shape:"glass",tint:color,tintTile:"glass"}; STAINGLASS_ID[dye]=gid;
+  const pid=_vid++; BLOCKS[pid]={name:`${label} Glass Pane`,all:color,solid:true,alpha:true,cutout:true,hardness:0.4,shape:"pane",tint:color,tintTile:"glass_pane"}; STAINPANE_ID[gid]=pid;
+}
+
+// light: 0..15 emission level. Torch=14, glowstone=15.
+const HOTBAR = [15,16,7,9,5,20,8,45]; // cobble, stone brick, plank, glass, wood, torch, water, ladder
+const MAX_LIGHT=15;
+
+// ============================================================================
+// CRAFTING SYSTEM
+// ----------------------------------------------------------------------------
+// Design note: ALL recipe resolution goes through resolveRecipe(). Today it
+// only consults the hardcoded RECIPES table (Minecraft-style: fixed, preset,
+// deterministic). Later, an AI resolver can be slotted in as a *fallback* inside
+// resolveRecipe() — nothing else in the codebase calls the table directly, so
+// no other logic will need to change. See the marked seam below.
+// ============================================================================
+
+// Materials/items that aren't placeable world blocks get IDs >= 100 so they
+// never collide with block IDs. (Placeable results reuse block IDs.)
+const ITEMS = {
+  100: { name: "Stick",       color: 0x9a7b4a },
+  101: { name: "Coal",        color: 0x2a2a2a },
+  102: { name: "Iron Ingot",  color: 0xd8d8d8 },
+  103: { name: "Gold Ingot",  color: 0xf2d24a },
+  104: { name: "Diamond",     color: 0x6fe6e0 },
+  105: { name: "Wood Pickaxe",  color: 0x9a7b4a, tool:"pickaxe", tier:1 },
+  106: { name: "Stone Pickaxe", color: 0x8a8a8a, tool:"pickaxe", tier:2 },
+  107: { name: "Iron Pickaxe",  color: 0xd8d8d8, tool:"pickaxe", tier:3 },
+  108: { name: "Diamond Pickaxe", color: 0x6fe6e0, tool:"pickaxe", tier:4 },
+  // shovels (mine dirt/sand/gravel faster) and axes (wood faster)
+  109: { name: "Wood Shovel",   color: 0x9a7b4a, tool:"shovel", tier:1 },
+  110: { name: "Stone Shovel",  color: 0x8a8a8a, tool:"shovel", tier:2 },
+  111: { name: "Iron Shovel",   color: 0xd8d8d8, tool:"shovel", tier:3 },
+  112: { name: "Wood Axe",  color: 0x9a7b4a, tool:"axe", tier:1 },
+  113: { name: "Stone Axe", color: 0x8a8a8a, tool:"axe", tier:2 },
+  114: { name: "Iron Axe",  color: 0xd8d8d8, tool:"axe", tier:3 },
+  // materials
+  115: { name: "String",  color: 0xe0e0e0 },
+  116: { name: "Paper",   color: 0xf4f0e0 },
+  117: { name: "Book",    color: 0x8a3a3a },
+  118: { name: "Flint",   color: 0x3a3a3a },
+  119: { name: "Brick Item", color: 0x9c4a3a },  // fired clay -> brick item -> brick block
+  120: { name: "Charcoal", color: 0x3a3a3a },
+  // dyes (color wool)
+  121: { name: "Red Dye",    color: 0xb03030 },
+  122: { name: "Blue Dye",   color: 0x3050b0 },
+  123: { name: "Green Dye",  color: 0x40904a },
+  124: { name: "Yellow Dye", color: 0xe0c040 },
+  125: { name: "Black Dye",  color: 0x2a2a2a },
+  126: { name: "White Dye",  color: 0xf0f0f0 },
+  // --- food (eat to restore hunger; some also heal) ---
+  130: { name: "Apple",       color: 0xd83030, food:4, heal:0 },
+  131: { name: "Berries",     color: 0x9c2050, food:2, heal:0 },
+  132: { name: "Mushroom",    color: 0xc08050, food:2, heal:0 },
+  133: { name: "Raw Meat",    color: 0xc06858, food:2, heal:0 },
+  134: { name: "Cooked Meat", color: 0x9a5030, food:6, heal:1 },
+  135: { name: "Bread",       color: 0xc8a050, food:5, heal:0 },
+  136: { name: "Wheat",       color: 0xd8c060 },
+  137: { name: "Golden Apple",color: 0xf2d24a, food:8, heal:6 },
+};
+function isFood(id){ return ITEMS[id] && ITEMS[id].food!==undefined; }
+// Unified lookup: works for both blocks and items.
+function thingName(id){ return BLOCKS[id]?BLOCKS[id].name : (ITEMS[id]?ITEMS[id].name : "?"); }
+function thingColor(id){
+  if(BLOCKS[id]) return BLOCKS[id].all!==undefined?BLOCKS[id].all:(BLOCKS[id].top!==undefined?BLOCKS[id].top:BLOCKS[id].side);
+  return ITEMS[id]?ITEMS[id].color:0x888888;
+}
+function isPlaceable(id){ return !!BLOCKS[id]; }        // items (>=100) can't be placed
+function isTool(id){ return ITEMS[id] && ITEMS[id].tool; }
+
+// --- Recipe table (hardcoded / preset, like Minecraft) ----------------------
+// Built from RECIPE FAMILIES: each family is a pattern (e.g. "any wood -> planks",
+// "any material -> stairs + slabs") expanded across all applicable materials.
+// This is how we get a large, *coherent* recipe set — every output is useful,
+// nothing is random. Each recipe: { in:{id:count}, out:id, qty, name, hint }.
+const RECIPES = [];
+(function buildRecipes(){
+  const R=(inp,out,qty,name,hint)=> RECIPES.push({in:inp,out,qty,name,hint});
+
+  // 1) LOGS -> PLANKS (each wood type: 1 log -> 4 planks)
+  const woods=[[5,7,"Oak"],[22,31,"Birch"],[23,32,"Spruce"]];
+  for(const [log,plank,label] of woods)
+    R({[log]:1}, plank, 4, `${label} Planks`, `1 ${label} Wood → 4 Planks`);
+
+  // 2) PLANKS -> STICKS (any plank type -> sticks)
+  for(const [,plank,label] of woods)
+    R({[plank]:2}, 100, 4, `Sticks (${label})`, `2 ${label} Planks → 4 Sticks`);
+
+  // 3) SMELTING via furnace-style recipes (ore -> ingot, etc.)
+  R({11:1},101,1,"Coal","Coal Ore → Coal");
+  R({12:1},102,1,"Iron Ingot","Iron Ore → Iron Ingot");
+  R({13:1},103,1,"Gold Ingot","Gold Ore → Gold Ingot");
+  R({14:1},104,1,"Diamond","Diamond Ore → Diamond");
+  R({4:1},9,1,"Glass","Sand → Glass (smelt)");
+  R({27:1},118,1,"Flint","Gravel → Flint");
+  R({28:1},36,1,"Terracotta","Clay → Terracotta (smelt)");
+  R({15:1},40,1,"Smooth Stone","Cobble → Smooth Stone (smelt)");
+  R({23:1},120,1,"Charcoal","Spruce Wood → Charcoal (smelt)");
+  R({28:2},119,2,"Brick Item","2 Clay → 2 Bricks (smelt)");
+
+  // 4) STONE PROCESSING CHAIN (stone -> cobble -> brick, polished variants)
+  R({3:1},15,1,"Cobble","Stone → Cobble");
+  R({15:4},16,4,"Stone Brick","4 Cobble → 4 Stone Bricks");
+  R({16:1,6:1},17,1,"Mossy Brick","Stone Brick + Leaves → Mossy");
+  R({40:4},16,4,"Stone Brick (smooth)","4 Smooth Stone → 4 Bricks");
+  // polished stones: 4 raw -> 4 polished
+  const polish=[[24,33,"Granite"],[25,34,"Andesite"],[26,35,"Diorite"]];
+  for(const [raw,pol,label] of polish)
+    R({[raw]:4}, pol, 4, `Polished ${label}`, `4 ${label} → 4 Polished`);
+
+  // 5) SANDSTONE family
+  R({4:4},18,4,"Sandstone","4 Sand → 4 Sandstone");
+  R({18:4},39,4,"Chiseled Sandstone","4 Sandstone → 4 Chiseled");
+  R({10:1,101:1},19,1,"Dark Brick","Brick Block + Coal → Dark Brick");
+  R({119:4},10,1,"Brick Block","4 Brick Items → Brick Block");
+
+  // 6) SNOW / ICE
+  R({29:4},38,4,"Packed Snow","4 Snow → 4 Packed Snow");
+
+  // 7) LIGHTING
+  R({100:1,101:1},20,4,"Torch (coal)","Stick + Coal → 4 Torches");
+  R({100:1,120:1},20,4,"Torch (charcoal)","Stick + Charcoal → 4 Torches");
+  R({103:4},21,1,"Glowstone","4 Gold Ingots → Glowstone");
+
+  // 8) STAIRS, SLABS & WALLS — the big *useful* building family.
+  //    Real distinct blocks (generated above). Minecraft ratios:
+  //    6 material -> 4 stairs; 3 material -> 6 slabs; 6 material -> 6 walls.
+  for(const [mat,label] of SHAPE_SOURCE){
+    if(STAIR_ID[mat]) R({[mat]:6}, STAIR_ID[mat], 4, `${label} Stairs`, `6 ${label} → 4 Stairs`);
+    if(SLAB_ID[mat])  R({[mat]:3}, SLAB_ID[mat],  6, `${label} Slab`,   `3 ${label} → 6 Slabs`);
+    if(WALL_ID[mat])  R({[mat]:6,100:1}, WALL_ID[mat], 6, `${label} Wall`, `6 ${label} + Stick → 6 Walls`);
+    // reverse: 2 slabs -> 1 full block (recover material)
+    if(SLAB_ID[mat])  R({[SLAB_ID[mat]]:2}, mat, 1, `${label} (from slabs)`, `2 Slabs → 1 ${label}`);
+  }
+
+  // 9) FUNCTIONAL / STORAGE blocks
+  R({7:4},41,1,"Crafting Table","4 Planks → Crafting Table");
+  R({15:8},42,1,"Furnace","8 Cobble → Furnace");
+  R({7:8},43,1,"Chest","8 Planks → Chest");
+  R({6:3},116,3,"Paper","3 Leaves → 3 Paper");           // paper from plant matter
+  R({116:3,115:1},117,1,"Book","3 Paper + String → Book");
+  R({117:3,7:6},44,1,"Bookshelf","3 Books + 6 Planks → Bookshelf");
+  R({100:7},45,3,"Ladder","7 Sticks → 3 Ladders");
+  R({9:6},49,16,"Glass Pane","6 Glass → 16 Panes");
+
+  // 10) COMPRESSED STORAGE (ingot/gem -> block and back)
+  R({102:9},46,1,"Iron Block","9 Iron Ingots → Iron Block");
+  R({103:9},47,1,"Gold Block","9 Gold Ingots → Gold Block");
+  R({104:9},48,1,"Diamond Block","9 Diamonds → Diamond Block");
+  R({46:1},102,9,"Iron (uncompress)","Iron Block → 9 Ingots");
+  R({47:1},103,9,"Gold (uncompress)","Gold Block → 9 Ingots");
+  R({48:1},104,9,"Diamond (uncompress)","Diamond Block → 9 Diamonds");
+
+  // 11) TOOLS — pickaxe/axe/shovel across 4 tiers. Each tier mines its target
+  //     material faster (tier used by the mining-speed system).
+  const toolMats=[[7,"Wood",null],[15,"Stone",null],[102,"Iron",null],[104,"Diamond",null]];
+  const pick=[105,106,107,108], shov=[109,110,111,null], axe=[112,113,114,null];
+  toolMats.forEach(([mat,label],ti)=>{
+    if(pick[ti]!==null && pick[ti]!==undefined) R({[mat]:3,100:2}, pick[ti], 1, `${label} Pickaxe`, `3 ${label} + 2 Sticks`);
+    if(shov[ti]) R({[mat]:1,100:2}, shov[ti], 1, `${label} Shovel`, `1 ${label} + 2 Sticks`);
+    if(axe[ti])  R({[mat]:3,100:3}, axe[ti], 1, `${label} Axe`, `3 ${label} + 3 Sticks`);  // axe: extra stick vs pickaxe
+  });
+
+  // 12) DYES from natural sources, and WOOL COLORING
+  R({6:1},123,1,"Green Dye","Leaves → Green Dye");
+  R({101:1},125,1,"Black Dye","Coal → Black Dye");
+  R({29:1},126,1,"White Dye","Snow → White Dye");
+  R({4:2},124,1,"Yellow Dye","2 Sand → Yellow Dye (ochre)");
+  R({10:1},121,1,"Red Dye","Brick → Red Dye");
+  R({8:1},122,1,"Blue Dye","(lapis-style) → Blue Dye");
+  // base wool from string, then dye it any color
+  R({115:4},50,1,"White Wool","4 String → White Wool");
+  const woolDye=[[121,51,"Red"],[122,52,"Blue"],[123,53,"Green"],[124,54,"Yellow"],[125,55,"Black"]];
+  for(const [dye,wool,label] of woolDye)
+    R({50:1,[dye]:1}, wool, 1, `${label} Wool`, `White Wool + ${label} Dye`);
+  // wool back to string-ish? skip (not useful)
+
+  // 13) MISC useful materials
+  R({6:2},115,2,"String","2 Leaves → 2 String");   // string from plant fiber
+
+  // 17) FOOD — cooking and baking
+  R({133:1},134,1,"Cooked Meat","Raw Meat → Cooked (smelt/cook)");
+  R({136:3},135,1,"Bread","3 Wheat → Bread");
+  R({130:1,103:4},137,1,"Golden Apple","Apple + 4 Gold → Golden Apple");
+
+  // 14) FENCES, GATES, TRAPDOORS (wood) — barriers & closures
+  for(const [pid,label] of FENCE_SOURCE){
+    if(FENCE_ID[pid]) R({[pid]:2,100:4}, FENCE_ID[pid], 3, `${label} Fence`, `2 Planks + 4 Sticks → 3 Fences`);
+    if(GATE_ID[pid])  R({[pid]:4,100:2}, GATE_ID[pid], 1, `${label} Gate`, `4 Planks + 2 Sticks → Gate`);
+    if(TRAPDOOR_ID[pid]) R({[pid]:4,102:1}, TRAPDOOR_ID[pid], 2, `${label} Trapdoor`, `4 Planks + Iron → 2 Trapdoors`);
+  }
+  // 15) CARPETS from wool (thin floor covering)
+  for(const [pid,label] of WOOL_IDS){
+    if(CARPET_ID[pid]) R({[pid]:3}, CARPET_ID[pid], 4, `${label} Carpet`, `3 ${label} Wool → 4 Carpet`);
+  }
+  // 16) STAINED GLASS + PANES (glass + dye)
+  for(const [color,label,dye] of GLASS_COLORS){
+    const gid=STAINGLASS_ID[dye];
+    if(gid){
+      R({9:8,[dye]:1}, gid, 8, `${label} Glass`, `8 Glass + ${label} Dye → 8`);
+      const pane=STAINPANE_ID[gid];
+      if(pane) R({[gid]:6}, pane, 16, `${label} Glass Pane`, `6 ${label} Glass → 16 Panes`);
+    }
+  }
+})();
+
+// THE SEAM: single entry point for turning a set of ingredients into a result.
+// Returns the matching recipe object, or null. To add AI later, this is the ONLY
+// function that changes — add an `await aiResolve(bag)` fallback after the table
+// check and make callers await it. Everything else stays as-is.
+function resolveRecipe(bag){
+  // bag: {id: count}. A recipe matches if the player has >= each ingredient count
+  // AND the bag contains no *extra* ingredient types beyond the recipe (exact set).
+  for(const r of RECIPES){
+    const rIds=Object.keys(r.in);
+    const bIds=Object.keys(bag).filter(id=>bag[id]>0);
+    if(rIds.length!==bIds.length) continue;
+    let ok=true;
+    for(const id of rIds){ if((bag[id]||0)!==r.in[id]){ ok=false; break; } }
+    if(ok) return r;
+  }
+  return null;
+  // --- AI fallback would go here later, e.g.:
+  //   return await aiResolveRecipe(bag);   // invents a new recipe, caches it
+}
+// List recipes the player can currently afford (for the recipe book UI).
+function craftableRecipes(inv){
+  return RECIPES.map(r=>({ recipe:r, canMake: Object.keys(r.in).every(id=>(inv[id]||0)>=r.in[id]) }));
+}
+
+
+function faceColor(id, face){ // face: 0=top,1=bottom,2..5=sides
+  const b = BLOCKS[id];
+  if (!b) return 0xff00ff;
+  if (b.all !== undefined) return b.all;
+  if (face===0) return b.top;
+  if (face===1) return b.bottom;
+  return b.side;
+}
+function isSolid(id){ return id!==AIR && BLOCKS[id] && BLOCKS[id].solid; }
+function isOpaque(id){ return id!==AIR && BLOCKS[id] && !BLOCKS[id].alpha; }
+
+// ---- Procedural texture atlas ---------------------------------------------
+// Every distinct face texture is a 16x16 pixel-art tile. We paint them all onto
+// one canvas (the atlas) so a whole chunk still draws with a single material.
+const TILE=16;                 // texture pixels per tile
+const ATLAS_COLS=8;            // tiles per row in the atlas
+// Named tiles -> atlas index. Order defines position in the atlas.
+const TILE_NAMES=[
+  "grass_top","grass_side","dirt","stone","sand",
+  "wood_top","wood_side","leaves","plank","water","glass","brick",
+  "coal_ore","iron_ore","gold_ore","diamond_ore",
+  "cobble","stone_brick","mossy_brick","sandstone","dark_brick",
+  "torch","glowstone",
+  // new material tiles
+  "birch_top","birch_side","spruce_top","spruce_side",
+  "granite","andesite","diorite","gravel","clay","snow","obsidian",
+  "birch_plank","spruce_plank","pol_granite","pol_andesite","pol_diorite",
+  "terracotta","ice","packed_snow","chiseled_sandstone","smooth_stone",
+  "craft_top","craft_side","furnace_top","furnace_side","chest_top","chest_side",
+  "bookshelf","ladder","iron_block","gold_block","diamond_block","glass_pane",
+  "wool_white","wool_red","wool_blue","wool_green","wool_yellow","wool_black"
+];
+const TILE_IDX={}; TILE_NAMES.forEach((n,i)=>TILE_IDX[n]=i);
+const ATLAS_ROWS=Math.ceil(TILE_NAMES.length/ATLAS_COLS);
+
+// Which tile each face of a block uses. face: 0 top,1 bottom,2..5 sides.
+const BLOCK_TILES={
+  1:{top:"grass_top", bottom:"dirt", side:"grass_side"},
+  2:{all:"dirt"}, 3:{all:"stone"}, 4:{all:"sand"},
+  5:{top:"wood_top", bottom:"wood_top", side:"wood_side"},
+  6:{all:"leaves"}, 7:{all:"plank"}, 8:{all:"water"},
+  9:{all:"glass"}, 10:{all:"brick"},
+  11:{all:"coal_ore"}, 12:{all:"iron_ore"}, 13:{all:"gold_ore"}, 14:{all:"diamond_ore"},
+  15:{all:"cobble"}, 16:{all:"stone_brick"}, 17:{all:"mossy_brick"},
+  18:{all:"sandstone"}, 19:{all:"dark_brick"}, 20:{all:"torch"}, 21:{all:"glowstone"},
+  // new blocks
+  22:{top:"birch_top",side:"birch_side",bottom:"birch_top"},
+  23:{top:"spruce_top",side:"spruce_side",bottom:"spruce_top"},
+  24:{all:"granite"}, 25:{all:"andesite"}, 26:{all:"diorite"},
+  27:{all:"gravel"}, 28:{all:"clay"}, 29:{all:"snow"}, 30:{all:"obsidian"},
+  31:{all:"birch_plank"}, 32:{all:"spruce_plank"},
+  33:{all:"pol_granite"}, 34:{all:"pol_andesite"}, 35:{all:"pol_diorite"},
+  36:{all:"terracotta"}, 37:{all:"ice"}, 38:{all:"packed_snow"},
+  39:{all:"chiseled_sandstone"}, 40:{all:"smooth_stone"},
+  41:{top:"craft_top",side:"craft_side",bottom:"plank"},
+  42:{top:"furnace_top",side:"furnace_side",bottom:"furnace_side"},
+  43:{top:"chest_top",side:"chest_side",bottom:"chest_side"},
+  44:{top:"plank",side:"bookshelf",bottom:"plank"},
+  45:{all:"ladder"}, 46:{all:"iron_block"}, 47:{all:"gold_block"},
+  48:{all:"diamond_block"}, 49:{all:"glass_pane"},
+  50:{all:"wool_white"}, 51:{all:"wool_red"}, 52:{all:"wool_blue"},
+  53:{all:"wool_green"}, 54:{all:"wool_yellow"}, 55:{all:"wool_black"},
+};
+function tileFor(id, face){
+  const b=BLOCKS[id];
+  if(b && b.tintTile) return b.tintTile;        // stained glass reuses base tile, tinted at mesh
+  // shape variants (stairs/slabs/walls) borrow their parent material's tiles
+  const parent = VARIANTS[id] ? VARIANTS[id].parent : id;
+  const t=BLOCK_TILES[parent]||{all:"stone"};
+  if(t.all) return t.all;
+  if(face===0) return t.top;
+  if(face===1) return t.bottom;
+  return t.side;
+}
+
+// small deterministic rng for texture noise
+function trng(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967295; }; }
+function shade(hex,f){ // multiply a hex colour by factor f
+  const r=Math.min(255,((hex>>16)&255)*f)|0, g=Math.min(255,((hex>>8)&255)*f)|0, b=Math.min(255,(hex&255)*f)|0;
+  return `rgb(${r},${g},${b})`;
+}
+// Paint one 16x16 tile at (col,row) into ctx using a painter fn(px(x,y,color)).
+function paintTile(ctx, col, row, painter){
+  const ox=col*TILE, oy=row*TILE;
+  const px=(x,y,color)=>{ ctx.fillStyle=color; ctx.fillRect(ox+x, oy+y, 1, 1); };
+  painter(px);
+}
+function buildAtlas(){
+  const cv=document.createElement("canvas");
+  cv.width=ATLAS_COLS*TILE; cv.height=ATLAS_ROWS*TILE;
+  const ctx=cv.getContext("2d");
+  ctx.imageSmoothingEnabled=false;
+
+  const painters={
+    grass_top(px){ const rnd=trng(11); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6aa84f, 0.82+n*0.36)); if(n>0.93) px(x,y, shade(0x4f8a3a,1)); } },
+    grass_side(px){ const rnd=trng(12);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6b4f34, 0.8+n*0.4)); }
+      for(let x=0;x<TILE;x++){ const h=3+((trng(x+7)()*3)|0); for(let y=0;y<h;y++) px(x,y, shade(0x6aa84f,0.8+trng(x*3+y)()*0.4)); } },
+    dirt(px){ const rnd=trng(21); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6b4f34,0.78+n*0.42)); if(n>0.92) px(x,y, shade(0x4a3722,1)); } },
+    stone(px){ const rnd=trng(31); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8a8a,0.82+n*0.34)); if(n>0.95) px(x,y, shade(0x6e6e6e,1)); } },
+    sand(px){ const rnd=trng(41); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0xd9c88f,0.88+n*0.22)); if(n>0.94) px(x,y, shade(0xc4b070,1)); } },
+    wood_top(px){ const rnd=trng(51);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const dx=x-7.5,dy=y-7.5; const d=Math.sqrt(dx*dx+dy*dy); const ring=(Math.sin(d*1.6)+1)/2; px(x,y, shade(0xa9834f,0.7+ring*0.4+rnd()*0.08)); } },
+    wood_side(px){ const rnd=trng(52); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const grain=(Math.sin(x*1.7)+1)/2; px(x,y, shade(0x7a5a34,0.72+grain*0.34+rnd()*0.08)); } },
+    leaves(px){ const rnd=trng(61); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); if(n>0.14) px(x,y, shade(0x3f7a3f,0.7+n*0.5)); else px(x,y, "rgba(0,0,0,0)"); } },
+    plank(px){ const rnd=trng(71);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(0xb08a52,0.82+rnd()*0.28)); }
+      for(let y=0;y<TILE;y+=4)for(let x=0;x<TILE;x++) px(x,y, shade(0x6b5330,1));
+      for(let x=3;x<TILE;x+=6)for(let y=0;y<TILE;y++) px(x,y, shade(0x6b5330,1)); },
+    water(px){ const rnd=trng(81); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const w=(Math.sin((x+y)*0.9)+1)/2; px(x,y, shade(0x3b6ea5,0.8+w*0.3+rnd()*0.05)); } },
+    glass(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const edge=(x===0||y===0||x===TILE-1||y===TILE-1); px(x,y, edge? shade(0xbfe3ef,1) : "rgba(191,227,239,0.15)"); }
+      for(let i=0;i<TILE;i++){ px(i,i,"rgba(255,255,255,0.4)"); } },
+    brick(px){ const rnd=trng(101);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9c4a3a,0.85+rnd()*0.2));
+      for(let y=0;y<TILE;y+=4){ for(let x=0;x<TILE;x++) px(x,y, shade(0xcfc3b0,1)); }
+      for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(0xcfc3b0,1)); } },
+    // ores: stone base with coloured mineral speckles
+    _ore(px, seed, mineral){ const rnd=trng(seed);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8a8a,0.82+n*0.34)); if(n>0.95) px(x,y, shade(0x6e6e6e,1)); }
+      const r2=trng(seed+5);
+      for(let i=0;i<10;i++){ const bx=(r2()*(TILE-3))|0, by=(r2()*(TILE-3))|0, s=1+((r2()*2)|0);
+        for(let dx=0;dx<=s;dx++)for(let dy=0;dy<=s;dy++){ if(r2()>0.35) px(bx+dx,by+dy, shade(mineral,0.7+r2()*0.5)); } } },
+    coal_ore(px){ painters._ore(px, 201, 0x2a2a2a); },
+    iron_ore(px){ painters._ore(px, 202, 0xc99a6a); },
+    gold_ore(px){ painters._ore(px, 203, 0xf2d24a); },
+    diamond_ore(px){ painters._ore(px, 204, 0x6fe6e0); },
+    cobble(px){ const rnd=trng(211);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x808080,0.7+rnd()*0.5));
+      // random darker mortar between "stones"
+      const r2=trng(219);
+      for(let i=0;i<26;i++){ const bx=(r2()*TILE)|0, by=(r2()*TILE)|0; px(bx,by, shade(0x4a4a4a,1)); } },
+    stone_brick(px){ const rnd=trng(221);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x8f8f8f,0.85+rnd()*0.2));
+      for(let y=0;y<TILE;y+=8) for(let x=0;x<TILE;x++) px(x,y, shade(0x5f5f5f,1));
+      for(let x=0;x<TILE;x+=8) for(let y=0;y<TILE;y++) px(x,y, shade(0x5f5f5f,1)); },
+    mossy_brick(px){ const rnd=trng(231);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const moss=rnd()>0.7; px(x,y, moss? shade(0x5a7a3a,0.7+rnd()*0.4) : shade(0x8f8f8f,0.85+rnd()*0.2)); }
+      for(let y=0;y<TILE;y+=8) for(let x=0;x<TILE;x++) px(x,y, shade(0x4f5f3f,1));
+      for(let x=0;x<TILE;x+=8) for(let y=0;y<TILE;y++) px(x,y, shade(0x4f5f3f,1)); },
+    sandstone(px){ const rnd=trng(241);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0xd9c88f,0.9+rnd()*0.16));
+      for(let y=0;y<TILE;y+=5) for(let x=0;x<TILE;x++) px(x,y, shade(0xc0ad74,1)); },
+    dark_brick(px){ const rnd=trng(251);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x5a3a34,0.82+rnd()*0.24));
+      for(let y=0;y<TILE;y+=4) for(let x=0;x<TILE;x++) px(x,y, shade(0x3a241f,1));
+      for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(0x3a241f,1)); } },
+    torch(px){ // a stick with a bright flame, rest transparent
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y,"rgba(0,0,0,0)");
+      for(let y=6;y<TILE;y++){ px(7,y, shade(0x7a5a34,1)); px(8,y, shade(0x8a6a44,1)); }
+      // flame
+      for(let y=2;y<7;y++)for(let x=6;x<10;x++){ const c = y<4?0xfff2a0 : 0xff9030; px(x,y, shade(c, 0.9+Math.random()*0.2)); }
+      px(7,1, shade(0xffe070,1)); px(8,1, shade(0xffe070,1)); },
+    glowstone(px){ const rnd=trng(261);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0xf7e08a,0.7+n*0.5)); if(n>0.8) px(x,y, shade(0xfff4c0,1)); } },
+
+    // ---- reusable style helpers (base colour -> textured tile) ----
+    _noise(px,base,seed,amt){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(base, (1-amt/2)+rnd()*amt)); } },
+    _speck(px,base,seed,dark){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(base,0.85+n*0.3)); if(n>0.9) px(x,y, shade(dark,1)); } },
+    _planks(px,base,seed){ const rnd=trng(seed);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.85+rnd()*0.22));
+      const dark=0x000000; for(let y=0;y<TILE;y+=4) for(let x=0;x<TILE;x++) px(x,y, shade(base,0.55));
+      for(let x=3;x<TILE;x+=6) for(let y=0;y<TILE;y++) px(x,y, shade(base,0.55)); },
+    _bricks(px,base,seed,mortar){ const rnd=trng(seed);
+      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.85+rnd()*0.2));
+      for(let y=0;y<TILE;y+=4){ for(let x=0;x<TILE;x++) px(x,y, shade(mortar,1)); }
+      for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(mortar,1)); } },
+    _polished(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.92+rnd()*0.12));
+      // subtle highlight top-left
+      for(let i=0;i<TILE;i++){ px(0,i,shade(base,1.1)); px(i,0,shade(base,1.1)); } },
+    _wool(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(base,0.86+n*0.24)); if(n>0.85) px(x,y, shade(base,0.7)); } },
+    _log_top(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const dx=x-7.5,dy=y-7.5; const d=Math.sqrt(dx*dx+dy*dy); const ring=(Math.sin(d*1.6)+1)/2; px(x,y, shade(base,0.72+ring*0.36+rnd()*0.08)); } },
+    _log_side(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const grain=(Math.sin(x*1.7)+1)/2; px(x,y, shade(base,0.74+grain*0.3+rnd()*0.08)); } },
+    _metal(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.9+rnd()*0.14));
+      // frame border
+      for(let i=0;i<TILE;i++){ px(i,0,shade(base,1.15)); px(0,i,shade(base,1.15)); px(i,TILE-1,shade(base,0.7)); px(TILE-1,i,shade(base,0.7)); } },
+
+    // ---- new material tiles ----
+    birch_top(px){ painters._log_top(px,0xe8dcc0,301); },
+    birch_side(px){ const rnd=trng(302); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(0xd8cba8,0.88+rnd()*0.16)); if(rnd()>0.94) px(x,y, shade(0x3a3a3a,1)); } },
+    spruce_top(px){ painters._log_top(px,0x5a3f28,303); },
+    spruce_side(px){ painters._log_side(px,0x4a3420,304); },
+    granite(px){ painters._speck(px,0xa06a54,311,0x804a38); },
+    andesite(px){ painters._speck(px,0x8a8a90,312,0x6a6a70); },
+    diorite(px){ painters._speck(px,0xdcdcdc,313,0xffffff); },
+    gravel(px){ const rnd=trng(314); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8078,0.7+n*0.5)); if(n>0.85) px(x,y, shade(0x5a544e,1)); } },
+    clay(px){ painters._noise(px,0xa0a6b0,315,0.16); },
+    snow(px){ painters._noise(px,0xf4f8ff,316,0.1); },
+    obsidian(px){ const rnd=trng(317); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x1a1428,0.7+n*0.6)); if(n>0.9) px(x,y, shade(0x5a4a80,1)); } },
+    birch_plank(px){ painters._planks(px,0xe4d8b8,321); },
+    spruce_plank(px){ painters._planks(px,0x6a4f34,322); },
+    pol_granite(px){ painters._polished(px,0xb47a64,323); },
+    pol_andesite(px){ painters._polished(px,0x9a9aa0,324); },
+    pol_diorite(px){ painters._polished(px,0xececec,325); },
+    terracotta(px){ painters._noise(px,0xb06a4a,326,0.18); },
+    ice(px){ const rnd=trng(327); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9cc8f0,0.9+rnd()*0.14)); for(let i=0;i<TILE;i++) px(i,i,shade(0xd0e8ff,1)); },
+    packed_snow(px){ painters._noise(px,0xeef4ff,328,0.08); },
+    chiseled_sandstone(px){ const rnd=trng(329); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0xcab878,0.9+rnd()*0.14));
+      for(let i=0;i<TILE;i++){ px(2,i,shade(0xa89858,1)); px(TILE-3,i,shade(0xa89858,1)); px(i,7,shade(0xa89858,1)); } },
+    smooth_stone(px){ painters._noise(px,0x9a9a9a,330,0.12); },
+    craft_top(px){ const rnd=trng(331); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a6a3a,0.85+rnd()*0.2));
+      // grid pattern on top
+      for(let i=0;i<TILE;i++){ px(TILE/2|0,i,shade(0x5a3a1a,1)); px(i,TILE/2|0,shade(0x5a3a1a,1)); } },
+    craft_side(px){ painters._planks(px,0x8a5a2a,332); for(let x=2;x<7;x++)for(let y=2;y<7;y++) if((x+y)%2) px(x,y,shade(0x5a3a1a,1)); },
+    furnace_top(px){ const rnd=trng(333); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x6a6a6a,0.85+rnd()*0.2));
+      for(let i=4;i<12;i++){ px(i,4,shade(0x3a3a3a,1)); px(i,11,shade(0x3a3a3a,1)); px(4,i,shade(0x3a3a3a,1)); px(11,i,shade(0x3a3a3a,1)); } },
+    furnace_side(px){ const rnd=trng(334); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x5a5a5a,0.85+rnd()*0.2));
+      // dark opening
+      for(let x=5;x<11;x++)for(let y=8;y<13;y++) px(x,y, shade(0x2a2a2a,1));
+      for(let x=6;x<10;x++) px(x,12,shade(0xff8030,1)); },  // ember glow
+    chest_top(px){ const rnd=trng(335); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a7040,0.85+rnd()*0.2));
+      for(let i=0;i<TILE;i++){ px(i,0,shade(0x6a4a20,1)); px(i,TILE-1,shade(0x6a4a20,1)); } },
+    chest_side(px){ const rnd=trng(336); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x8a6030,0.85+rnd()*0.2));
+      for(let i=0;i<TILE;i++){ px(i,7,shade(0x5a3a1a,1)); px(i,8,shade(0x5a3a1a,1)); }
+      for(let y=6;y<11;y++){ px(7,y,shade(0x3a2a10,1)); px(8,y,shade(0xf2d24a,1)); } },  // latch
+    bookshelf(px){ const rnd=trng(337); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a6a3a,0.85+rnd()*0.2));
+      // shelves
+      for(let x=0;x<TILE;x++){ px(x,0,shade(0x6a4a20,1)); px(x,7,shade(0x6a4a20,1)); px(x,8,shade(0x6a4a20,1)); px(x,TILE-1,shade(0x6a4a20,1)); }
+      // book spines
+      const cols=[0xb03030,0x3050b0,0x40904a,0xe0c040,0x8a3a8a];
+      for(let x=1;x<TILE-1;x+=2){ const c=cols[(x*7)%cols.length]; for(let y=1;y<7;y++) px(x,y,shade(c,0.8+rnd()*0.4)); for(let y=9;y<TILE-1;y++) px(x,y,shade(cols[(x*3)%cols.length],0.8+rnd()*0.4)); } },
+    ladder(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y,"rgba(0,0,0,0)");
+      for(let y=0;y<TILE;y++){ px(3,y,shade(0x9a7b4a,1)); px(12,y,shade(0x9a7b4a,1)); }
+      for(let y=2;y<TILE;y+=4)for(let x=3;x<=12;x++) px(x,y,shade(0xb08a52,1)); },
+    iron_block(px){ painters._metal(px,0xe8e8e8,338); },
+    gold_block(px){ painters._metal(px,0xf2d24a,339); },
+    diamond_block(px){ painters._metal(px,0x6fe6e0,340); },
+    glass_pane(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const edge=(x<2||x>TILE-3); px(x,y, edge? shade(0xcfe8f0,1):"rgba(207,232,240,0.2)"); } },
+    wool_white(px){ painters._wool(px,0xf0f0f0,350); },
+    wool_red(px){ painters._wool(px,0xb03030,351); },
+    wool_blue(px){ painters._wool(px,0x3050b0,352); },
+    wool_green(px){ painters._wool(px,0x40904a,353); },
+    wool_yellow(px){ painters._wool(px,0xe0c040,354); },
+    wool_black(px){ painters._wool(px,0x2a2a2a,355); },
+  };
+
+  TILE_NAMES.forEach((name,i)=>{
+    const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
+    paintTile(ctx, col, row, painters[name]||painters.stone);
+  });
+
+  const tex=new THREE.CanvasTexture(cv);
+  tex.magFilter=THREE.NearestFilter;      // crisp pixels, no blur
+  tex.minFilter=THREE.NearestFilter;
+  tex.generateMipmaps=false;
+  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
+  return tex;
+}
+// UV rect for a tile name, inset slightly to avoid atlas bleed.
+function tileUV(name){
+  const i=TILE_IDX[name]!==undefined?TILE_IDX[name]:TILE_IDX.stone;
+  const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
+  const inset=0.12/TILE;
+  const u0=col/ATLAS_COLS + inset, u1=(col+1)/ATLAS_COLS - inset;
+  // atlas row 0 is at the TOP of the canvas; flip V for GL
+  const v1=1-(row/ATLAS_ROWS) - inset, v0=1-((row+1)/ATLAS_ROWS) + inset;
+  return {u0,u1,v0,v1};
+}
+
+// ---- Crack overlay textures ------------------------------------------------
+// A horizontal strip of CRACK_STAGES 16x16 tiles, transparent except for dark
+// crack lines that accumulate stage by stage. Rendered over the block you're
+// breaking, growing as you hold the mine button.
+const CRACK_STAGES=8;
+function buildCrackTexture(){
+  const cv=document.createElement("canvas");
+  cv.width=CRACK_STAGES*TILE; cv.height=TILE;
+  const ctx=cv.getContext("2d");
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // Predefine a set of jagged crack "seeds" that light up progressively.
+  const rnd=trng(777);
+  // each crack is a short path of pixels
+  const cracks=[];
+  for(let c=0;c<14;c++){
+    let x=(rnd()*TILE)|0, y=(rnd()*TILE)|0;
+    const len=3+((rnd()*6)|0);
+    const path=[[x,y]];
+    for(let s=0;s<len;s++){
+      x=Math.max(0,Math.min(TILE-1, x+((rnd()*3|0)-1)));
+      y=Math.max(0,Math.min(TILE-1, y+((rnd()*3|0)-1)));
+      path.push([x,y]);
+    }
+    cracks.push({path, appearAt: Math.floor(c/14*CRACK_STAGES)});
+  }
+  for(let stage=0;stage<CRACK_STAGES;stage++){
+    const ox=stage*TILE;
+    for(const cr of cracks){
+      if(cr.appearAt>stage) continue;
+      // deeper stages darken the crack
+      const dark = 0.5 - (stage/CRACK_STAGES)*0.4;
+      ctx.fillStyle=`rgba(0,0,0,${0.35 + (stage/CRACK_STAGES)*0.45})`;
+      for(const [px,py] of cr.path){
+        ctx.fillRect(ox+px, py, 1, 1);
+        // widen slightly at later stages
+        if(stage>4 && (px+py)%2===0) ctx.fillRect(ox+Math.min(TILE-1,px+1), py, 1, 1);
+      }
+    }
+  }
+  const tex=new THREE.CanvasTexture(cv);
+  tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter;
+  tex.generateMipmaps=false;
+  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
+  return tex;
+}
+
+
+// ---- World / chunk store ---------------------------------------------------
+const CHUNK = 16;        // x,z size
+const HEIGHT = 48;       // world height
+const RENDER_DIST = 5;   // chunks radius
+const SEED = 1337;
+
+function keyOf(cx, cz){ return cx + "," + cz; }
+
+// deterministic value-noise
+function hash2(x, z, s){
+  let h = (Math.imul(x,374761393) + Math.imul(z,668265263) + Math.imul(s,2246822519|0)) >>> 0;
+  h = Math.imul(h ^ (h>>>13), 1274126177) >>> 0;
+  return ((h ^ (h>>>16)) >>> 0) / 4294967295;
+}
+function smooth(t){ return t*t*(3-2*t); }
+function vnoise(x, z, s){
+  const xi=Math.floor(x), zi=Math.floor(z);
+  const xf=x-xi, zf=z-zi;
+  const v00=hash2(xi,zi,s),   v10=hash2(xi+1,zi,s);
+  const v01=hash2(xi,zi+1,s), v11=hash2(xi+1,zi+1,s);
+  const u=smooth(xf), v=smooth(zf);
+  return (v00*(1-u)+v10*u)*(1-v) + (v01*(1-u)+v11*u)*v;
+}
+function fbm(x, z){
+  let a=0, amp=1, freq=1, norm=0;
+  for(let o=0;o<4;o++){ a += vnoise(x*freq*0.05, z*freq*0.05, SEED+o)*amp; norm+=amp; amp*=0.5; freq*=2; }
+  return a/norm;
+}
+
+// ---- 3D noise (for caves) --------------------------------------------------
+function hash3(x,y,z,s){
+  let h=(Math.imul(x,374761393) + Math.imul(y,668265263) + Math.imul(z,2246822519|0) + Math.imul(s,3266489917|0))>>>0;
+  h=Math.imul(h^(h>>>13), 1274126177)>>>0;
+  return ((h^(h>>>16))>>>0)/4294967295;
+}
+function vnoise3(x,y,z,s){
+  const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);
+  const xf=x-xi,yf=y-yi,zf=z-zi;
+  const u=smooth(xf),v=smooth(yf),w=smooth(zf);
+  function L(a,b,t){return a+(b-a)*t;}
+  const c000=hash3(xi,yi,zi,s),   c100=hash3(xi+1,yi,zi,s);
+  const c010=hash3(xi,yi+1,zi,s), c110=hash3(xi+1,yi+1,zi,s);
+  const c001=hash3(xi,yi,zi+1,s), c101=hash3(xi+1,yi,zi+1,s);
+  const c011=hash3(xi,yi+1,zi+1,s),c111=hash3(xi+1,yi+1,zi+1,s);
+  const x00=L(c000,c100,u), x10=L(c010,c110,u), x01=L(c001,c101,u), x11=L(c011,c111,u);
+  const y0=L(x00,x10,v), y1=L(x01,x11,v);
+  return L(y0,y1,w);
+}
+// cave density: two overlapping noise fields near zero form winding tunnels
+function isCave(wx,wy,wz){
+  if(wy<3||wy>SEA+18) return false;                  // caves in a mid band
+  const a=vnoise3(wx*0.09, wy*0.14, wz*0.09, SEED+11);
+  const b=vnoise3(wx*0.09, wy*0.14, wz*0.09, SEED+22);
+  // tunnels where both fields cross the mid-value → thin winding voids
+  return Math.abs(a-0.5)<0.09 && Math.abs(b-0.5)<0.12;
+}
+
+const SEA = 12;
+function surfaceHeight(wx, wz){
+  const base = fbm(wx, wz);
+  return Math.floor(6 + base*22);
+}
+
+// Chunk: Uint8Array of blocks + mesh refs
+class Chunk {
+  constructor(cx, cz){
+    this.cx=cx; this.cz=cz;
+    this.data = new Uint8Array(CHUNK*HEIGHT*CHUNK);
+    this.light = new Uint8Array(CHUNK*HEIGHT*CHUNK); // 0..15 light level per block
+    this.opaqueMesh=null; this.cutoutMesh=null; this.alphaMesh=null;
+    this.dirty=true; this.generated=false; this.lit=false;
+  }
+  idx(x,y,z){ return (y*CHUNK + z)*CHUNK + x; }
+  get(x,y,z){
+    if(y<0||y>=HEIGHT) return AIR;
+    return this.data[this.idx(x,y,z)];
+  }
+  set(x,y,z,v){ this.data[this.idx(x,y,z)] = v; }
+  getLight(x,y,z){ if(y<0) return 0; if(y>=HEIGHT) return MAX_LIGHT; return this.light[this.idx(x,y,z)]; }
+  setLight(x,y,z,v){ this.light[this.idx(x,y,z)] = v; }
+}
+
+const world = {
+  chunks: new Map(),
+  edits: {},   // persistent player edits: "wx,wy,wz" -> blockId
+};
+
+function getChunk(cx,cz){ return world.chunks.get(keyOf(cx,cz)); }
+
+function generateChunk(ch){
+  const ox = ch.cx*CHUNK, oz = ch.cz*CHUNK;
+  for(let x=0;x<CHUNK;x++){
+    for(let z=0;z<CHUNK;z++){
+      const wx=ox+x, wz=oz+z;
+      const h = surfaceHeight(wx, wz);
+      for(let y=0;y<=Math.max(h,SEA);y++){
+        let b=AIR;
+        if(y<=h){
+          if(y===h){ b = (h<=SEA+1)?4:1; }        // sand near water, else grass
+          else if(y>h-4) b=2;                       // dirt
+          else b=3;                                 // stone
+        } else if(y<=SEA){ b=8; }                    // water
+        // carve caves out of solid stone/dirt (never the very top grass layer or water)
+        if(b!==AIR && b!==8 && y<h && isCave(wx,y,wz)){ b=AIR; }
+        // ore veins in stone
+        if(b===3){
+          const ore=oreAt(wx,y,wz);
+          if(ore) b=ore;
+        }
+        if(b!==AIR) ch.set(x,y,z,b);
+      }
+      // trees (only on solid grass ground, not over carved caves)
+      if(h>SEA+1 && ch.get(x,h,z)===1){
+        const r = hash2(wx, wz, SEED+99);
+        if(r>0.985 && x>1 && x<CHUNK-2 && z>1 && z<CHUNK-2){
+          const th = 4 + Math.floor(hash2(wx,wz,7)*2);
+          for(let t=1;t<=th;t++) ch.set(x,h+t,z,5);
+          for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)for(let dy=th-1;dy<=th+1;dy++){
+            if(Math.abs(dx)+Math.abs(dz) + Math.max(0,dy-th) <=3){
+              const lx=x+dx, lz=z+dz, ly=h+dy;
+              if(lx>=0&&lx<CHUNK&&lz>=0&&lz<CHUNK&&ly<HEIGHT&&ch.get(lx,ly,lz)===AIR)
+                ch.set(lx,ly,lz,6);
+            }
+          }
+        }
+      }
+    }
+  }
+  // pre-made surprise structures (caverns, tunnels) seeded per chunk
+  carveStructures(ch, ox, oz);
+  // apply persisted edits inside this chunk
+  for(const k in world.edits){
+    const [ex,ey,ez]=k.split(",").map(Number);
+    if(Math.floor(ex/CHUNK)===ch.cx && Math.floor(ez/CHUNK)===ch.cz){
+      const lx=((ex%CHUNK)+CHUNK)%CHUNK, lz=((ez%CHUNK)+CHUNK)%CHUNK;
+      if(ey>=0&&ey<HEIGHT) ch.set(lx,ey,lz,world.edits[k]);
+    }
+  }
+  ch.generated=true;
+}
+// pick an ore type for a stone block, or 0 for plain stone
+function oreAt(wx,wy,wz){
+  const r=hash3(wx,wy,wz,SEED+300);
+  const vein=vnoise3(wx*0.18, wy*0.18, wz*0.18, SEED+301);
+  if(vein<0.55) return 0;                 // most stone stays plain
+  if(wy<8){
+    if(r>0.97) return 14;                  // diamond (deep, rare)
+    if(r>0.90) return 13;                  // gold
+    if(r>0.75) return 12;                  // iron
+    if(r>0.45) return 11;                  // coal
+  } else if(wy<16){
+    if(r>0.92) return 13;                  // gold
+    if(r>0.75) return 12;                  // iron
+    if(r>0.45) return 11;                  // coal
+  } else {
+    if(r>0.72) return 12;                  // iron
+    if(r>0.42) return 11;                  // coal
+  }
+  return 0;
+}
+// Pre-made structures: occasionally a chunk hosts a hollow cavern or a straight
+// tunnel with a glowstone marker — a surprise when you're digging around.
+function carveStructures(ch, ox, oz){
+  const key=hash2(ch.cx, ch.cz, SEED+500);
+  // ~8% of chunks get a hidden cavern
+  if(key>0.92){
+    const cxl=4+((hash2(ch.cx,ch.cz,1)*8)|0);
+    const czl=4+((hash2(ch.cx,ch.cz,2)*8)|0);
+    const cy =6+((hash2(ch.cx,ch.cz,3)*8)|0);
+    const rad=3+((hash2(ch.cx,ch.cz,4)*3)|0);
+    for(let dx=-rad;dx<=rad;dx++)
+    for(let dy=-rad;dy<=rad;dy++)
+    for(let dz=-rad;dz<=rad;dz++){
+      if(dx*dx+dy*dy*1.4+dz*dz > rad*rad) continue;
+      const x=cxl+dx, y=cy+dy, z=czl+dz;
+      if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=1&&y<HEIGHT) ch.set(x,y,z,AIR);
+    }
+    // glowstone cluster on the cavern floor as a reward/landmark
+    const fx=cxl, fz=czl, fy=cy-rad+1;
+    if(fx>=0&&fx<CHUNK&&fz>=0&&fz<CHUNK&&fy>=1&&fy<HEIGHT){
+      ch.set(fx,fy,fz,21);
+      if(fx+1<CHUNK) ch.set(fx+1,fy,fz,21);
+    }
+    // scatter a few ores in the cavern walls
+    for(let i=0;i<6;i++){
+      const x=(hash2(ch.cx*7+i,ch.cz,5)*CHUNK)|0;
+      const z=(hash2(ch.cx,ch.cz*7+i,6)*CHUNK)|0;
+      const y=cy+((hash2(i,ch.cx+ch.cz,7)*rad*2)|0)-rad;
+      if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=1&&y<HEIGHT && ch.get(x,y,z)===3)
+        ch.set(x,y,z, i%2?12:11);
+    }
+  }
+  // ~6% get a straight tunnel through the chunk at a random depth
+  if(key<0.06){
+    const ty=5+((hash2(ch.cx,ch.cz,8)*10)|0);
+    const tz=4+((hash2(ch.cx,ch.cz,9)*8)|0);
+    for(let x=0;x<CHUNK;x++)
+    for(let dy=0;dy<=2;dy++)
+    for(let dz=-1;dz<=1;dz++){
+      const y=ty+dy, z=tz+dz;
+      if(z>=0&&z<CHUNK&&y>=1&&y<HEIGHT) ch.set(x,y,z,AIR);
+    }
+    // a torch-lit marker (glowstone) partway along
+    if(tz>=0&&tz<CHUNK) ch.set(8,ty,tz,21);
+  }
+}
+
+// global block accessor across chunks
+function getBlock(wx,wy,wz){
+  if(wy<0||wy>=HEIGHT) return AIR;
+  const cx=Math.floor(wx/CHUNK), cz=Math.floor(wz/CHUNK);
+  const ch=getChunk(cx,cz);
+  if(!ch||!ch.generated) return AIR;
+  const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
+  return ch.get(lx,wy,lz);
+}
+function setBlock(wx,wy,wz,v, record){
+  const cx=Math.floor(wx/CHUNK), cz=Math.floor(wz/CHUNK);
+  const ch=getChunk(cx,cz);
+  if(!ch) return;
+  const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
+  ch.set(lx,wy,lz,v);
+  ch.dirty=true;
+  if(record){ world.edits[wx+","+wy+","+wz]=v; scheduleSave(); }
+  // mark neighbours dirty if on a border (their culled faces may change)
+  if(lx===0)  markDirty(cx-1,cz);
+  if(lx===CHUNK-1) markDirty(cx+1,cz);
+  if(lz===0)  markDirty(cx,cz-1);
+  if(lz===CHUNK-1) markDirty(cx,cz+1);
+}
+function markDirty(cx,cz){ const c=getChunk(cx,cz); if(c) c.dirty=true; }
+
+// ---- Lighting --------------------------------------------------------------
+// Two light channels merged into one stored value for simplicity:
+//   sky light  = flood-fill downward/around from open sky (attenuates -1 per step)
+//   block light = flood-fill from torches/glowstone (attenuates -1 per step)
+// We store max(sky*dayFactor-ish, block) resolved at mesh time; here we store
+// the raw propagated level and let the mesher blend with time-of-day.
+function lightTransparent(id){ return id===AIR || (BLOCKS[id] && BLOCKS[id].alpha); }
+
+function getLightGlobal(wx,wy,wz){
+  if(wy<0) return 0;
+  if(wy>=HEIGHT) return MAX_LIGHT;
+  const ch=getChunk(Math.floor(wx/CHUNK), Math.floor(wz/CHUNK));
+  if(!ch||!ch.generated) return 0;
+  const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
+  return ch.getLight(lx,wy,lz);
+}
+
+// Compute lighting for one chunk. Reads block data from this chunk + neighbours
+// (via getBlock) so torch/sky light entering from adjacent chunks is honoured.
+function computeChunkLight(ch){
+  const ox=ch.cx*CHUNK, oz=ch.cz*CHUNK;
+  ch.light.fill(0);
+  const queue=[];
+  // 1) sky light: for each column, everything from the top down stays at 15
+  //    until it hits an opaque block; transparent blocks keep sky light.
+  for(let x=0;x<CHUNK;x++)
+  for(let z=0;z<CHUNK;z++){
+    let sky=MAX_LIGHT;
+    for(let y=HEIGHT-1;y>=0;y--){
+      const id=ch.get(x,y,z);
+      if(!lightTransparent(id)){ sky=0; }
+      if(sky>0){ ch.setLight(x,y,z,sky); queue.push([x,y,z,sky]); }
+    }
+  }
+  // 2) block light sources inside this chunk
+  for(let y=0;y<HEIGHT;y++)
+  for(let z=0;z<CHUNK;z++)
+  for(let x=0;x<CHUNK;x++){
+    const id=ch.get(x,y,z);
+    const L=BLOCKS[id]&&BLOCKS[id].light?BLOCKS[id].light:0;
+    if(L>0){ const cur=ch.getLight(x,y,z); if(L>cur){ ch.setLight(x,y,z,L); queue.push([x,y,z,L]); } }
+  }
+  // 3) also pull in light from neighbouring chunks at the borders (seed queue)
+  for(let y=0;y<HEIGHT;y++){
+    for(let z=0;z<CHUNK;z++){
+      seedBorder(ch, -1, y, z, ox, oz, queue);
+      seedBorder(ch, CHUNK, y, z, ox, oz, queue);
+    }
+    for(let x=0;x<CHUNK;x++){
+      seedBorderZ(ch, x, y, -1, ox, oz, queue);
+      seedBorderZ(ch, x, y, CHUNK, ox, oz, queue);
+    }
+  }
+  // 4) BFS flood fill
+  let head=0;
+  while(head<queue.length){
+    const [x,y,z,l]=queue[head++];
+    if(l<=1) continue;
+    const nl=l-1;
+    const nb=[[x-1,y,z],[x+1,y,z],[x,y-1,z],[x,y+1,z],[x,y,z-1],[x,y,z+1]];
+    for(const [nx,ny,nz] of nb){
+      if(ny<0||ny>=HEIGHT) continue;
+      if(nx<0||nx>=CHUNK||nz<0||nz>=CHUNK) continue; // stay inside this chunk
+      const id=ch.get(nx,ny,nz);
+      if(!lightTransparent(id)) continue;
+      if(ch.getLight(nx,ny,nz)<nl){ ch.setLight(nx,ny,nz,nl); queue.push([nx,ny,nz,nl]); }
+    }
+  }
+  ch.lit=true;
+}
+// seed light coming in from a neighbour chunk on the x borders
+function seedBorder(ch, lx, y, z, ox, oz, queue){
+  const wx=ox+lx, wz=oz+z;
+  const neighLight=getLightGlobal(wx,y,wz);
+  if(neighLight<=1) return;
+  const ix = lx<0?0:CHUNK-1;
+  const id=ch.get(ix,y,z);
+  if(!lightTransparent(id)) return;
+  const nl=neighLight-1;
+  if(ch.getLight(ix,y,z)<nl){ ch.setLight(ix,y,z,nl); queue.push([ix,y,z,nl]); }
+}
+function seedBorderZ(ch, x, y, lz, ox, oz, queue){
+  const wx=ox+x, wz=oz+lz;
+  const neighLight=getLightGlobal(wx,y,wz);
+  if(neighLight<=1) return;
+  const iz = lz<0?0:CHUNK-1;
+  const id=ch.get(x,y,iz);
+  if(!lightTransparent(id)) return;
+  const nl=neighLight-1;
+  if(ch.getLight(x,y,iz)<nl){ ch.setLight(x,y,iz,nl); queue.push([x,y,iz,nl]); }
+}
+// When a block changes, relight this chunk and neighbours so torches update.
+function relightAround(cx,cz){
+  const c=getChunk(cx,cz); if(c&&c.generated){ computeChunkLight(c); c.dirty=true; }
+  for(const [dx,dz] of [[-1,0],[1,0],[0,-1],[0,1]]){
+    const n=getChunk(cx+dx,cz+dz); if(n&&n.generated){ computeChunkLight(n); n.dirty=true; }
+  }
+}
+
+// ---- Meshing (culled faces, colour per face) -------------------------------
+const FACES = [
+  // dir, corners (ccw), face index
+  { n:[0,1,0], c:[[0,1,0],[0,1,1],[1,1,1],[1,1,0]], f:0 }, // top
+  { n:[0,-1,0],c:[[0,0,1],[0,0,0],[1,0,0],[1,0,1]], f:1 }, // bottom
+  { n:[0,0,1], c:[[1,0,1],[1,1,1],[0,1,1],[0,0,1]], f:2 }, // +z
+  { n:[0,0,-1],c:[[0,0,0],[0,1,0],[1,1,0],[1,0,0]], f:3 }, // -z
+  { n:[1,0,0], c:[[1,0,0],[1,1,0],[1,1,1],[1,0,1]], f:4 }, // +x
+  { n:[-1,0,0],c:[[0,0,1],[0,1,1],[0,1,0],[0,0,0]], f:5 }, // -x
+];
+
+// UV corner order matching each FACE's corner order (top-left, bottom-left, bottom-right, top-right).
+const UV_ORDER=[[0,1],[0,0],[1,0],[1,1]];
+function buildChunkMesh(ch){
+  const ox=ch.cx*CHUNK, oz=ch.cz*CHUNK;
+  const groups = {
+    opaque:{pos:[],col:[],uv:[],norm:[],idx:[]},
+    cutout:{pos:[],col:[],uv:[],norm:[],idx:[]},
+    alpha :{pos:[],col:[],uv:[],norm:[],idx:[]},
+  };
+
+  for(let y=0;y<HEIGHT;y++)
+  for(let z=0;z<CHUNK;z++)
+  for(let x=0;x<CHUNK;x++){
+    const id = ch.get(x,y,z);
+    if(id===AIR) continue;
+    const bl = BLOCKS[id];
+    const alpha = bl.alpha;
+    const g = bl.cutout ? groups.cutout : (alpha ? groups.alpha : groups.opaque);
+
+    for(const F of FACES){
+      const nx=x+F.n[0], ny=y+F.n[1], nz=z+F.n[2];
+      const neigh = getBlock(ox+nx, ny, oz+nz);
+      let draw;
+      if(alpha){
+        if(neigh===AIR) draw=true;
+        else if(isOpaque(neigh)) draw=false;
+        else draw = (neigh!==id);
+      } else {
+        draw = !isOpaque(neigh);
+      }
+      if(!draw) continue;
+
+      const base = g.pos.length/3;
+      // directional face shading (top brightest, bottom darkest)
+      const dirS = F.f===0?1.0 : F.f===1?0.5 : (F.f===2||F.f===3)?0.82:0.68;
+      // light level of the block this face is exposed to (0..15)
+      const lvl = getLightGlobal(ox+nx, ny, oz+nz);
+      // map light 0..15 -> brightness. A higher floor keeps caves visible even
+      // without torches (dim but navigable), and a gentle curve makes modest
+      // light read brighter. Torches still add a clear, warm glow on top.
+      const ln = lvl/MAX_LIGHT;
+      const lightB = 0.35 + Math.sqrt(ln)*0.65;   // floor 0.35, brightens fast
+      // warm tint when lit by a strong block light (torch-ish), cool when dim
+      const warm = lvl>8 ? (lvl-8)/7 : 0;
+      const s = dirS*lightB;
+      let rC = s*(1+warm*0.12), gC = s*(1+warm*0.04), bC = s*(1-warm*0.08);
+      // stained glass / colored blocks: multiply by their tint
+      if(bl.tint!==undefined){
+        rC *= ((bl.tint>>16)&255)/255; gC *= ((bl.tint>>8)&255)/255; bC *= (bl.tint&255)/255;
+      }
+      const uv = tileUV(tileFor(id, F.f));
+      for(let k=0;k<4;k++){
+        const c=F.c[k];
+        g.pos.push(ox+x+c[0], y+c[1], oz+z+c[2]);
+        g.col.push(rC,gC,bC);
+        g.norm.push(F.n[0],F.n[1],F.n[2]);
+        const uc=UV_ORDER[k];
+        g.uv.push(uc[0]?uv.u1:uv.u0, uc[1]?uv.v1:uv.v0);
+      }
+      g.idx.push(base,base+1,base+2, base,base+2,base+3);
+    }
+  }
+  return groups;
+}
+
+function makeMesh(g, mode){
+  if(g.idx.length===0) return null;
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(g.pos,3));
+  geo.setAttribute("color",    new THREE.Float32BufferAttribute(g.col,3));
+  geo.setAttribute("uv",       new THREE.Float32BufferAttribute(g.uv,2));
+  geo.setAttribute("normal",   new THREE.Float32BufferAttribute(g.norm,3));
+  geo.setIndex(g.idx);
+  const opts={ map: atlasTex, vertexColors:true, side: THREE.FrontSide };
+  if(mode==="cutout"){            // leaves: hard alpha cut, still solid-looking
+    opts.transparent=false; opts.alphaTest=0.5;
+  } else if(mode==="alpha"){      // water / glass: blended, see-through
+    opts.transparent=true; opts.opacity=0.8; opts.depthWrite=false;
+  } else {
+    opts.transparent=false;
+  }
+  const mesh=new THREE.Mesh(geo, new THREE.MeshLambertMaterial(opts));
+  mesh.frustumCulled=true;
+  return mesh;
+}
+
+function disposeMesh(m){ if(m){ scene.remove(m); m.geometry.dispose(); m.material.dispose(); } }
+function updateChunkMesh(ch){
+  const g = buildChunkMesh(ch);
+  disposeMesh(ch.opaqueMesh); disposeMesh(ch.cutoutMesh); disposeMesh(ch.alphaMesh);
+  ch.opaqueMesh=makeMesh(g.opaque,"opaque");
+  ch.cutoutMesh=makeMesh(g.cutout,"cutout");
+  ch.alphaMesh =makeMesh(g.alpha,"alpha");
+  if(ch.opaqueMesh) scene.add(ch.opaqueMesh);
+  if(ch.cutoutMesh) scene.add(ch.cutoutMesh);
+  if(ch.alphaMesh)  scene.add(ch.alphaMesh);
+  ch.dirty=false;
+}
+
+// ---- Three.js setup --------------------------------------------------------
+const canvas=document.getElementById("game");
+const renderer=new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x8fc3e8);
+
+const atlasTex=buildAtlas();   // procedural pixel-art texture atlas
+
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x8fc3e8, RENDER_DIST*CHUNK*0.55, RENDER_DIST*CHUNK*0.95);
+
+const camera=new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+const sun=new THREE.DirectionalLight(0xfff0d8, 0.9);
+sun.position.set(0.5,1,0.3);
+scene.add(sun);
+const moon=new THREE.DirectionalLight(0x9fb6e0, 0.0);   // secondary cool light at night
+moon.position.set(-0.5,1,-0.3);
+scene.add(moon);
+const ambient=new THREE.AmbientLight(0x8090a0, 0.75);
+scene.add(ambient);
+
+// block-highlight wireframe
+const hlGeo=new THREE.BoxGeometry(1.002,1.002,1.002);
+const hlEdges=new THREE.EdgesGeometry(hlGeo);
+const highlight=new THREE.LineSegments(hlEdges, new THREE.LineBasicMaterial({color:0x000000, transparent:true, opacity:0.5}));
+highlight.visible=false;
+scene.add(highlight);
+
+// crack overlay: a cube whose UVs we shift to show the current break stage.
+const crackTex=buildCrackTexture();
+const crackGeo=new THREE.BoxGeometry(1.004,1.004,1.004);
+// remap every face's UVs into the first crack tile; we scroll via texture.offset
+(function initCrackUV(){
+  const uv=crackGeo.attributes.uv;
+  for(let i=0;i<uv.count;i++){
+    // BoxGeometry default UVs are 0..1 per face; compress U to one stage width
+    uv.setX(i, uv.getX(i)/CRACK_STAGES);
+  }
+  uv.needsUpdate=true;
+})();
+crackTex.wrapS=THREE.RepeatWrapping;
+const crackMat=new THREE.MeshBasicMaterial({
+  map:crackTex, transparent:true, depthWrite:false,
+  polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-1,
+});
+const crackMesh=new THREE.Mesh(crackGeo, crackMat);
+crackMesh.visible=false;
+scene.add(crackMesh);
+function showCrack(x,y,z,stage){
+  crackMesh.position.set(x+0.5,y+0.5,z+0.5);
+  crackTex.offset.x = stage/CRACK_STAGES;
+  crackMesh.visible=true;
+}
+function hideCrack(){ crackMesh.visible=false; }
+
+// ---- Break particles (the "explosion") -------------------------------------
+// A pool of small cubes reused across breaks. On mine, we scatter a burst of
+// them from the block, tinted to the block colour, with gravity + spin + fade.
+const PARTICLE_POOL=140;
+const particleGeo=new THREE.BoxGeometry(0.16,0.16,0.16);
+const particles=[];
+for(let i=0;i<PARTICLE_POOL;i++){
+  const mat=new THREE.MeshLambertMaterial({color:0xffffff, transparent:true, opacity:1});
+  const m=new THREE.Mesh(particleGeo, mat);
+  m.visible=false; m.frustumCulled=false;
+  scene.add(m);
+  particles.push({mesh:m, vel:new THREE.Vector3(), life:0, max:0, spin:new THREE.Vector3()});
+}
+function blockColor(id){
+  const b=BLOCKS[id]; if(!b) return 0x888888;
+  return b.all!==undefined?b.all : b.top!==undefined?b.top : b.side;
+}
+function spawnBreakBurst(x,y,z,id){
+  const base=blockColor(id);
+  let spawned=0;
+  for(const p of particles){
+    if(p.mesh.visible) continue;
+    // jitter colour a little per shard for a lively burst
+    const j=0.75+Math.random()*0.5;
+    const r=Math.min(255,((base>>16)&255)*j)|0, g=Math.min(255,((base>>8)&255)*j)|0, b=Math.min(255,(base&255)*j)|0;
+    p.mesh.material.color.setRGB(r/255,g/255,b/255);
+    p.mesh.material.opacity=1;
+    const s=0.5+Math.random()*0.9; p.mesh.scale.setScalar(s);
+    p.mesh.position.set(x+0.2+Math.random()*0.6, y+0.2+Math.random()*0.6, z+0.2+Math.random()*0.6);
+    p.vel.set((Math.random()-0.5)*5, 2+Math.random()*4, (Math.random()-0.5)*5);
+    p.spin.set(Math.random()*10-5, Math.random()*10-5, Math.random()*10-5);
+    p.life=0; p.max=0.5+Math.random()*0.4;
+    p.mesh.visible=true;
+    if(++spawned>=14) break;   // ~14 shards per block
+  }
+}
+function updateParticles(dt){
+  for(const p of particles){
+    if(!p.mesh.visible) continue;
+    p.life+=dt;
+    if(p.life>=p.max){ p.mesh.visible=false; continue; }
+    p.vel.y += -16*dt;                     // gravity
+    p.mesh.position.addScaledVector(p.vel, dt);
+    p.mesh.rotation.x += p.spin.x*dt;
+    p.mesh.rotation.y += p.spin.y*dt;
+    const k=1-(p.life/p.max);
+    p.mesh.material.opacity=k;
+    p.mesh.scale.multiplyScalar(1-0.6*dt); // shrink slightly as they fade
+  }
+}
+
+// ---- Player ----------------------------------------------------------------
+const player={
+  pos:new THREE.Vector3(8, 40, 8),
+  vel:new THREE.Vector3(),
+  yaw:0, pitch:0,
+  onGround:false, flying:false,
+  width:0.6, height:1.8, eye:1.62,
+  // survival stats
+  health:20, maxHealth:20,     // 10 hearts (2 hp each)
+  hunger:20, maxHunger:20,     // 10 drumsticks
+  hungerTimer:0, regenTimer:0, starveTimer:0,
+  prevY:40, fallStart:null,    // for fall-damage tracking
+  invuln:0,                    // brief invulnerability after taking damage
+  dead:false,
+};
+const GRAV=-26, JUMP=8.4, SPEED=4.6, SPRINT=7.4, FLYSPEED=10, AIR_ACC=0.6;
+
+// spawn on surface
+function spawnPlayer(){
+  const h=surfaceHeight(8,8);
+  player.pos.set(8.5, h+3, 8.5);
+}
+
+// ---- Input -----------------------------------------------------------------
+const keys={};
+let pointerLocked=false, running=false, survival=true;
+
+const overlay=document.getElementById("overlay");
+const playBtn=document.getElementById("playBtn");
+
+function startGame(){
+  overlay.classList.add("hidden");
+  if(!isTouch){ canvas.requestPointerLock(); }
+  running=true;
+}
+playBtn.addEventListener("click", startGame);
+
+// --- Teleport to surface: lift the player to open air above the terrain ---
+const surfaceBtn=document.getElementById("surfaceBtn");
+function teleportToSurface(){
+  const px=Math.floor(player.pos.x), pz=Math.floor(player.pos.z);
+  // ensure the column's chunk is generated
+  const cx=Math.floor(px/CHUNK), cz=Math.floor(pz/CHUNK);
+  let ch=getChunk(cx,cz);
+  if(!ch){ ch=new Chunk(cx,cz); world.chunks.set(keyOf(cx,cz),ch); }
+  if(!ch.generated) generateChunk(ch);
+  // find the highest solid block in this column, stand on top of it
+  let topY=1;
+  for(let y=HEIGHT-1;y>=0;y--){ if(isSolid(getBlock(px,y,pz))){ topY=y+1; break; } }
+  player.pos.set(px+0.5, topY+0.5, pz+0.5);
+  player.vel.set(0,0,0);
+  player.flying=false;
+  computeChunkLight(ch); ch.dirty=true;
+  updateChunkLoading();
+  updateHUD();
+  toast("teleported to surface");
+}
+surfaceBtn.addEventListener("click", ()=>{ teleportToSurface(); startGame(); });
+
+// --- Protected reset flow (three deliberate layers) ---
+const resetModal=document.getElementById("resetModal");
+const resetSteps=[
+  document.getElementById("resetStep1"),
+  document.getElementById("resetStep2"),
+  document.getElementById("resetStep3"),
+];
+function showResetStep(n){
+  resetModal.classList.remove("hidden");
+  resetSteps.forEach((s,i)=> s.classList.toggle("hidden", i!==n));
+  if(n===2){ // reset & focus the type-to-confirm input
+    const inp=document.getElementById("resetInput");
+    inp.value=""; document.getElementById("resetGo3").disabled=true;
+    setTimeout(()=>inp.focus(), 50);
+  }
+}
+function closeResetModal(){
+  resetModal.classList.add("hidden");
+  resetSteps.forEach(s=>s.classList.add("hidden"));
+}
+document.getElementById("resetBtn").addEventListener("click", ()=> showResetStep(0));
+document.getElementById("resetGo1").addEventListener("click", ()=> showResetStep(1));
+document.getElementById("resetGo2").addEventListener("click", ()=> showResetStep(2));
+// any cancel button backs fully out
+document.querySelectorAll("[data-reset-cancel]").forEach(b=> b.addEventListener("click", closeResetModal));
+// type-to-confirm gate
+const resetInput=document.getElementById("resetInput");
+const resetGo3=document.getElementById("resetGo3");
+resetInput.addEventListener("input", ()=>{
+  resetGo3.disabled = resetInput.value.trim().toUpperCase()!=="RESET";
+});
+resetInput.addEventListener("keydown", e=>{
+  if(e.key==="Enter" && !resetGo3.disabled) resetGo3.click();
+});
+resetGo3.addEventListener("click", ()=>{
+  if(resetInput.value.trim().toUpperCase()!=="RESET") return; // final guard
+  doReset();
+});
+function doReset(){
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+  closeResetModal();
+  // hard reload for a guaranteed-clean fresh world
+  location.reload();
+}
+
+document.addEventListener("pointerlockchange", ()=>{
+  pointerLocked = document.pointerLockElement===canvas;
+  if(!pointerLocked && running && !isTouch && !craftOpen){
+    running=false; overlay.classList.remove("hidden");
+    mining.held=false; mining.active=false; hideCrack();  // don't resume mid-mine
+  }
+});
+
+canvas.addEventListener("mousemove", e=>{
+  if(!pointerLocked) return;
+  const s=0.0022;
+  player.yaw   -= e.movementX*s;
+  player.pitch -= e.movementY*s;
+  const lim=Math.PI/2-0.01;
+  player.pitch=Math.max(-lim,Math.min(lim,player.pitch));
+});
+
+window.addEventListener("keydown", e=>{
+  // when crafting screen is open, don't drive the player; let typing work
+  if(craftOpen){
+    if(e.code==="KeyE" || e.code==="Escape"){ closeCraft(); e.preventDefault(); }
+    return;
+  }
+  keys[e.code]=true;
+  if(e.code==="KeyE" && running){ openCraft(); e.preventDefault(); return; }
+  if(e.code==="KeyF" && running){ player.flying=!player.flying; player.vel.y=0; updateHUD(); }
+  if(e.code==="KeyQ" && running){ eatSelected(); e.preventDefault(); }
+  if(/^Digit[1-8]$/.test(e.code)){ selectSlot(parseInt(e.code.slice(5))-1); }
+});
+window.addEventListener("keyup", e=>{ keys[e.code]=false; });
+
+canvas.addEventListener("mousedown", e=>{
+  if(!running) return;
+  if(!pointerLocked && !isTouch){ canvas.requestPointerLock(); return; }
+  if(e.button===0){ if(!attackMob()) mining.held=true; }
+  else if(e.button===2) placeBlock();
+});
+canvas.addEventListener("mouseup", e=>{
+  if(e.button===0){ mining.held=false; }
+});
+canvas.addEventListener("contextmenu", e=>e.preventDefault());
+window.addEventListener("wheel", e=>{
+  if(!running) return;
+  selectSlot((selected + (e.deltaY>0?1:-1) + HOTBAR.length) % HOTBAR.length);
+}, {passive:true});
+
+// ---- Inventory / hotbar ----------------------------------------------------
+// inventory: full bag of everything the player owns (blocks + items), id->count.
+// hotbar: which placeable block ids sit in the 8 quick slots.
+let selected=0;
+const inventory={}; // id -> count (any block or item)
+let hotbar=[...HOTBAR]; // mutable copy; can be reassigned as player crafts new blocks
+// seed creative mode with everything placeable
+if(!survival) HOTBAR.forEach(id=> inventory[id]=999);
+
+function invCount(id){ return inventory[id]||0; }
+function addItem(id, n=1){ inventory[id]=(inventory[id]||0)+n; refreshCounts(); }
+function removeItem(id, n=1){ inventory[id]=Math.max(0,(inventory[id]||0)-n); if(inventory[id]===0) delete inventory[id]; refreshCounts(); }
+
+const hotbarEl=document.getElementById("hotbar");
+function buildHotbar(){
+  hotbarEl.innerHTML="";
+  hotbar.forEach((id,i)=>{
+    const slot=document.createElement("div");
+    slot.className="slot"+(i===selected?" active":"");
+    slot.dataset.i=i;
+    const hex="#"+thingColor(id).toString(16).padStart(6,"0");
+    slot.innerHTML=`<span class="key">${i+1}</span>
+      <div class="swatch" style="background:${hex}"></div>
+      <span class="count">${invCount(id)}</span>
+      <span class="name">${thingName(id)}</span>`;
+    slot.addEventListener("click",()=>{ selectSlot(i); if(!isTouch && running) canvas.requestPointerLock(); });
+    hotbarEl.appendChild(slot);
+  });
+}
+function selectSlot(i){ selected=i; buildHotbar(); }
+function refreshCounts(){
+  [...hotbarEl.children].forEach((s,i)=>{
+    const c=s.querySelector(".count"); if(c) c.textContent = invCount(hotbar[i]);
+  });
+}
+// mined blocks go into the full inventory (survival only)
+function giveBlock(id){
+  if(!survival) return;
+  addItem(id,1);
+}
+
+// ---- Crafting screen -------------------------------------------------------
+const craftScreen=document.getElementById("craftScreen");
+const invGrid=document.getElementById("invGrid");
+const recipeList=document.getElementById("recipeList");
+const recipeSearch=document.getElementById("recipeSearch");
+let craftOpen=false;
+
+function openCraft(){
+  if(!running && !craftOpen) return; // only from in-game
+  craftOpen=true;
+  craftScreen.classList.remove("hidden");
+  if(document.pointerLockElement) document.exitPointerLock();
+  mining.held=false;
+  switchTab("craft");
+  setTimeout(()=>{ if(recipeSearch) recipeSearch.focus(); }, 40);
+}
+function closeCraft(){
+  craftOpen=false;
+  craftScreen.classList.add("hidden");
+  if(!isTouch && running) canvas.requestPointerLock();
+}
+document.getElementById("craftClose").addEventListener("click", closeCraft);
+
+// ---- Tab switching ---------------------------------------------------------
+const tabPanels=[...document.querySelectorAll(".tab-panel")];
+const tabButtons=[...document.querySelectorAll(".craft-tab")];
+function switchTab(name){
+  tabButtons.forEach(b=> b.classList.toggle("active", b.dataset.tab===name));
+  tabPanels.forEach(p=> p.classList.toggle("hidden", p.dataset.panel!==name));
+  if(name==="blocks") renderBlocks();
+  if(name==="manual") renderManual();
+  if(name==="craft"){ renderInventory(); renderRecipes(); }
+}
+tabButtons.forEach(b=> b.addEventListener("click", ()=>switchTab(b.dataset.tab)));
+
+// ---- Block encyclopedia ----------------------------------------------------
+// Category + description for each block. Base blocks get hand-written notes;
+// variants and generated blocks derive their info from properties.
+const BLOCK_INFO={
+  1:{cat:"Nature", desc:"The green surface layer. Dig down through it to reach dirt and stone."},
+  2:{cat:"Nature", desc:"Sits under grass. Common, soft, quick to dig."},
+  3:{cat:"Stone",  desc:"The bulk of underground. Mine it for cobble — the base of most building."},
+  4:{cat:"Nature", desc:"Found near water and beaches. Smelt into glass, or craft sandstone."},
+  5:{cat:"Wood",   desc:"Chop from trees. Craft into planks — the start of most recipes."},
+  6:{cat:"Nature", desc:"Tree foliage. Source of sticks-adjacent materials, string, and dyes."},
+  7:{cat:"Wood",   desc:"Made from wood. Craft sticks, tools, chests, and building shapes."},
+  8:{cat:"Liquid", desc:"Flows and spreads. Fills low ground; mine around it carefully."},
+  9:{cat:"Glass",  desc:"Smelt from sand. See-through building block; craft into panes."},
+  10:{cat:"Stone", desc:"Classic red brick. Sturdy, decorative walls."},
+  11:{cat:"Ore",   desc:"Mine underground. Smelt or crack into coal for torches & fuel."},
+  12:{cat:"Ore",   desc:"Mine underground. Smelt into iron ingots for strong tools."},
+  13:{cat:"Ore",   desc:"Deeper and rarer. Smelt into gold — glowstone and shiny blocks."},
+  14:{cat:"Ore",   desc:"Deepest, rarest. Yields diamond — the best tools and blocks."},
+  15:{cat:"Stone", desc:"From mining stone. The workhorse building block; makes furnaces."},
+  16:{cat:"Stone", desc:"Refined cobble. Clean walls; base for mossy variant."},
+  17:{cat:"Stone", desc:"Aged, green-tinged brick. Great for ruins and gardens."},
+  18:{cat:"Stone", desc:"Crafted from sand. Warm-toned building block; can be chiseled."},
+  19:{cat:"Stone", desc:"Brick darkened with coal. Moody, dramatic builds."},
+  20:{cat:"Light", desc:"Your main light source. Place in caves to keep them lit and safe."},
+  21:{cat:"Light", desc:"Brightest block. A permanent glow — craft from gold or find in caverns."},
+  22:{cat:"Wood",  desc:"Pale birch log. A lighter wood palette for building."},
+  23:{cat:"Wood",  desc:"Dark spruce log. A rich, deep wood tone."},
+  24:{cat:"Stone", desc:"Speckled pink-grey stone. Found underground; polish it smooth."},
+  25:{cat:"Stone", desc:"Cool grey speckled stone. Polish for a clean finish."},
+  26:{cat:"Stone", desc:"Bright white speckled stone. Polish for marble-like builds."},
+  27:{cat:"Nature",desc:"Loose grey stone. Soft; can yield flint."},
+  28:{cat:"Nature",desc:"Grey-blue clay. Smelt into terracotta or bricks."},
+  29:{cat:"Nature",desc:"Soft white snow. Pack it into solid snow blocks."},
+  30:{cat:"Stone", desc:"Nearly unbreakable dark block. Forms where water meets deep heat."},
+  36:{cat:"Stone", desc:"Fired clay. Warm earthy building block."},
+  37:{cat:"Glass", desc:"Slippery translucent block. Cold-themed builds."},
+  40:{cat:"Stone", desc:"Smelted cobble. Smooth grey — a clean modern look."},
+  41:{cat:"Utility",desc:"A workbench. (Crafting works anywhere here, but it's a landmark.)"},
+  42:{cat:"Utility",desc:"A furnace. Smelting recipes are in your recipe book."},
+  43:{cat:"Utility",desc:"Storage chest. A decorative storage-themed block."},
+  44:{cat:"Utility",desc:"Bookshelf. Decorative; made from books and planks."},
+  45:{cat:"Utility",desc:"Ladder. Place on walls to climb (climb-enabled)."},
+  46:{cat:"Storage",desc:"Compressed iron. Store 9 ingots; shiny metallic block."},
+  47:{cat:"Storage",desc:"Compressed gold. Store 9 ingots; bright gold block."},
+  48:{cat:"Storage",desc:"Compressed diamond. Store 9 gems; stunning build accent."},
+  49:{cat:"Glass",  desc:"Thin glass pane. Windows without full blocks."},
+};
+const CAT_ORDER=["Nature","Wood","Stone","Ore","Glass","Light","Wool","Utility","Storage","Liquid","Shape"];
+let blockFilter="All";
+
+function blockCategory(id){
+  const b=BLOCKS[id];
+  if(BLOCK_INFO[id]) return BLOCK_INFO[id].cat;
+  if(b.variantOf!==undefined){ return "Shape"; }
+  if(b.tint!==undefined) return "Glass";
+  if(/Wool/.test(b.name)) return "Wool";
+  if(/Carpet/.test(b.name)) return "Wool";
+  if(b.light) return "Light";
+  return "Stone";
+}
+function blockDesc(id){
+  const b=BLOCKS[id];
+  if(BLOCK_INFO[id]) return BLOCK_INFO[id].desc;
+  if(b.variantOf!==undefined){
+    const parent=thingName(b.variantOf);
+    const shape=b.shape;
+    const map={stairs:`Stairs made from ${parent}. Build slopes and steps.`,
+      slab:`Half-height ${parent}. Fine detail, low ceilings, smooth floors.`,
+      wall:`A ${parent} wall/barrier. Fences off areas at full height.`,
+      fence:`A ${parent} fence. See-through barrier; pairs with a gate.`,
+      gate:`A ${parent} gate. An openable gap in a fence line.`,
+      trapdoor:`A ${parent} trapdoor. Hatch-style cover for floors/holes.`,
+      carpet:`Thin ${parent} floor covering. Soft color underfoot.`};
+    return map[shape]||`Shaped ${parent}.`;
+  }
+  if(b.tint!==undefined) return `Colored translucent glass. Stained-glass windows and accents.`;
+  if(/Wool/.test(b.name)) return `Soft colored block. The building palette — dye it any color.`;
+  return `A building block.`;
+}
+function blockSource(id){
+  const b=BLOCKS[id];
+  if(b.ore) return "Found: mine underground";
+  if([1,2,3,4,5,6,8,27,28,29].includes(id)) return "Found: naturally in the world";
+  if(id===30) return "Found: deep caves / made by water+lava";
+  if(id===21) return "Found in caverns, or craft from gold";
+  return "Crafted: see the Craft tab";
+}
+
+const blockList=document.getElementById("blockList");
+const blockSearch=document.getElementById("blockSearch");
+const blockFilters=document.getElementById("blockFilters");
+function buildBlockFilters(){
+  blockFilters.innerHTML="";
+  ["All",...CAT_ORDER].forEach(cat=>{
+    const b=document.createElement("button");
+    b.className="block-filter"+(cat===blockFilter?" active":"");
+    b.textContent=cat;
+    b.addEventListener("click",()=>{ blockFilter=cat; buildBlockFilters(); renderBlocks(); });
+    blockFilters.appendChild(b);
+  });
+}
+function renderBlocks(){
+  buildBlockFilters();
+  const q=(blockSearch.value||"").trim().toLowerCase();
+  blockList.innerHTML="";
+  const ids=Object.keys(BLOCKS).map(Number).filter(id=>id!==0);
+  const shown=ids.filter(id=>{
+    const cat=blockCategory(id);
+    if(blockFilter!=="All" && cat!==blockFilter) return false;
+    if(q && !thingName(id).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  // group by category order for a tidy list
+  shown.sort((a,b)=>{
+    const ca=CAT_ORDER.indexOf(blockCategory(a)), cb=CAT_ORDER.indexOf(blockCategory(b));
+    return ca!==cb ? ca-cb : a-b;
+  });
+  if(shown.length===0){ blockList.innerHTML='<div class="inv-empty">No blocks match.</div>'; return; }
+  for(const id of shown){
+    const have=invCount(id);
+    const entry=document.createElement("div");
+    entry.className="block-entry";
+    entry.innerHTML=`<div class="b-swatch" style="background:#${thingColor(id).toString(16).padStart(6,"0")}"></div>
+      <div class="b-info">
+        <div class="b-name">${thingName(id)}</div>
+        <span class="b-tag">${blockCategory(id)}</span>
+        <div class="b-desc">${blockDesc(id)}</div>
+        <div class="b-desc" style="opacity:.7">${blockSource(id)}</div>
+        ${have>0?`<div class="b-have">✓ you have ${have}</div>`:""}
+      </div>`;
+    blockList.appendChild(entry);
+  }
+}
+if(blockSearch) blockSearch.addEventListener("input", renderBlocks);
+
+// ---- Manual ----------------------------------------------------------------
+function renderManual(){
+  const m=document.getElementById("manualBody");
+  if(m.dataset.built) return;   // static content, build once
+  m.dataset.built="1";
+  m.innerHTML=`
+    <h3>Welcome to Voxel</h3>
+    <p>You're in an endless blocky world. Mine what you find, gather materials, craft new things, and build whatever you like. Your world saves automatically to this browser.</p>
+
+    <h3>Moving around</h3>
+    <ul>
+      <li><span class="m-key">W A S D</span> walk &nbsp; <span class="m-key">Space</span> jump &nbsp; <span class="m-key">Shift</span> sprint</li>
+      <li><span class="m-key">Mouse</span> look around</li>
+      <li><span class="m-key">F</span> toggle fly mode (fly up with <span class="m-key">Space</span>, down with <span class="m-key">C</span>)</li>
+      <li><span class="m-key">Esc</span> pause &nbsp; — from the pause menu you can teleport to the surface if you get lost underground</li>
+    </ul>
+
+    <h3>Mining &amp; building</h3>
+    <ul>
+      <li><span class="m-key">Left-click &amp; hold</span> to mine the block you're aiming at — harder blocks take longer, and cracks show your progress</li>
+      <li><span class="m-key">Right-click</span> to place the block selected in your hotbar</li>
+      <li><span class="m-key">1–8</span> or the <span class="m-key">mouse wheel</span> to pick which block to place</li>
+    </ul>
+    <div class="m-tip">Mined blocks and materials go into your inventory. Open it any time with <span class="m-key">E</span>.</div>
+
+    <h3>Crafting</h3>
+    <p>Press <span class="m-key">E</span> and open the <b>Craft</b> tab. The left side shows your materials; the right is the recipe book. Recipes you can afford glow green — click one to make it. Crafted blocks slot straight into your hotbar.</p>
+    <p>Most things start from wood: chop a tree → make planks → make sticks. Sticks plus coal make torches. Cobble makes stone bricks, furnaces, and tools. Explore the recipe book to see everything.</p>
+
+    <h3>Light &amp; the day/night cycle</h3>
+    <p>Time passes and the sun rises and sets. At night — and deep in caves — it gets dark. Place <b>torches</b> (craft them from a stick + coal) to light your way. The darker it is, the more torches matter.</p>
+    <div class="m-tip">Caves are pitch black. Always carry torches before you dig down, and light your path so you can find your way back.</div>
+
+    <h3>Exploring underground</h3>
+    <p>Beneath the surface are winding caves, and buried in the stone are ores: <b>coal</b> (common), <b>iron</b>, <b>gold</b>, and rare <b>diamond</b> deep down. Some caverns hide glowstone and ore clusters. Mine ores, smelt them, and craft better tools and shiny storage blocks.</p>
+
+    <h3>Tools — mine faster</h3>
+    <p>Craft a <b>pickaxe</b> (planks + sticks, then better tiers from cobble, iron, diamond). Hold it and mine stone, ore, or brick and it breaks far faster — higher tiers are quicker. <b>Axes</b> speed up wood, <b>shovels</b> speed up dirt, sand, and gravel. The right tool for the right block makes a huge difference.</p>
+
+    <h3>Staying alive — health &amp; hunger</h3>
+    <p>You have <b>hearts</b> (health) and <b>drumsticks</b> (hunger), shown above the hotbar. Hunger slowly drains as you play, faster when sprinting. Stay well-fed and your hearts slowly regenerate; let hunger hit empty and you'll start to starve.</p>
+    <ul>
+      <li><b>Fall damage:</b> dropping more than ~3 blocks hurts — the farther you fall, the more it stings.</li>
+      <li><b>Drowning:</b> keep your head above water or you'll lose hearts.</li>
+      <li>If your hearts hit zero, you'll respawn at the surface (you keep your world, but be careful).</li>
+    </ul>
+
+    <h3>Food — what to eat</h3>
+    <p>Press <span class="m-key">Q</span> (or the EAT button) to eat whatever's selected in your hotbar. Where food comes from:</p>
+    <ul>
+      <li><b>Apples &amp; berries</b> drop when you break leaves.</li>
+      <li><b>Raw meat</b> drops from pigs and sheep — cook it into <b>Cooked Meat</b> (better, and heals a little).</li>
+      <li><b>Wheat</b> occasionally drops from leaves; craft 3 into <b>Bread</b>.</li>
+      <li><b>Golden Apple</b> (apple + gold) restores a lot and heals — save it for emergencies.</li>
+    </ul>
+    <div class="m-tip">Assign food to a hotbar slot (see below), select it, and press Q to eat when your drumsticks run low.</div>
+
+    <h3>Creatures</h3>
+    <p>By day, <b>pigs</b> and <b>sheep</b> wander the surface — hit them for meat. When night falls, or in dark caves, <b>zombies</b> appear. They chase you and hit hard, so light up your base with torches and don't get cornered in the dark.</p>
+    <ul>
+      <li><b>Left-click</b> (or MINE on touch) while aiming at a creature to attack it. Tools hit harder than fists.</li>
+      <li>Zombies burn off in daylight, so surviving the night is the challenge.</li>
+    </ul>
+
+    <h3>Customizing your hotbar</h3>
+    <p>Open the menu (<span class="m-key">E</span>) → <b>Craft</b> tab. Above your materials is a row of hotbar slots — click a slot to select it, then click any item to assign it there. Put your favorite blocks, tools, and food exactly where you want them.</p>
+
+    <h3>Water</h3>
+    <p>Water flows. Pour it from your hotbar and watch it cascade and pool. Break a block next to it and it spills in; wall it off to hold it back. Great for moats, pools, and waterfalls.</p>
+
+    <h3>The Blocks tab</h3>
+    <p>New here? Open the <b>Blocks</b> tab to browse every block — what it is, where to find it, and what it's for. Filter by category or search by name. A ✓ shows blocks you already have.</p>
+
+    <div class="m-tip">Lost underground? Press <span class="m-key">Esc</span> → <b>Teleport to surface</b>. Want a fresh start? <b>Reset world</b> is there too (with confirmations).</div>
+  `;
+}
+
+let hotbarAssignSlot=0;   // which hotbar slot a clicked item goes to
+function renderInventory(){
+  invGrid.innerHTML="";
+  const ids=Object.keys(inventory).map(Number).filter(id=>invCount(id)>0);
+  // hotbar assignment strip
+  const assignBar=document.createElement("div");
+  assignBar.className="assign-bar";
+  assignBar.innerHTML=`<div class="assign-label">Assign to hotbar slot:</div>`;
+  const slotRow=document.createElement("div"); slotRow.className="assign-slots";
+  hotbar.forEach((hid,i)=>{
+    const s=document.createElement("div");
+    s.className="assign-slot"+(i===hotbarAssignSlot?" active":"");
+    s.innerHTML=`<span>${i+1}</span><div class="mini" style="background:#${thingColor(hid).toString(16).padStart(6,"0")}"></div>`;
+    s.addEventListener("click",()=>{ hotbarAssignSlot=i; renderInventory(); });
+    slotRow.appendChild(s);
+  });
+  assignBar.appendChild(slotRow);
+  const parent=invGrid.parentElement;
+  if(parent){
+    parent.querySelector(".assign-bar")?.remove();
+    parent.insertBefore(assignBar, invGrid);
+  }
+
+  if(ids.length===0){ invGrid.innerHTML='<div class="inv-empty">Nothing yet — go mine some blocks!</div>'; return; }
+  ids.sort((a,b)=>a-b);
+  for(const id of ids){
+    const cell=document.createElement("div");
+    cell.className="inv-cell clickable";
+    const placeable=isPlaceable(id);
+    cell.innerHTML=`<div class="swatch" style="background:#${thingColor(id).toString(16).padStart(6,"0")}"></div>
+      <span class="count">${invCount(id)}</span>
+      <span class="tip">${thingName(id)}${placeable||isFood(id)||isTool(id)?" — click to add to hotbar":""}</span>`;
+    cell.addEventListener("click",()=>{
+      hotbar[hotbarAssignSlot]=id;
+      buildHotbar();
+      renderInventory();
+      scheduleSave();
+      toast(`slot ${hotbarAssignSlot+1} → ${thingName(id)}`);
+    });
+    invGrid.appendChild(cell);
+  }
+}
+function renderRecipes(){
+  const q=recipeSearch.value.trim().toLowerCase();
+  recipeList.innerHTML="";
+  const list=craftableRecipes(inventory)
+    .filter(({recipe})=> !q || recipe.name.toLowerCase().includes(q) || recipe.hint.toLowerCase().includes(q))
+    .sort((a,b)=> (b.canMake-a.canMake)); // craftable first
+  if(list.length===0){ recipeList.innerHTML='<div class="inv-empty">No recipes match.</div>'; return; }
+  for(const {recipe,canMake} of list){
+    const row=document.createElement("div");
+    row.className="recipe "+(canMake?"can":"cant");
+    row.innerHTML=`<div class="r-swatch" style="background:#${thingColor(recipe.out).toString(16).padStart(6,"0")}"></div>
+      <div class="r-info"><div class="r-name">${recipe.name}${recipe.qty>1?` ×${recipe.qty}`:""}</div>
+      <div class="r-hint">${recipe.hint}</div></div>
+      <div class="r-qty">${canMake?"craft →":"need more"}</div>`;
+    if(canMake) row.addEventListener("click",()=> craft(recipe));
+    recipeList.appendChild(row);
+  }
+}
+recipeSearch.addEventListener("input", renderRecipes);
+
+function craft(recipe){
+  // double-check affordability at craft time
+  for(const id in recipe.in){ if(invCount(Number(id))<recipe.in[id]) return; }
+  for(const id in recipe.in){ removeItem(Number(id), recipe.in[id]); }
+  addItem(recipe.out, recipe.qty);
+  // if the crafted thing is a placeable block not yet in the hotbar, slot it in
+  if(isPlaceable(recipe.out) && !hotbar.includes(recipe.out)){
+    // replace an empty-ish slot (one with 0 count) or the last slot
+    let slot=hotbar.findIndex(id=>invCount(id)===0);
+    if(slot<0) slot=hotbar.length-1;
+    hotbar[slot]=recipe.out;
+    buildHotbar();
+  }
+  toast(`crafted ${recipe.name}${recipe.qty>1?` ×${recipe.qty}`:""}`);
+  renderInventory();
+  renderRecipes();
+  scheduleSave();
+}
+
+
+// ---- Raycast for mine/place -----------------------------------------------
+function lookDir(){
+  const cp=Math.cos(player.pitch), sp=Math.sin(player.pitch);
+  const cy=Math.cos(player.yaw), sy=Math.sin(player.yaw);
+  return new THREE.Vector3(-sy*cp, sp, -cy*cp).normalize();
+}
+function eyePos(){ return new THREE.Vector3(player.pos.x, player.pos.y+player.eye, player.pos.z); }
+
+// DDA voxel raycast; returns {hit:[x,y,z], prev:[x,y,z]} or null
+function raycastVoxel(maxDist){
+  const o=eyePos(), d=lookDir();
+  let x=Math.floor(o.x), y=Math.floor(o.y), z=Math.floor(o.z);
+  const stepX=Math.sign(d.x)||1, stepY=Math.sign(d.y)||1, stepZ=Math.sign(d.z)||1;
+  const tDX=Math.abs(1/d.x), tDY=Math.abs(1/d.y), tDZ=Math.abs(1/d.z);
+  let tMX=((stepX>0?(x+1-o.x):(o.x-x)))*tDX;
+  let tMY=((stepY>0?(y+1-o.y):(o.y-y)))*tDY;
+  let tMZ=((stepZ>0?(z+1-o.z):(o.z-z)))*tDZ;
+  let px=x,py=y,pz=z, t=0;
+  for(let i=0;i<128;i++){
+    const b=getBlock(x,y,z);
+    if(b!==AIR && BLOCKS[b] && BLOCKS[b].solid){
+      return {hit:[x,y,z], prev:[px,py,pz]};
+    }
+    px=x;py=y;pz=z;
+    if(tMX<tMY && tMX<tMZ){ x+=stepX; t=tMX; tMX+=tDX; }
+    else if(tMY<tMZ){ y+=stepY; t=tMY; tMY+=tDY; }
+    else { z+=stepZ; t=tMZ; tMZ+=tDZ; }
+    if(t>maxDist) break;
+  }
+  return null;
+}
+
+// ---- Mining progress state -------------------------------------------------
+const mining={ held:false, x:0,y:0,z:0, id:AIR, progress:0, active:false };
+
+// Called every frame. Advances break progress on the block under the crosshair
+// while the mine button is held; resets if you look away or release.
+// Which tool the player is currently holding (from the selected hotbar slot).
+function heldTool(){
+  const id=hotbar[selected];
+  return (ITEMS[id] && ITEMS[id].tool) ? ITEMS[id] : null;
+}
+// Mining-speed multiplier: the right tool on the right block digs much faster.
+// Pickaxe → stone/ore/brick; axe → wood/planks; shovel → dirt/sand/gravel/snow/clay.
+function miningSpeed(blockId){
+  const tool=heldTool();
+  if(!tool) return 1;
+  const b=BLOCKS[blockId]; if(!b) return 1;
+  const name=b.name.toLowerCase();
+  const isStone = b.ore || /stone|cobble|brick|granite|andesite|diorite|sandstone|obsidian|terracotta|glowstone|furnace|ore/.test(name);
+  const isWood  = /wood|plank|log|bookshelf|chest|crafting|fence|gate|trapdoor|ladder/.test(name);
+  const isSoft  = /dirt|grass|sand|gravel|snow|clay/.test(name);
+  let good=false;
+  if(tool.tool==="pickaxe" && isStone) good=true;
+  if(tool.tool==="axe"     && isWood)  good=true;
+  if(tool.tool==="shovel"  && isSoft)  good=true;
+  if(!good) return 1;                 // wrong tool = no bonus
+  // tier 1..4 → speed 2x, 3.5x, 5x, 7x
+  return [1,2,3.5,5,7][tool.tier]||2;
+}
+
+function updateMining(dt){
+  if(!mining.held){ if(mining.active){ mining.active=false; hideCrack(); } mining.progress=0; return; }
+  const r=raycastVoxel(6);
+  if(!r){ mining.active=false; mining.progress=0; hideCrack(); return; }
+  const [x,y,z]=r.hit;
+  const id=getBlock(x,y,z);
+  if(id===AIR || BLOCKS[id].name==="Water"){ mining.active=false; mining.progress=0; hideCrack(); return; }
+
+  // if the target changed, restart progress
+  if(!mining.active || x!==mining.x || y!==mining.y || z!==mining.z){
+    mining.active=true; mining.x=x; mining.y=y; mining.z=z; mining.id=id; mining.progress=0;
+  }
+  const hardness=BLOCKS[id].hardness!==undefined?BLOCKS[id].hardness:1;
+  mining.progress += dt*miningSpeed(id);   // tools speed this up
+  const frac=Math.min(1, mining.progress/hardness);
+  const stage=Math.min(CRACK_STAGES-1, Math.floor(frac*CRACK_STAGES));
+  showCrack(x,y,z,stage);
+  // occasional small dust as you dig
+  if(Math.random()<dt*4) spawnDust(x,y,z,id);
+
+  if(frac>=1){ completeMine(x,y,z,id); }
+}
+function completeMine(x,y,z,id){
+  spawnBreakBurst(x,y,z,id);      // full shatter burst
+  setBlock(x,y,z,AIR,true);
+  mining.active=false; mining.progress=0; hideCrack();
+  disturbWater(x,y,z);            // let adjacent water flow into the gap
+  if(id===6){                     // leaves: no block, but chance of food/materials
+    const r=Math.random();
+    if(r<0.10) addItem(130,1);         // apple
+    else if(r<0.18) addItem(131,1);    // berries
+    else if(r<0.30) addItem(100,1);    // stick
+    else if(r<0.34) addItem(136,1);    // wheat (rare, for bread)
+    updateAfterEdit(x,y,z); return;
+  }
+  giveBlock(id);
+  updateAfterEdit(x,y,z);
+}
+// lighter particle puff during digging (fewer shards)
+function spawnDust(x,y,z,id){
+  const base=blockColor(id);
+  let n=0;
+  for(const p of particles){
+    if(p.mesh.visible) continue;
+    const j=0.75+Math.random()*0.5;
+    p.mesh.material.color.setRGB(((base>>16&255)*j/255),((base>>8&255)*j/255),((base&255)*j/255));
+    p.mesh.material.opacity=1; p.mesh.scale.setScalar(0.4+Math.random()*0.4);
+    p.mesh.position.set(x+0.2+Math.random()*0.6, y+0.2+Math.random()*0.6, z+0.2+Math.random()*0.6);
+    p.vel.set((Math.random()-0.5)*2, 1+Math.random()*2, (Math.random()-0.5)*2);
+    p.spin.set(Math.random()*6-3,Math.random()*6-3,Math.random()*6-3);
+    p.life=0; p.max=0.3+Math.random()*0.3; p.mesh.visible=true;
+    if(++n>=2) break;
+  }
+}
+function placeBlock(){
+  const r=raycastVoxel(6);
+  if(!r) return;
+  const [x,y,z]=r.prev;
+  const id=hotbar[selected];
+  if(!isPlaceable(id)){ toast(`${thingName(id)} can't be placed`); return; }
+  if(survival && invCount(id)<=0){ toast(`out of ${thingName(id)}`); return; }
+  if(getBlock(x,y,z)!==AIR) return;
+  // don't place inside the player
+  if(intersectsPlayer(x,y,z)){ toast("too close — step back"); return; }
+  if(id===WATER){
+    // water is a source you pour; mark it and let it flow (doesn't deplete)
+    setBlock(x,y,z,WATER,true);
+    flowDist[wkey(x,y,z)]=undefined;   // source
+    updateAfterEdit(x,y,z);
+    disturbWater(x,y,z);
+    return;
+  }
+  setBlock(x,y,z,id,true);
+  if(survival){ removeItem(id,1); }
+  updateAfterEdit(x,y,z);
+  disturbWater(x,y,z);
+}
+function updateAfterEdit(x,y,z){
+  const cx=Math.floor(x/CHUNK), cz=Math.floor(z/CHUNK);
+  relightAround(cx,cz);   // recompute light for this chunk + neighbours
+  const ch=getChunk(cx,cz); if(ch) updateChunkMesh(ch);
+  // rebuild neighbours so seams and light spill update
+  [[cx-1,cz],[cx+1,cz],[cx,cz-1],[cx,cz+1]].forEach(([nx,nz])=>{
+    const nc=getChunk(nx,nz); if(nc&&nc.generated) updateChunkMesh(nc);
+  });
+}
+function intersectsPlayer(x,y,z){
+  const px=player.pos.x, py=player.pos.y, pz=player.pos.z;
+  const hw=player.width/2;
+  return (x+1> px-hw && x< px+hw &&
+          y+1> py     && y< py+player.height &&
+          z+1> pz-hw && z< pz+hw);
+}
+
+// ---- Flowing water ---------------------------------------------------------
+// Water spreads into air: straight down freely, sideways up to MAX_FLOW blocks
+// from a source. flowDist tracks distance-from-source so spread is bounded.
+const WATER=8;
+const MAX_FLOW=5;
+const flowDist={};                 // "wx,wy,wz" -> distance from source (0=source)
+const waterActive=new Set();       // cells to process next tick
+let waterTimer=0;
+const WATER_TICK=0.22;
+
+function wkey(x,y,z){ return x+","+y+","+z; }
+function queueWater(x,y,z){ waterActive.add(wkey(x,y,z)); }
+// wake water near an edited cell
+function disturbWater(x,y,z){
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+    const b=getBlock(x+dx,y+dy,z+dz);
+    if(b===WATER || b===AIR) queueWater(x+dx,y+dy,z+dz);
+  }
+}
+function waterFlowDist(x,y,z){
+  if(getBlock(x,y,z)!==WATER) return Infinity;
+  const d=flowDist[wkey(x,y,z)];
+  return d===undefined?0:d;   // undefined = source (generated ocean) → dist 0
+}
+function setWater(x,y,z,dist){
+  setBlock(x,y,z,WATER,false);       // flowing water isn't persisted
+  flowDist[wkey(x,y,z)]=dist;
+}
+function tickWater(){
+  if(waterActive.size===0) return;
+  const process=[...waterActive];
+  waterActive.clear();
+  const changed=new Set();
+  for(const k of process){
+    const [x,y,z]=k.split(",").map(Number);
+    const here=getBlock(x,y,z);
+    if(here===WATER){
+      const dist=waterFlowDist(x,y,z);
+      if(getBlock(x,y-1,z)===AIR){
+        // falling water keeps flowing down; it resets horizontal spread budget
+        // only slightly so pools below waterfalls stay finite
+        setWater(x,y-1,z, Math.max(0, dist-2)); changed.add(wkey(x,y-1,z)); queueWater(x,y-1,z);
+      } else if(dist<MAX_FLOW){
+        for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          if(getBlock(x+dx,y,z+dz)===AIR){
+            setWater(x+dx,y,z+dz,dist+1); changed.add(wkey(x+dx,y,z+dz)); queueWater(x+dx,y,z+dz);
+          }
+        }
+      }
+    } else if(here===AIR){
+      let fed=false, minD=Infinity;
+      if(getBlock(x,y+1,z)===WATER){ fed=true; minD=0; }
+      else for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        if(getBlock(x+dx,y,z+dz)===WATER){ const d=waterFlowDist(x+dx,y,z+dz); if(d+1<minD){minD=d+1;fed=true;} }
+      }
+      if(fed && minD<=MAX_FLOW){ setWater(x,y,z,minD); changed.add(wkey(x,y,z)); queueWater(x,y,z); }
+    }
+  }
+  const chunks=new Set();
+  for(const k of changed){ const [x,,z]=k.split(",").map(Number); chunks.add(keyOf(Math.floor(x/CHUNK),Math.floor(z/CHUNK))); }
+  for(const ck of chunks){ const [cx,cz]=ck.split(",").map(Number); const ch=getChunk(cx,cz); if(ch&&ch.generated){ computeChunkLight(ch); updateChunkMesh(ch); } }
+}
+
+// ---- Collision (swept AABB against voxels) ---------------------------------
+// Is the chunk under a world position ready? Used to stop movement into the void.
+function chunkReadyAt(wx,wz){
+  const ch=getChunk(Math.floor(wx/CHUNK), Math.floor(wz/CHUNK));
+  return ch && ch.generated;
+}
+// Solidity for collision: an *ungenerated* chunk counts as solid so the player
+// never tunnels into terrain that hasn't loaded yet.
+function collisionSolid(x,y,z){
+  if(y<0) return true;            // world floor
+  if(y>=HEIGHT) return false;
+  const ch=getChunk(Math.floor(x/CHUNK), Math.floor(z/CHUNK));
+  if(!ch || !ch.generated) return true;   // treat unloaded as solid wall
+  const lx=((x%CHUNK)+CHUNK)%CHUNK, lz=((z%CHUNK)+CHUNK)%CHUNK;
+  return isSolid(ch.get(lx,y,lz));
+}
+function collidesAt(px,py,pz){
+  const hw=player.width/2, h=player.height;
+  const minX=Math.floor(px-hw), maxX=Math.floor(px+hw);
+  const minY=Math.floor(py),    maxY=Math.floor(py+h);
+  const minZ=Math.floor(pz-hw), maxZ=Math.floor(pz+hw);
+  for(let x=minX;x<=maxX;x++)
+  for(let y=minY;y<=maxY;y++)
+  for(let z=minZ;z<=maxZ;z++){
+    if(collisionSolid(x,y,z)) return true;
+  }
+  return false;
+}
+
+// Move one axis, sub-stepping so a fast frame can never tunnel a thin wall.
+const MAX_STEP=0.35;
+function moveAxis(axis, amount){
+  const p=player.pos;
+  let remaining=amount;
+  while(Math.abs(remaining)>1e-6){
+    const step=Math.max(-MAX_STEP, Math.min(MAX_STEP, remaining));
+    remaining-=step;
+    if(axis==="x"){
+      if(!collidesAt(p.x+step,p.y,p.z)) p.x+=step;
+      else { player.vel.x=0; break; }
+    } else if(axis==="y"){
+      if(!collidesAt(p.x,p.y+step,p.z)) p.y+=step;
+      else { if(step<0) player.onGround=true; player.vel.y=0; break; }
+    } else {
+      if(!collidesAt(p.x,p.y,p.z+step)) p.z+=step;
+      else { player.vel.z=0; break; }
+    }
+  }
+}
+
+// ---- Player update ---------------------------------------------------------
+function updatePlayer(dt){
+  const forward=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
+  const right=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw));
+  let wish=new THREE.Vector3();
+  if(keys["KeyW"]) wish.add(forward);
+  if(keys["KeyS"]) wish.sub(forward);
+  if(keys["KeyD"]) wish.add(right);
+  if(keys["KeyA"]) wish.sub(right);
+  // touch stick
+  if(touchMove.x||touchMove.y){
+    wish.add(forward.clone().multiplyScalar(-touchMove.y));
+    wish.add(right.clone().multiplyScalar(touchMove.x));
+  }
+  if(wish.lengthSq()>0) wish.normalize();
+
+  const sprint = keys["ShiftLeft"]||keys["ShiftRight"];
+
+  // If the chunk under us hasn't finished generating, hold still so we don't
+  // sink into terrain that's about to appear.
+  if(!chunkReadyAt(player.pos.x, player.pos.z) && !player.flying){
+    player.vel.set(0,0,0);
+    return;
+  }
+
+  if(player.flying){
+    const sp=FLYSPEED*(sprint?2:1);
+    // vertical intent from jump/crouch keys
+    let vy=0;
+    if(keys["Space"]||touchJump) vy += sp;
+    if(keys["ControlLeft"]||keys["KeyC"]) vy -= sp;
+    // move through the same collision-aware path as walking, so walls stop you
+    moveAxis("x", wish.x*sp*dt);
+    moveAxis("z", wish.z*sp*dt);
+    moveAxis("y", vy*dt);
+    player.vel.set(0,0,0);
+    player.onGround=false;
+    return;
+  }
+
+  const sp = sprint?SPRINT:SPEED;
+  // horizontal velocity toward wish
+  player.vel.x = wish.x*sp;
+  player.vel.z = wish.z*sp;
+
+  // gravity
+  player.vel.y += GRAV*dt;
+  if(player.vel.y< -55) player.vel.y=-55;
+
+  // jump
+  if((keys["Space"]||touchJump) && player.onGround){
+    player.vel.y=JUMP; player.onGround=false;
+  }
+
+  const wasOnGround=player.onGround;
+  player.onGround=false;
+  moveAxis("x", player.vel.x*dt);
+  moveAxis("z", player.vel.z*dt);
+  moveAxis("y", player.vel.y*dt);
+
+  // fall-damage: track the highest Y reached while airborne, hurt on landing.
+  if(!player.flying){
+    if(player.onGround){
+      if(!wasOnGround && player.fallPeak!==undefined){
+        const dropped=player.fallPeak - player.pos.y;
+        if(dropped>3.5) hurtPlayer(Math.floor(dropped-3.5), "fall");  // ~3 safe blocks
+      }
+      player.fallPeak=player.pos.y;   // reset peak while grounded
+    } else {
+      player.fallPeak = Math.max(player.fallPeak!==undefined?player.fallPeak:player.pos.y, player.pos.y);
+    }
+  }
+
+  // fell out of world -> respawn
+  if(player.pos.y< -20){ hurtPlayer(4,"void"); spawnPlayer(); }
+}
+
+// ---- Survival: health, hunger, damage, eating ------------------------------
+function hurtPlayer(amount, cause){
+  if(!survival || player.dead || player.invuln>0 || amount<=0) return;
+  player.health=Math.max(0, player.health-amount);
+  player.invuln=0.5;                 // brief i-frames
+  flashDamage();
+  updateStatsHUD();
+  if(player.health<=0) playerDie(cause);
+}
+function healPlayer(amount){
+  player.health=Math.min(player.maxHealth, player.health+amount);
+  updateStatsHUD();
+}
+function feedPlayer(amount){
+  player.hunger=Math.min(player.maxHunger, player.hunger+amount);
+  updateStatsHUD();
+}
+// eat the currently selected food item
+function eatSelected(){
+  const id=hotbar[selected];
+  if(!isFood(id)) { toast("that's not food"); return; }
+  if(invCount(id)<=0) return;
+  if(player.hunger>=player.maxHunger && !ITEMS[id].heal){ toast("not hungry"); return; }
+  removeItem(id,1);
+  feedPlayer(ITEMS[id].food||0);
+  if(ITEMS[id].heal) healPlayer(ITEMS[id].heal);
+  toast(`ate ${thingName(id)}`);
+}
+function updateSurvival(dt){
+  if(!survival || player.dead) return;
+  if(player.invuln>0) player.invuln-=dt;
+
+  // hunger slowly drains; faster when sprinting
+  const sprinting=(keys["ShiftLeft"]||keys["ShiftRight"]) && (Math.abs(player.vel.x)+Math.abs(player.vel.z))>0.1;
+  player.hungerTimer += dt*(sprinting?1.8:1);
+  if(player.hungerTimer>=18){         // lose 1 hunger every ~18s
+    player.hungerTimer=0;
+    player.hunger=Math.max(0, player.hunger-1);
+    updateStatsHUD();
+  }
+  // regen health when well-fed; starve when empty
+  if(player.hunger>=16 && player.health<player.maxHealth){
+    player.regenTimer+=dt;
+    if(player.regenTimer>=3){ player.regenTimer=0; healPlayer(1); }
+  } else player.regenTimer=0;
+  if(player.hunger<=0){
+    player.starveTimer+=dt;
+    if(player.starveTimer>=4){ player.starveTimer=0; if(player.health>2) hurtPlayer(1,"starve"); }
+  } else player.starveTimer=0;
+
+  // drowning: if head is in water, lose health over time
+  const head=getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y+player.eye), Math.floor(player.pos.z));
+  if(head===WATER){
+    player.drownTimer=(player.drownTimer||0)+dt;
+    if(player.drownTimer>=2){ player.drownTimer=0; hurtPlayer(1,"drown"); }
+  } else player.drownTimer=0;
+}
+function playerDie(cause){
+  player.dead=true;
+  running=false;
+  mining.held=false;
+  if(document.pointerLockElement) document.exitPointerLock();
+  showDeathScreen(cause);
+}
+function respawnPlayer(){
+  player.dead=false;
+  player.health=player.maxHealth;
+  player.hunger=player.maxHunger;
+  player.hungerTimer=0; player.regenTimer=0; player.starveTimer=0; player.invuln=1.5;
+  player.vel.set(0,0,0);
+  spawnPlayer();
+  // lift to surface
+  const px=Math.floor(player.pos.x), pz=Math.floor(player.pos.z);
+  let topY=1; for(let y=HEIGHT-1;y>=0;y--){ if(isSolid(getBlock(px,y,pz))){ topY=y+1; break; } }
+  player.pos.set(px+0.5, topY+0.5, pz+0.5);
+  updateStatsHUD();
+  hideDeathScreen();
+  running=true;
+  if(!isTouch) canvas.requestPointerLock();
+}
+
+// ---- Chunk streaming (spread over frames) ----------------------------------
+let genQueue=[];
+function updateChunkLoading(){
+  const pcx=Math.floor(player.pos.x/CHUNK), pcz=Math.floor(player.pos.z/CHUNK);
+  // ensure needed chunks exist / queued
+  const needed=new Set();
+  for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)
+  for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++){
+    if(dx*dx+dz*dz > (RENDER_DIST+0.5)*(RENDER_DIST+0.5)) continue;
+    const cx=pcx+dx, cz=pcz+dz, k=keyOf(cx,cz);
+    needed.add(k);
+    if(!world.chunks.has(k)){
+      const ch=new Chunk(cx,cz);
+      world.chunks.set(k,ch);
+      genQueue.push(ch);
+    }
+  }
+  // sort queue by distance to player (closest first)
+  genQueue.sort((a,b)=>{
+    const da=(a.cx-pcx)**2+(a.cz-pcz)**2, db=(b.cx-pcx)**2+(b.cz-pcz)**2;
+    return da-db;
+  });
+  // unload far chunks
+  for(const [k,ch] of world.chunks){
+    if(!needed.has(k)){
+      disposeMesh(ch.opaqueMesh); disposeMesh(ch.cutoutMesh); disposeMesh(ch.alphaMesh);
+      world.chunks.delete(k);
+    }
+  }
+}
+function processGenBudget(){
+  // generate a few chunks and (re)mesh a few dirty ones per frame
+  let genBudget=2;
+  while(genBudget>0 && genQueue.length){
+    const ch=genQueue.shift();
+    if(!ch.generated) generateChunk(ch);
+    genBudget--;
+  }
+  // mesh dirty generated chunks near player (budgeted)
+  let meshBudget=3;
+  const pcx=Math.floor(player.pos.x/CHUNK), pcz=Math.floor(player.pos.z/CHUNK);
+  const dirty=[];
+  for(const ch of world.chunks.values()){
+    if(ch.generated && ch.dirty) dirty.push(ch);
+  }
+  dirty.sort((a,b)=>((a.cx-pcx)**2+(a.cz-pcz)**2)-((b.cx-pcx)**2+(b.cz-pcz)**2));
+  const queueEmpty = genQueue.length===0;
+  for(const ch of dirty){
+    if(meshBudget<=0) break;
+    // Prefer meshing only when all 4 neighbours are generated so border faces
+    // cull correctly and no holes appear. If the gen queue is drained, mesh anyway.
+    const nAll = ["1,0","-1,0","0,1","0,-1"].every(d=>{
+      const [dx,dz]=d.split(",").map(Number);
+      const nc=getChunk(ch.cx+dx, ch.cz+dz);
+      return nc && nc.generated;
+    });
+    if(!nAll && !queueEmpty) continue;
+    if(!ch.lit) computeChunkLight(ch);   // light before meshing
+    updateChunkMesh(ch);
+    meshBudget--;
+  }
+}
+
+// ---- Save / load -----------------------------------------------------------
+const SAVE_KEY="voxel_world_v1";
+let saveTimer=null;
+function scheduleSave(){
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveWorld, 1200);
+}
+function saveWorld(){
+  const payload={
+    edits: world.edits,
+    inventory,
+    hotbar,
+    player:{x:player.pos.x,y:player.pos.y,z:player.pos.z,yaw:player.yaw,pitch:player.pitch,flying:player.flying,
+      health:player.health, hunger:player.hunger},
+    survival,
+    timeOfDay,
+  };
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(payload)); toast("world saved"); }catch(e){}
+}
+function loadWorld(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    const p=JSON.parse(raw);
+    world.edits=p.edits||{};
+    if(p.inventory) Object.assign(inventory,p.inventory);
+    if(Array.isArray(p.hotbar) && p.hotbar.length===8) hotbar=p.hotbar.slice();
+    if(typeof p.survival==="boolean") survival=p.survival;
+    if(typeof p.timeOfDay==="number") timeOfDay=p.timeOfDay;
+    if(p.player){
+      player.pos.set(p.player.x,p.player.y,p.player.z);
+      player.yaw=p.player.yaw; player.pitch=p.player.pitch;
+      player.flying=!!p.player.flying;
+      if(typeof p.player.health==="number") player.health=p.player.health;
+      if(typeof p.player.hunger==="number") player.hunger=p.player.hunger;
+    }
+    return true;
+  }catch(e){ return false; }
+}
+const toastEl=document.getElementById("saveToast");
+function toast(msg){
+  toastEl.textContent=msg; toastEl.classList.add("show");
+  clearTimeout(toast._t); toast._t=setTimeout(()=>toastEl.classList.remove("show"),1100);
+}
+window.addEventListener("beforeunload", saveWorld);
+
+// ---- HUD -------------------------------------------------------------------
+const fpsEl=document.getElementById("fps"),
+      posEl=document.getElementById("pos"),
+      modeEl=document.getElementById("mode"),
+      clockEl=document.getElementById("clock");
+function updateHUD(){
+  posEl.textContent=`${player.pos.x.toFixed(0)} ${player.pos.y.toFixed(0)} ${player.pos.z.toFixed(0)}`;
+  modeEl.textContent=(survival?"survival":"creative")+(player.flying?" · fly":"");
+}
+
+// ---- Survival HUD (hearts + hunger pips) -----------------------------------
+const statBars=document.getElementById("statBars");
+const healthBarEl=document.getElementById("healthBar");
+const hungerBarEl=document.getElementById("hungerBar");
+const HEART_SVG=(fill)=>`<svg viewBox="0 0 16 16"><path d="M8 14 L2 8 Q0 6 1.5 4 Q3 2 5 3.5 L8 6 L11 3.5 Q13 2 14.5 4 Q16 6 14 8 Z" fill="${fill}" stroke="#3a0000" stroke-width="1"/></svg>`;
+const FOOD_SVG=(fill)=>`<svg viewBox="0 0 16 16"><path d="M4 3 Q8 1 12 3 Q13 6 11 9 L11 14 Q8 15 5 14 L5 9 Q3 6 4 3 Z" fill="${fill}" stroke="#3a2400" stroke-width="1"/></svg>`;
+function pipRow(el, value, max, svgFn, fullColor){
+  el.innerHTML="";
+  const hearts=max/2;                 // each pip = 2 units
+  for(let i=0;i<hearts;i++){
+    const v=value - i*2;               // 2 full, 1 half, <=0 empty
+    const color = v>=2?fullColor : v===1?fullColor : "#3a3a3a";
+    const pip=document.createElement("div"); pip.className="pip";
+    pip.innerHTML=svgFn(v>=1?fullColor:"#444");
+    if(v===1) pip.style.opacity="0.6";   // simple half indication
+    el.appendChild(pip);
+  }
+}
+function updateStatsHUD(){
+  if(!survival){ statBars.classList.add("hidden"); return; }
+  statBars.classList.remove("hidden");
+  pipRow(healthBarEl, player.health, player.maxHealth, HEART_SVG, "#e83030");
+  pipRow(hungerBarEl, player.hunger, player.maxHunger, FOOD_SVG, "#c89040");
+}
+const damageFlash=document.getElementById("damageFlash");
+function flashDamage(){
+  damageFlash.classList.add("show");
+  clearTimeout(flashDamage._t);
+  flashDamage._t=setTimeout(()=>damageFlash.classList.remove("show"), 140);
+}
+const deathScreen=document.getElementById("deathScreen");
+function showDeathScreen(cause){
+  const causes={fall:"You fell from too high.", void:"You fell out of the world.",
+    starve:"You starved to death.", drown:"You drowned.",
+    mob:"Something got you in the dark."};
+  document.getElementById("deathCause").textContent=causes[cause]||"The world got the better of you.";
+  deathScreen.classList.remove("hidden");
+}
+function hideDeathScreen(){ deathScreen.classList.add("hidden"); }
+document.getElementById("respawnBtn").addEventListener("click", respawnPlayer);
+
+// ---- Touch controls --------------------------------------------------------
+const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints>0;
+if(isTouch) document.body.classList.add("touch");
+const touchMove={x:0,y:0}; let touchJump=false;
+
+(function setupTouch(){
+  if(!isTouch) return;
+  const stick=document.getElementById("stick"), nub=document.getElementById("nub");
+  let sid=null, sc={x:0,y:0};
+  stick.addEventListener("touchstart",e=>{
+    const t=e.changedTouches[0]; sid=t.identifier;
+    const r=stick.getBoundingClientRect(); sc={x:r.left+r.width/2,y:r.top+r.height/2};
+    e.preventDefault();
+  },{passive:false});
+  window.addEventListener("touchmove",e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier===sid){
+        let dx=t.clientX-sc.x, dy=t.clientY-sc.y;
+        const mag=Math.hypot(dx,dy), max=48;
+        if(mag>max){ dx=dx/mag*max; dy=dy/mag*max; }
+        nub.style.transform=`translate(${dx}px,${dy}px)`;
+        touchMove.x=dx/max; touchMove.y=dy/max;
+      }
+    }
+  },{passive:false});
+  window.addEventListener("touchend",e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier===sid){ sid=null; touchMove.x=0; touchMove.y=0; nub.style.transform=""; }
+    }
+  });
+  // look: drag on right half of screen
+  let lid=null, lx=0, ly=0;
+  canvas.addEventListener("touchstart",e=>{
+    const t=e.changedTouches[0];
+    if(t.clientX>window.innerWidth*0.4){ lid=t.identifier; lx=t.clientX; ly=t.clientY; }
+  },{passive:false});
+  canvas.addEventListener("touchmove",e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier===lid){
+        const s=0.005;
+        player.yaw-=(t.clientX-lx)*s; player.pitch-=(t.clientY-ly)*s;
+        const lim=Math.PI/2-0.01; player.pitch=Math.max(-lim,Math.min(lim,player.pitch));
+        lx=t.clientX; ly=t.clientY;
+      }
+    }
+  },{passive:false});
+  canvas.addEventListener("touchend",e=>{ for(const t of e.changedTouches) if(t.identifier===lid) lid=null; });
+
+  const jb=document.getElementById("btnJump");
+  jb.addEventListener("touchstart",e=>{touchJump=true;e.preventDefault();},{passive:false});
+  jb.addEventListener("touchend",e=>{touchJump=false;});
+  const mb=document.getElementById("btnMine");
+  mb.addEventListener("touchstart",e=>{ if(!attackMob()) mining.held=true; e.preventDefault();},{passive:false});
+  mb.addEventListener("touchend",e=>{mining.held=false;});
+  document.getElementById("btnPlace").addEventListener("touchstart",e=>{placeBlock();e.preventDefault();},{passive:false});
+  document.getElementById("btnCraft").addEventListener("touchstart",e=>{ craftOpen?closeCraft():openCraft(); e.preventDefault();},{passive:false});
+  document.getElementById("btnEat").addEventListener("touchstart",e=>{ eatSelected(); e.preventDefault();},{passive:false});
+})();
+
+// ---- Day / night cycle -----------------------------------------------------
+// timeOfDay runs 0..1 (0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset).
+const DAY_LENGTH=600;            // seconds for a full cycle (10 min)
+let timeOfDay=0.30;             // start just after sunrise
+
+// palette keyframes for sky colour by phase
+const SKY={
+  night:  new THREE.Color(0x0b1026),
+  dawn:   new THREE.Color(0xf2a86b),
+  day:    new THREE.Color(0x8fc3e8),
+  dusk:   new THREE.Color(0xe8825b),
+};
+const _c=new THREE.Color();
+function mixColor(a,b,t){ return _c.copy(a).lerp(b,t); }
+
+// return {sky, sunI, moonI, ambI, ambColor} for a given timeOfDay
+function skyState(t){
+  // phase boundaries
+  // 0.00 night | 0.22 dawn | 0.30 day ... 0.70 day | 0.78 dusk | 0.85 night
+  let sky, sunI, moonI, ambI;
+  if(t<0.22){ sky=SKY.night.clone(); sunI=0; moonI=0.35; ambI=0.35; }
+  else if(t<0.30){ const k=(t-0.22)/0.08; sky=mixColor(SKY.night,SKY.dawn,k).clone(); sunI=k*0.9; moonI=0.35*(1-k); ambI=0.35+k*0.35; }
+  else if(t<0.36){ const k=(t-0.30)/0.06; sky=mixColor(SKY.dawn,SKY.day,k).clone(); sunI=0.9+k*0.1; moonI=0; ambI=0.7+k*0.05; }
+  else if(t<0.64){ sky=SKY.day.clone(); sunI=1.0; moonI=0; ambI=0.75; }
+  else if(t<0.72){ const k=(t-0.64)/0.08; sky=mixColor(SKY.day,SKY.dusk,k).clone(); sunI=1.0-k*0.1; moonI=0; ambI=0.75-k*0.05; }
+  else if(t<0.80){ const k=(t-0.72)/0.08; sky=mixColor(SKY.dusk,SKY.night,k).clone(); sunI=0.9*(1-k); moonI=0.35*k; ambI=0.7-k*0.35; }
+  else { sky=SKY.night.clone(); sunI=0; moonI=0.35; ambI=0.35; }
+  return {sky, sunI, moonI, ambI};
+}
+
+const dayColor=new THREE.Color(0xfff0d8), nightColor=new THREE.Color(0x9fb6e0);
+function updateDayNight(dt){
+  timeOfDay=(timeOfDay + dt/DAY_LENGTH) % 1;
+  const s=skyState(timeOfDay);
+
+  // sky + fog follow the same colour
+  renderer.setClearColor(s.sky);
+  scene.fog.color.copy(s.sky);
+
+  // sun arcs across the sky based on time; angle 0 at sunrise -> PI at sunset
+  const ang=(timeOfDay-0.25)*Math.PI*2;      // 0.25 sunrise -> 0 rad
+  const sx=Math.cos(ang), sy=Math.sin(ang);
+  sun.position.set(sx*100, Math.max(0.05,sy)*120, 60).add(camera.position);
+  sun.intensity=s.sunI;
+  sun.color.copy(dayColor);
+  // moon opposite the sun
+  moon.position.set(-sx*100, Math.max(0.05,-sy)*120, -60).add(camera.position);
+  moon.intensity=s.moonI;
+  moon.color.copy(nightColor);
+  // ambient dims at night and cools in colour — but keep a solid minimum so
+  // the world (and caves) stay visible without being washed out.
+  ambient.intensity = Math.max(0.6, s.ambI);
+  ambient.color.copy(nightColor).lerp(new THREE.Color(0xb8c4d0), s.sunI);
+
+  updateClock();
+}
+// small HUD clock (HH:MM from timeOfDay)
+function updateClock(){
+  if(!clockEl) return;
+  const mins=Math.floor(timeOfDay*24*60);
+  const hh=String(Math.floor(mins/60)).padStart(2,"0");
+  const mm=String(mins%60).padStart(2,"0");
+  let phase="day";
+  if(timeOfDay<0.22||timeOfDay>=0.80) phase="night";
+  else if(timeOfDay<0.36) phase="dawn";
+  else if(timeOfDay>=0.64) phase="dusk";
+  clockEl.textContent=`${hh}:${mm} · ${phase}`;
+}
+
+// ---- Mobs ------------------------------------------------------------------
+// Two kinds: passive (pig/sheep — wander, drop meat when killed) and hostile
+// (zombie — spawns in darkness/at night, chases and attacks the player).
+// Each mob is a simple box mesh with lightweight AI + gravity + block collision.
+const MOB_TYPES={
+  pig:   { name:"Pig",   color:0xe89090, w:0.9,h:0.9, hp:8,  hostile:false, drop:133, dropN:2, speed:1.8 },
+  sheep: { name:"Sheep", color:0xe8e8e0, w:0.9,h:1.1, hp:8,  hostile:false, drop:133, dropN:1, speed:1.6 },
+  zombie:{ name:"Zombie",color:0x4a7a4a, w:0.6,h:1.8, hp:14, hostile:true,  drop:133, dropN:1, speed:2.6, dmg:3 },
+};
+const mobs=[];
+const MAX_MOBS=14;
+let mobSpawnTimer=0;
+
+function makeMobMesh(type){
+  const t=MOB_TYPES[type];
+  const geo=new THREE.BoxGeometry(t.w, t.h, t.w*1.4);
+  const mat=new THREE.MeshLambertMaterial({color:t.color});
+  const mesh=new THREE.Mesh(geo,mat);
+  scene.add(mesh);
+  // a small head cube for character
+  const head=new THREE.Mesh(new THREE.BoxGeometry(t.w*0.7,t.w*0.7,t.w*0.7), new THREE.MeshLambertMaterial({color:t.color}));
+  mesh.add(head); head.position.set(0, t.h*0.35, t.w*0.8);
+  return mesh;
+}
+function spawnMob(type, x,y,z){
+  if(mobs.length>=MAX_MOBS) return null;
+  const t=MOB_TYPES[type];
+  const m={ type, def:t, pos:new THREE.Vector3(x,y,z), vel:new THREE.Vector3(),
+    hp:t.hp, mesh:makeMobMesh(type), wander:new THREE.Vector3(), wanderT:0,
+    attackCd:0, onGround:false, hurtFlash:0 };
+  mobs.push(m);
+  return m;
+}
+// try to spawn mobs around the player based on time of day / light
+function trySpawnMobs(dt){
+  mobSpawnTimer+=dt;
+  if(mobSpawnTimer<3) return;      // attempt every ~3s
+  mobSpawnTimer=0;
+  if(mobs.length>=MAX_MOBS) return;
+  const night = timeOfDay<0.24 || timeOfDay>0.78;
+  // pick a spot 12-24 blocks from the player, on the surface
+  const ang=Math.random()*Math.PI*2, dist=12+Math.random()*12;
+  const sx=Math.floor(player.pos.x+Math.cos(ang)*dist);
+  const sz=Math.floor(player.pos.z+Math.sin(ang)*dist);
+  if(!chunkReadyAt(sx,sz)) return;
+  let topY=0; for(let y=HEIGHT-1;y>=0;y--){ if(isSolid(getBlock(sx,y,sz))){ topY=y+1; break; } }
+  const lightHere=getLightGlobal(sx,topY,sz);
+  if(night && lightHere<7 && Math.random()<0.7){
+    spawnMob("zombie", sx+0.5, topY+0.1, sz+0.5);
+  } else if(!night && lightHere>8 && Math.random()<0.5){
+    spawnMob(Math.random()<0.5?"pig":"sheep", sx+0.5, topY+0.1, sz+0.5);
+  }
+}
+function mobCollides(m, px,py,pz){
+  const hw=m.def.w/2, h=m.def.h;
+  for(let x=Math.floor(px-hw);x<=Math.floor(px+hw);x++)
+  for(let y=Math.floor(py);y<=Math.floor(py+h);y++)
+  for(let z=Math.floor(pz-hw);z<=Math.floor(pz+hw);z++){
+    if(collisionSolid(x,y,z)) return true;
+  }
+  return false;
+}
+function mobMoveAxis(m, axis, amt){
+  const p=m.pos;
+  if(axis==="x"){ if(!mobCollides(m,p.x+amt,p.y,p.z)) p.x+=amt; else m.vel.x=0; }
+  else if(axis==="y"){ if(!mobCollides(m,p.x,p.y+amt,p.z)) p.y+=amt; else { if(amt<0) m.onGround=true; m.vel.y=0; } }
+  else { if(!mobCollides(m,p.x,p.y,p.z+amt)) p.z+=amt; else m.vel.z=0; }
+}
+function updateMobs(dt){
+  // spawn / despawn management
+  trySpawnMobs(dt);
+  // passive mobs despawn in daylight if far; zombies burn/despawn in day
+  const night = timeOfDay<0.24 || timeOfDay>0.78;
+  for(let i=mobs.length-1;i>=0;i--){
+    const m=mobs[i];
+    const dx=m.pos.x-player.pos.x, dz=m.pos.z-player.pos.z;
+    const distToPlayer=Math.hypot(dx,dz,m.pos.y-player.pos.y);
+    // despawn if very far
+    if(distToPlayer>60){ removeMob(i); continue; }
+    // zombies take sun damage in day → despawn
+    if(m.def.hostile && !night && distToPlayer>16){ removeMob(i); continue; }
+
+    // --- AI ---
+    if(m.attackCd>0) m.attackCd-=dt;
+    if(m.hurtFlash>0){ m.hurtFlash-=dt; m.mesh.material.emissive && m.mesh.material.emissive.setRGB(m.hurtFlash>0?0.5:0,0,0); }
+
+    let wishX=0, wishZ=0;
+    if(m.def.hostile && distToPlayer<20){
+      // chase the player
+      const len=Math.hypot(dx,dz)||1;
+      wishX=-dx/len; wishZ=-dz/len;
+      // attack if close
+      if(distToPlayer<1.6 && m.attackCd<=0){
+        hurtPlayer(m.def.dmg, "mob"); m.attackCd=1.0;
+        // knockback
+        player.vel.x += -dx/len*4; player.vel.z += -dz/len*4;
+      }
+    } else {
+      // wander
+      m.wanderT-=dt;
+      if(m.wanderT<=0){ const a=Math.random()*Math.PI*2; m.wander.set(Math.cos(a),0,Math.sin(a)); m.wanderT=2+Math.random()*3; if(Math.random()<0.3) m.wander.set(0,0,0); }
+      wishX=m.wander.x*0.5; wishZ=m.wander.z*0.5;
+    }
+
+    // movement
+    const sp=m.def.speed;
+    m.vel.x=wishX*sp; m.vel.z=wishZ*sp;
+    m.vel.y+=GRAV*dt; if(m.vel.y<-40) m.vel.y=-40;
+    // hop over 1-block steps if blocked horizontally and on ground
+    if(m.onGround && (wishX||wishZ)){
+      const ahead=mobCollides(m, m.pos.x+Math.sign(wishX)*0.4, m.pos.y, m.pos.z+Math.sign(wishZ)*0.4);
+      if(ahead) m.vel.y=7;
+    }
+    m.onGround=false;
+    mobMoveAxis(m,"x",m.vel.x*dt);
+    mobMoveAxis(m,"z",m.vel.z*dt);
+    mobMoveAxis(m,"y",m.vel.y*dt);
+    if(m.pos.y<-20){ removeMob(i); continue; }
+
+    // face movement direction
+    if(wishX||wishZ) m.mesh.rotation.y=Math.atan2(wishX,wishZ);
+    m.mesh.position.copy(m.pos); m.mesh.position.y+=m.def.h/2;
+  }
+}
+function removeMob(i){
+  const m=mobs[i];
+  scene.remove(m.mesh); m.mesh.geometry.dispose(); m.mesh.material.dispose();
+  mobs.splice(i,1);
+}
+// player attacks the mob they're looking at (called on left-click tap)
+function attackMob(){
+  const o=eyePos(), d=lookDir();
+  let best=null, bestT=4.5;   // 4.5-block reach
+  for(const m of mobs){
+    const cx=m.pos.x, cy=m.pos.y+m.def.h/2, cz=m.pos.z;
+    const toM=new THREE.Vector3(cx-o.x, cy-o.y, cz-o.z);
+    const t=toM.dot(d);
+    if(t<0||t>bestT) continue;
+    const closest=new THREE.Vector3(o.x+d.x*t, o.y+d.y*t, o.z+d.z*t);
+    const dist=Math.hypot(closest.x-cx, closest.y-cy, closest.z-cz);
+    // generous hit radius: mob size plus a margin so aiming feels forgiving
+    if(dist < m.def.w+0.4){ best=m; bestT=t; }
+  }
+  if(!best) return false;
+  // damage based on held tool (fist=1, tools hit harder)
+  const tool=heldTool();
+  let dmg=1;
+  if(tool){ dmg = tool.tool==="axe"? (2+tool.tier) : (1+tool.tier); }
+  best.hp-=dmg;
+  best.hurtFlash=0.2;
+  if(best.mesh.material.emissive) best.mesh.material.emissive.setRGB(0.5,0,0);
+  // knockback
+  const kx=best.pos.x-player.pos.x, kz=best.pos.z-player.pos.z, kl=Math.hypot(kx,kz)||1;
+  best.vel.x+=kx/kl*4; best.vel.z+=kz/kl*4; best.vel.y=4;
+  if(best.hp<=0){
+    // drop loot
+    if(best.def.drop && survival) addItem(best.def.drop, best.def.dropN||1);
+    toast(`${best.def.name} defeated`);
+    const idx=mobs.indexOf(best); if(idx>=0) removeMob(idx);
+  }
+  return true;
+}
+
+// ---- Main loop -------------------------------------------------------------
+let last=performance.now(), fpsAcc=0, fpsCnt=0, fpsTimer=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt=(now-last)/1000; last=now;
+  if(dt>0.1) dt=0.1; // clamp after tab-out
+
+  if(running){
+    updatePlayer(dt);
+    updateMining(dt);
+    updateSurvival(dt);
+    updateMobs(dt);
+  }
+  updateChunkLoading();
+  processGenBudget();
+  updateParticles(dt);
+  updateDayNight(dt);
+  waterTimer+=dt;
+  if(waterTimer>=WATER_TICK){ waterTimer=0; tickWater(); }
+
+  // camera follows player eyes
+  camera.position.set(player.pos.x, player.pos.y+player.eye, player.pos.z);
+  const dir=lookDir();
+  camera.lookAt(camera.position.x+dir.x, camera.position.y+dir.y, camera.position.z+dir.z);
+
+  // highlight targeted block
+  if(running){
+    const r=raycastVoxel(6);
+    if(r){ highlight.visible=true; highlight.position.set(r.hit[0]+0.5,r.hit[1]+0.5,r.hit[2]+0.5); }
+    else highlight.visible=false;
+  }
+
+  renderer.render(scene,camera);
+
+  // fps + hud
+  fpsCnt++; fpsTimer+=dt;
+  if(fpsTimer>=0.5){ fpsEl.textContent=Math.round(fpsCnt/fpsTimer); fpsCnt=0; fpsTimer=0; updateHUD(); }
+}
+
+// ---- Boot ------------------------------------------------------------------
+window.addEventListener("resize", ()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+const loaded=loadWorld();
+if(!loaded){
+  spawnPlayer();
+  if(!survival) HOTBAR.forEach(id=>inventory[id]=999);
+  else { inventory[15]=32; inventory[16]=16; inventory[7]=16; inventory[20]=8; inventory[5]=8; inventory[9]=8; inventory[21]=2; inventory[45]=4; inventory[8]=8; inventory[130]=3; inventory[135]=2; }  // starter blocks + a little food
+}
+buildHotbar();
+updateHUD();
+updateStatsHUD();
+// pre-generate spawn area so player doesn't fall through
+updateChunkLoading();
+for(let i=0;i<40 && genQueue.length;i++){ const ch=genQueue.shift(); if(!ch.generated) generateChunk(ch); }
+for(const ch of world.chunks.values()) if(ch.generated){ computeChunkLight(ch); updateChunkMesh(ch); }
+// make sure a NEW player spawns on the real surface (top solid block), not in a cave
+if(!loaded){
+  const px=Math.floor(player.pos.x), pz=Math.floor(player.pos.z);
+  let topY=surfaceHeight(px,pz)+1;
+  for(let y=HEIGHT-1;y>=0;y--){ if(isSolid(getBlock(px,y,pz))){ topY=y+1; break; } }
+  player.pos.set(px+0.5, topY+0.5, pz+0.5);
+}
+
+// Un-stuck: if the player is embedded in solid blocks (e.g. an old save made
+// before fly collision existed), lift them up until they're in open space.
+(function unstick(){
+  if(!chunkReadyAt(player.pos.x, player.pos.z)) return;
+  let tries=0;
+  while(collidesAt(player.pos.x, player.pos.y, player.pos.z) && tries<HEIGHT){
+    player.pos.y += 1; tries++;
+  }
+})();
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
