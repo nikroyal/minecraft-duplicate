@@ -668,25 +668,39 @@ function renderManual(){
   m.dataset.built="1";
   m.innerHTML=`
     <h3>Welcome to Voxel</h3>
-    <p>You're in an endless blocky world. Mine what you find, gather materials, craft new things, and build whatever you like. Your world saves automatically to this browser.</p>
+    <p>You're in an endless blocky world. Mine resources, craft tools, build structures, customize your avatar, and survive the monsters of the night.</p>
 
-    <h3>Moving around</h3>
+    <h3>Controls &amp; Movement</h3>
     <ul>
       <li><span class="m-key">W A S D</span> walk &nbsp; <span class="m-key">Space</span> jump &nbsp; <span class="m-key">Shift</span> sprint</li>
-      <li><span class="m-key">Mouse</span> look around</li>
-      <li><span class="m-key">F</span> toggle fly mode (fly up with <span class="m-key">Space</span>, down with <span class="m-key">C</span>)</li>
-      <li><span class="m-key">Esc</span> pause &nbsp; — from the pause menu you can teleport to the surface if you get lost underground</li>
+      <li><span class="m-key">Mouse</span> look around &nbsp; <span class="m-key">Left-click</span> mine blocks / attack mobs</li>
+      <li><span class="m-key">Right-click</span> place blocks / interact with chests &amp; furnaces</li>
+      <li><span class="m-key">1–8</span> or <span class="m-key">Scroll Wheel</span> select hotbar slots</li>
+      <li><span class="m-key">Q</span> eat selected food &nbsp; <span class="m-key">F</span> toggle fly mode &nbsp; <span class="m-key">Esc</span> pause</li>
     </ul>
 
-    <h3>Mining &amp; building</h3>
+    <h3>Camera Views (Third Person)</h3>
     <ul>
-      <li><span class="m-key">Left-click &amp; hold</span> to mine the block you're aiming at</li>
-      <li><span class="m-key">Right-click</span> to place the block selected in your hotbar</li>
-      <li><span class="m-key">1–8</span> or the <span class="m-key">mouse wheel</span> to pick which block to place</li>
+      <li>Press <span class="m-key">F5</span> (or <span class="m-key">H</span>) to cycle camera views: First-Person, Third-Person Back (behind), and Third-Person Front (face-view).</li>
     </ul>
 
-    <h3>Staying alive — health &amp; hunger</h3>
-    <p>You have hearts and hunger shown above the hotbar. Keep fed to heal.</p>
+    <h3>Custom Avatars</h3>
+    <ul>
+      <li>Go to the <span class="m-key">Avatar</span> tab in the Lobby Dashboard. Customize your Head Type (Steve, Alex, Zombie, Creeper), Shirt Color, Pants Color, and Skin Tone. Changes are saved to your profile and render directly on your 3D character mesh in game.</li>
+    </ul>
+
+    <h3>Utilities: Chests &amp; Furnaces</h3>
+    <ul>
+      <li><span class="m-key">Chests (ID 43)</span>: Craft using 8 wood planks. Place in the world and right-click to open. Click items in your inventory to transfer them back and forth. breaking a chest spills all items into your inventory.</li>
+      <li><span class="m-key">Furnaces (ID 42)</span>: Craft using 8 cobblestone. Right-click to open. Place ore, sand, or raw meat in the top slot, and logs, planks, or coal in the bottom slot to smelt them.</li>
+    </ul>
+
+    <h3>Animals, Monsters, &amp; Survival</h3>
+    <ul>
+      <li>Pigs and sheep roam during the day and drop Raw Meat when defeated, which can be cooked in a furnace to restore hunger and health.</li>
+      <li>Zombies and Creepers spawn at night and in deep caves.</li>
+      <li><span class="m-key">Creepers</span> are hostile and silent. When they get close, they will stop, hiss, swell up, and explode, destroying nearby blocks and dealing massive blast damage. Run away when you hear the hiss!</li>
+    </ul>
   `;
 }
 
