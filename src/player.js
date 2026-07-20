@@ -7,6 +7,7 @@ import { getBlock, getChunk } from './world.js';
 import { 
   flashDamage, updateStatsHUD, showDeathScreen, hideDeathScreen, toast, refreshCounts 
 } from './ui.js';
+import { playHitSound, playFootstepSound } from './audio.js';
 
 const GRAV = -26;
 const JUMP = 8.4;
@@ -136,6 +137,18 @@ export function updatePlayer(dt){
     }
   }
 
+  // Footsteps audio triggers
+  if(player.onGround && (Math.abs(player.vel.x) + Math.abs(player.vel.z) > 0.1) && !player.flying){
+    player.stepTimer = (player.stepTimer || 0) + dt;
+    const interval = sprint ? 0.3 : 0.45;
+    if(player.stepTimer >= interval){
+      playFootstepSound();
+      player.stepTimer = 0;
+    }
+  } else {
+    player.stepTimer = 0;
+  }
+
   // Void respawn
   if(player.pos.y < -20){ hurtPlayer(4, "void"); spawnPlayer(); }
 }
@@ -144,6 +157,7 @@ export function hurtPlayer(amount, cause){
   if(!game.survival || player.dead || player.invuln > 0 || amount <= 0) return;
   player.health = Math.max(0, player.health - amount);
   player.invuln = 0.5;
+  playHitSound();
   flashDamage();
   updateStatsHUD();
   if(player.health <= 0) playerDie(cause);

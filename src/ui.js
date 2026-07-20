@@ -8,6 +8,7 @@ import {
   respawnPlayer, eatSelected, invCount, addItem, removeItem, heldTool, unstick 
 } from './player.js';
 import { attackMob } from './mobs.js';
+import { initAudio } from './audio.js';
 import { 
   initFirebase, loginWithEmail, signupWithEmail, loginAnonymously, logoutUser, 
   manuallySyncLocalToCloud, resolveSyncConflict, fetchLeaderboard
@@ -86,7 +87,10 @@ export function initUI(placeBlockCallback, miningStateRef) {
     if(!touch.isTouch){ webgl.renderer.domElement.requestPointerLock(); }
     game.running = true;
   }
-  playBtn.addEventListener("click", startGame);
+  playBtn.addEventListener("click", () => {
+    initAudio();
+    startGame();
+  });
 
   surfaceBtn.addEventListener("click", () => {
     const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
@@ -324,6 +328,32 @@ export function hideDeathScreen(){
   if (deathScreen) deathScreen.classList.add("hidden"); 
 }
 
+export function swatch3DMarkup(id) {
+  const baseCol = thingColor(id);
+  const r = (baseCol >> 16) & 255;
+  const g = (baseCol >> 8) & 255;
+  const b = baseCol & 255;
+  
+  const shade = (f) => {
+    const rS = Math.min(255, Math.max(0, r * f)) | 0;
+    const gS = Math.min(255, Math.max(0, g * f)) | 0;
+    const bS = Math.min(255, Math.max(0, b * f)) | 0;
+    return "#" + ((1 << 24) + (rS << 16) + (gS << 8) + bS).toString(16).slice(1);
+  };
+  
+  const top = shade(1.18);
+  const left = shade(0.88);
+  const right = shade(0.68);
+  
+  return `
+    <div class="swatch-3d">
+      <div class="face top" style="background:${top}"></div>
+      <div class="face left" style="background:${left}"></div>
+      <div class="face right" style="background:${right}"></div>
+    </div>
+  `;
+}
+
 // ---- Hotbar ----------------------------------------------------------------
 export function buildHotbar(){
   if (!hotbarEl) return;
@@ -332,9 +362,8 @@ export function buildHotbar(){
     const slot=document.createElement("div");
     slot.className="slot"+(i===game.selected?" active":"");
     slot.dataset.i=i;
-    const hex="#"+thingColor(id).toString(16).padStart(6,"0");
     slot.innerHTML=`<span class="key">${i+1}</span>
-      <div class="swatch" style="background:${hex}"></div>
+      ${swatch3DMarkup(id)}
       <span class="count">${invCount(id)}</span>
       <span class="name">${thingName(id)}</span>`;
     slot.addEventListener("click",()=>{ 
@@ -395,7 +424,7 @@ export function renderInventory(){
   hotbar.forEach((hid,i)=>{
     const s=document.createElement("div");
     s.className="assign-slot"+(i===hotbarAssignSlot?" active":"");
-    s.innerHTML=`<span>${i+1}</span><div class="mini" style="background:#${thingColor(hid).toString(16).padStart(6,"0")}"></div>`;
+    s.innerHTML=`<span>${i+1}</span><div class="mini-swatch-3d">${swatch3DMarkup(hid)}</div>`;
     s.addEventListener("click",()=>{ hotbarAssignSlot=i; renderInventory(); });
     slotRow.appendChild(s);
   });
@@ -413,7 +442,7 @@ export function renderInventory(){
     const cell=document.createElement("div");
     cell.className="inv-cell clickable";
     const placeable=isPlaceable(id);
-    cell.innerHTML=`<div class="swatch" style="background:#${thingColor(id).toString(16).padStart(6,"0")}"></div>
+    cell.innerHTML=`${swatch3DMarkup(id)}
       <span class="count">${invCount(id)}</span>
       <span class="tip">${thingName(id)}${placeable||isFood(id)||isTool(id)?" — click to add to hotbar":""}</span>`;
     cell.addEventListener("click",()=>{
@@ -438,7 +467,7 @@ export function renderRecipes(){
   for(const {recipe,canMake} of list){
     const row=document.createElement("div");
     row.className="recipe "+(canMake?"can":"cant");
-    row.innerHTML=`<div class="r-swatch" style="background:#${thingColor(recipe.out).toString(16).padStart(6,"0")}"></div>
+    row.innerHTML=`<div class="r-swatch-container">${swatch3DMarkup(recipe.out)}</div>
       <div class="r-info"><div class="r-name">${recipe.name}${recipe.qty>1?` ×${recipe.qty}`:""}</div>
       <div class="r-hint">${recipe.hint}</div></div>
       <div class="r-qty">${canMake?"craft →":"need more"}</div>`;
@@ -582,7 +611,7 @@ export function renderBlocks(){
     const have=invCount(id);
     const entry=document.createElement("div");
     entry.className="block-entry";
-    entry.innerHTML=`<div class="b-swatch" style="background:#${thingColor(id).toString(16).padStart(6,"0")}"></div>
+    entry.innerHTML=`<div class="b-swatch-container">${swatch3DMarkup(id)}</div>
       <div class="b-info">
         <div class="b-name">${thingName(id)}</div>
         <span class="b-tag">${blockCategory(id)}</span>

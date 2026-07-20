@@ -25,6 +25,7 @@ import {
   openCraft, closeCraft, switchTab, renderInventory, renderRecipes, 
   craft, renderBlocks, saveWorld, scheduleSave, loadWorld, getCraftOpen 
 } from './ui.js';
+import { playPlaceSound, playMineSound } from './audio.js';
 
 // ---- Break progress state ----
 export const mining = { held: false, x: 0, y: 0, z: 0, id: 0, progress: 0, active: false };
@@ -76,6 +77,15 @@ function updateDayNight(dt){
   
   webgl.ambientLight.intensity = Math.max(0.6, s.ambI);
   webgl.ambientLight.color.copy(nightColor).lerp(new THREE.Color(0xb8c4d0), s.sunI);
+
+  if (webgl.sunMesh) {
+    webgl.sunMesh.position.set(sx*140, sy*140, 60).add(webgl.camera.position);
+    webgl.sunMesh.rotation.y = ang;
+  }
+  if (webgl.moonMesh) {
+    webgl.moonMesh.position.set(-sx*140, -sy*140, -60).add(webgl.camera.position);
+    webgl.moonMesh.rotation.y = ang;
+  }
 
   updateClock();
 }
@@ -145,10 +155,17 @@ function updateMining(dt){
 
   if(!mining.active || x !== mining.x || y !== mining.y || z !== mining.z){
     mining.active = true; mining.x = x; mining.y = y; mining.z = z; mining.id = id; mining.progress = 0;
+    mining.soundTimer = 0;
   }
   
   const hardness = BLOCKS[id].hardness !== undefined ? BLOCKS[id].hardness : 1;
   mining.progress += dt * miningSpeed(id);
+  
+  mining.soundTimer = (mining.soundTimer || 0) + dt;
+  if(mining.soundTimer >= 0.22){
+    playMineSound(id);
+    mining.soundTimer = 0;
+  }
   
   const frac = Math.min(1, mining.progress/hardness);
   const stage = Math.min(8 - 1, Math.floor(frac * 8)); // CRACK_STAGES = 8
@@ -164,6 +181,7 @@ function completeMine(x, y, z, id){
   setBlock(x, y, z, 0, true, scheduleSave);
   mining.active = false; mining.progress = 0; hideCrack();
   disturbWater(x, y, z);
+  playPlaceSound(id); // break audio
   
   if(id === 6){ // Leaves
     const r = Math.random();
@@ -220,6 +238,7 @@ export function placeBlock(){
   if(id === 8){ // Water block id
     setBlock(x, y, z, 8, true, scheduleSave);
     setWater(x, y, z, undefined); // source
+    playPlaceSound(id);
     updateAfterEdit(x, y, z);
     disturbWater(x, y, z);
     return;
@@ -227,6 +246,7 @@ export function placeBlock(){
   
   setBlock(x, y, z, id, true, scheduleSave);
   if(game.survival){ removeItem(id, 1); }
+  playPlaceSound(id);
   updateAfterEdit(x, y, z);
   disturbWater(x, y, z);
 }
@@ -270,11 +290,21 @@ function loop(now){
   // Crosshair targeted block highlight
   if(game.running){
     const r = raycastVoxel(6);
+    const hudTarget = document.getElementById("blockTargetHUD");
     if(r){ 
       webgl.highlight.visible = true; 
       webgl.highlight.position.set(r.hit[0]+0.5, r.hit[1]+0.5, r.hit[2]+0.5); 
+      
+      const bid = getBlock(r.hit[0], r.hit[1], r.hit[2]);
+      if(hudTarget && bid !== 0){
+        hudTarget.textContent = thingName(bid);
+        hudTarget.classList.add("visible");
+      }
     } else {
       webgl.highlight.visible = false;
+      if(hudTarget){
+        hudTarget.classList.remove("visible");
+      }
     }
   }
 
@@ -315,6 +345,18 @@ export function bootGame() {
 
   webgl.ambientLight = new THREE.AmbientLight(0x8090a0, 0.75);
   webgl.scene.add(webgl.ambientLight);
+
+  // Sun visual box
+  const sunGeo = new THREE.BoxGeometry(10, 10, 10);
+  const sunMat = new THREE.MeshBasicMaterial({color: 0xffe060});
+  webgl.sunMesh = new THREE.Mesh(sunGeo, sunMat);
+  webgl.scene.add(webgl.sunMesh);
+
+  // Moon visual box
+  const moonGeo = new THREE.BoxGeometry(8, 8, 8);
+  const moonMat = new THREE.MeshBasicMaterial({color: 0xe0e8ff});
+  webgl.moonMesh = new THREE.Mesh(moonGeo, moonMat);
+  webgl.scene.add(webgl.moonMesh);
 
   // Highlight Box wireframe setup
   const hlGeo = new THREE.BoxGeometry(1.002, 1.002, 1.002);

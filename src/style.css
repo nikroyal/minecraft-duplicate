@@ -546,3 +546,79 @@ body.touch #touch { display: block; }
   background: rgba(214, 178, 120, 0.05);
 }
 
+/* 3D Isometric swatch blocks */
+.swatch-3d {
+  width: 24px;
+  height: 24px;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(-20deg) rotateY(45deg);
+  display: inline-block;
+  vertical-align: middle;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+.swatch-3d .face {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 0.5px solid rgba(0,0,0,0.22);
+  box-shadow: inset 1px 1px 2px rgba(255,255,255,0.1);
+}
+.swatch-3d .face.top {
+  transform: rotateX(90deg) translateZ(8px);
+}
+.swatch-3d .face.left {
+  transform: rotateY(-90deg) translateZ(8px);
+}
+.swatch-3d .face.right {
+  transform: translateZ(8px);
+}
+
+/* Adjustments for various layout sizes */
+.mini-swatch-3d {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+}
+.mini-swatch-3d .swatch-3d {
+  transform: scale(0.65) rotateX(-20deg) rotateY(45deg);
+  margin: 0;
+}
+
+.r-swatch-container, .b-swatch-container {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.r-swatch-container .swatch-3d, .b-swatch-container .swatch-3d {
+  transform: scale(1.1) rotateX(-20deg) rotateY(45deg);
+}
+
+/* Aimed block target HUD */
+.target-hud {
+  position: fixed;
+  left: 50%;
+  bottom: 94px;
+  transform: translateX(-50%);
+  z-index: 6;
+  background: rgba(18, 14, 10, 0.85);
+  border: 1px solid var(--panel-line);
+  color: var(--gold-bright);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  text-shadow: 0 1px 2px #000;
+}
+.target-hud.visible {
+  opacity: 1;
+}
+

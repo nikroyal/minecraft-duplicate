@@ -6,6 +6,7 @@ import {
   hurtPlayer, addItem, heldTool, collisionSolid, chunkReadyAt, eyePos, lookDir 
 } from './player.js';
 import { toast, scheduleSave } from './ui.js';
+import { playHissSound, stopHissSound, playExplodeSound, playHitSound } from './audio.js';
 
 const GRAV = -26;
 
@@ -243,6 +244,9 @@ export function updateMobs(dt){
     // --- Creeper Detonation Loop ---
     if(m.type === "creeper"){
       if(distToPlayer < 2.0 && !player.dead){
+        if((m.explodeTimer || 0) === 0){
+          playHissSound(1.5);
+        }
         m.explodeTimer = (m.explodeTimer || 0) + dt;
         m.mesh.scale.setScalar(1.0 + (m.explodeTimer / 1.5) * 0.35);
         const flash = Math.sin(performance.now() * 0.05) > 0;
@@ -252,6 +256,7 @@ export function updateMobs(dt){
           }
         });
         if(m.explodeTimer >= 1.5){
+          playExplodeSound();
           // Detonate explosion
           triggerWorldExplosion(m.pos.x, m.pos.y, m.pos.z, 3.2, scheduleSave);
           // Radius damage to player
@@ -267,6 +272,9 @@ export function updateMobs(dt){
       } else {
         if(m.explodeTimer > 0){
           m.explodeTimer = Math.max(0, m.explodeTimer - dt * 2.0);
+          if(m.explodeTimer === 0){
+            stopHissSound();
+          }
           m.mesh.scale.setScalar(1.0 + (m.explodeTimer / 1.5) * 0.35);
           m.mesh.traverse(child => {
             if(child.material && child.material.emissive){
@@ -368,6 +376,7 @@ export function attackMob(){
   if(tool){ dmg = tool.tool === "axe" ? (2+tool.tier) : (1+tool.tier); }
   best.hp -= dmg;
   best.hurtFlash = 0.2;
+  playHitSound();
   best.mesh.traverse(child => {
     if(child.material && child.material.emissive) child.material.emissive.setRGB(0.5, 0, 0);
   });
