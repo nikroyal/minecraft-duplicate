@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // ---- Firebase Config ----
 // To connect to your Firebase project, replace the placeholder below with your web app's config object from the Firebase Console.
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyAHx3wJ5UtJEnG1ologtiSlIJ8wVq7fIXQ",
   authDomain: "minecraft-duplicate.firebaseapp.com",
   projectId: "minecraft-duplicate",
