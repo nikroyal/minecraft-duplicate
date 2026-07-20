@@ -119,7 +119,7 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
           {/* Inventory (left) */}
           <div className="furnace-col" style={{ flex: '1.2' }}>
             <h3 style={{ fontSize: '10px', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '10px' }}>Smeltables &amp; Fuels</h3>
-            <div className="chest-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="chest-grid">
               {ids.map(id => {
                 const smeltable = getSmeltResult(id);
                 const fuel = getFuelBurnTime(id) > 0;

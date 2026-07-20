@@ -78,7 +78,7 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
           {/* Chest Inventory (right) */}
           <div className="chest-col">
             <h3 style={{ fontSize: '10px', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '10px' }}>Chest contents (Click to take)</h3>
-            <div className="chest-grid">
+            <div className="chest-grid chest-grid-9">
               {chest.map((slot, idx) => (
                 <div 
                   key={idx} 
