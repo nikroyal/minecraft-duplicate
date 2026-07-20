@@ -47,6 +47,30 @@ function oreAt(wx,wy,wz){
   return 0;
 }
 
+function carveStructures(ch, ox, oz){
+  const key=hash2(ch.cx, ch.cz, SEED+500);
+  // ~8% of chunks get a hidden cavern
+  if(key>0.92){
+    const cxl=4+((hash2(ch.cx,ch.cz,1)*8)|0);
+    const czl=4+((hash2(ch.cx,ch.cz,2)*8)|0);
+    const cy =6+((hash2(ch.cx,ch.cz,3)*8)|0);
+    const rad=3+((hash2(ch.cx,ch.cz,4)*3)|0);
+    for(let dx=-rad;dx<=rad;dx++)
+    for(let dy=-rad;dy<=rad;dy++)
+    for(let dz=-rad;dz<=rad;dz++){
+      if(dx*dx+dy*dy*1.4+dz*dz > rad*rad) continue;
+      const x=cxl+dx, y=cy+dy, z=czl+dz;
+      if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=1&&y<HEIGHT) ch.set(x,y,z,AIR);
+    }
+    // glowstone cluster on the cavern floor as a reward/landmark
+    const fx=cxl, fz=czl, fy=cy-rad+1;
+    if(fx>=0&&fx<CHUNK&&fz>=0&&fz<CHUNK&&fy>=1&&fy<HEIGHT){
+      ch.set(fx,fy,fz,21);
+      if(fx+1<CHUNK) ch.set(fx+1,fy,fz,21);
+    }
+  }
+}
+
 export function getChunk(cx,cz){ return world.chunks.get(keyOf(cx,cz)); }
 
 export function generateChunk(ch){
