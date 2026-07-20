@@ -244,7 +244,9 @@ export function buildChunkMesh(ch){
       const nx=x+F.n[0], ny=y+F.n[1], nz=z+F.n[2];
       const neigh = getBlock(ox+nx, ny, oz+nz);
       let draw;
-      if(alpha){
+      if(id === 20) {
+        draw = true; // Torch post has open air around it inside the block
+      } else if(alpha){
         if(neigh===AIR) draw=true;
         else if(isOpaque(neigh)) draw=false;
         else draw = (neigh!==id);
@@ -255,7 +257,7 @@ export function buildChunkMesh(ch){
 
       const base = g.pos.length/3;
       const dirS = F.f===0?1.0 : F.f===1?0.5 : (F.f===2||F.f===3)?0.82:0.68;
-      const lvl = getLightGlobal(ox+nx, ny, oz+nz);
+      const lvl = (id === 20) ? getLightGlobal(ox+x, y, oz+z) : getLightGlobal(ox+nx, ny, oz+nz);
       const ln = lvl/MAX_LIGHT;
       const lightB = 0.35 + Math.sqrt(ln)*0.65;
       const warm = lvl>8 ? (lvl-8)/7 : 0;
@@ -268,7 +270,15 @@ export function buildChunkMesh(ch){
       const uv = tileUV(tileFor(id, F.f));
       for(let k=0;k<4;k++){
         const c=F.c[k];
-        g.pos.push(ox+x+c[0], y+c[1], oz+z+c[2]);
+        let px = ox+x+c[0];
+        let py = y+c[1];
+        let pz = oz+z+c[2];
+        if (id === 20) {
+          px = ox + x + 0.4375 + c[0]*0.125;
+          py = y + c[1]*0.625;
+          pz = oz + z + 0.4375 + c[2]*0.125;
+        }
+        g.pos.push(px, py, pz);
         g.col.push(rC,gC,bC);
         g.norm.push(F.n[0],F.n[1],F.n[2]);
         const uc=UV_ORDER[k];
@@ -290,7 +300,7 @@ export function makeMesh(g, mode){
   geo.setIndex(g.idx);
   const opts={ map: webgl.atlasTex, vertexColors:true, side: THREE.FrontSide };
   if(mode==="cutout"){
-    opts.transparent=false; opts.alphaTest=0.5;
+    opts.transparent=false; opts.alphaTest=0.5; opts.side = THREE.DoubleSide;
   } else if(mode==="alpha"){
     opts.transparent=true; opts.opacity=0.8; opts.depthWrite=false;
   } else {
@@ -626,6 +636,59 @@ export function updateParticles(dt){
     const k=1-(p.life/p.max);
     p.mesh.material.opacity=k;
     p.mesh.scale.multiplyScalar(1-0.6*dt);
+  }
+}
+
+export function triggerWorldExplosion(ex, ey, ez, radius, scheduleSaveCallback) {
+  const affectedChunks = new Set();
+  const rCeil = Math.ceil(radius);
+  const keyOfLocal = (cx, cz) => cx + "," + cz;
+  
+  for (let dx = -rCeil; dx <= rCeil; dx++) {
+    for (let dy = -rCeil; dy <= rCeil; dy++) {
+      for (let dz = -rCeil; dz <= rCeil; dz++) {
+        const distSq = dx*dx + dy*dy + dz*dz;
+        if (distSq > radius*radius) continue;
+        
+        const wx = Math.floor(ex + dx);
+        const wy = Math.floor(ey + dy);
+        const wz = Math.floor(ez + dz);
+        
+        if (wy <= 0 || wy >= HEIGHT) continue; // Keep bedrock/floor safe
+        
+        const blockId = getBlock(wx, wy, wz);
+        if (blockId === 0 || blockId === 30) continue; // Bedrock (obsidian) is unbreakable
+        
+        // Destroy block
+        setBlock(wx, wy, wz, 0, true, scheduleSaveCallback);
+        spawnBreakBurst(wx, wy, wz, blockId);
+        disturbWater(wx, wy, wz);
+        
+        const cx = Math.floor(wx / CHUNK);
+        const cz = Math.floor(wz / CHUNK);
+        affectedChunks.add(keyOfLocal(cx, cz));
+      }
+    }
+  }
+  
+  // Re-light and update meshes for all affected chunks and their neighbors
+  const chunksToUpdate = new Set();
+  for (const chunkKey of affectedChunks) {
+    const [cx, cz] = chunkKey.split(",").map(Number);
+    relightAround(cx, cz);
+    chunksToUpdate.add(chunkKey);
+    chunksToUpdate.add(keyOfLocal(cx-1, cz));
+    chunksToUpdate.add(keyOfLocal(cx+1, cz));
+    chunksToUpdate.add(keyOfLocal(cx, cz-1));
+    chunksToUpdate.add(keyOfLocal(cx, cz+1));
+  }
+  
+  for (const chunkKey of chunksToUpdate) {
+    const [cx, cz] = chunkKey.split(",").map(Number);
+    const ch = getChunk(cx, cz);
+    if (ch && ch.generated) {
+      updateChunkMesh(ch);
+    }
   }
 }
 
