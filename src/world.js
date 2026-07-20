@@ -27,6 +27,26 @@ export class Chunk {
   setLight(x,y,z,v){ this.light[this.idx(x,y,z)] = v; }
 }
 
+function oreAt(wx,wy,wz){
+  const r=hash3(wx,wy,wz,SEED+300);
+  const vein=vnoise3(wx*0.18, wy*0.18, wz*0.18, SEED+301);
+  if(vein<0.55) return 0;                 // most stone stays plain
+  if(wy<8){
+    if(r>0.97) return 14;                  // diamond (deep, rare)
+    if(r>0.90) return 13;                  // gold
+    if(r>0.75) return 12;                  // iron
+    if(r>0.45) return 11;                  // coal
+  } else if(wy<16){
+    if(r>0.92) return 13;                  // gold
+    if(r>0.75) return 12;                  // iron
+    if(r>0.45) return 11;                  // coal
+  } else {
+    if(r>0.72) return 12;                  // iron
+    if(r>0.42) return 11;                  // coal
+  }
+  return 0;
+}
+
 export function getChunk(cx,cz){ return world.chunks.get(keyOf(cx,cz)); }
 
 export function generateChunk(ch){
