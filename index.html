@@ -125,29 +125,90 @@
     </div>
 
     <!-- 2. LOBBY CARD (Show when logged in) -->
-    <div class="card hidden" id="lobbyCard">
+    <div class="card hidden" id="lobbyCard" style="max-width: 680px; width: 95vw; padding: 25px 30px;">
       <h1>VOXEL</h1>
       <div class="tag">A TINY WORLD</div>
-      
-      <div style="margin-bottom: 18px; font-size: 12px; color: var(--gold-bright);">
-        Welcome, <span id="lobbyUserName" style="font-weight: 700; color: #fff;">...</span>!
+
+      <!-- Dashboard Navigation Bar -->
+      <div class="dashboard-tabs">
+        <button class="dash-tab active" data-dash="play">🎮 Play</button>
+        <button class="dash-tab" data-dash="stats">📊 My Stats</button>
+        <button class="dash-tab" data-dash="leaderboard">🏆 Leaderboard</button>
       </div>
 
-      <div class="keys">
-        <div><kbd>W A S D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>Shift</kbd> sprint</div>
-        <div><kbd>Mouse</kbd> look &nbsp; <kbd>Left</kbd> mine &nbsp; <kbd>Right</kbd> place</div>
-        <div><kbd>1–8</kbd> select &nbsp; <kbd>E</kbd> menu &nbsp; <kbd>Q</kbd> eat &nbsp; <kbd>F</kbd> fly &nbsp; <kbd>Esc</kbd> pause</div>
-        <div style="margin-top:5px; opacity:.7">Left-click mobs to fight · watch your hearts &amp; hunger · press <kbd>E</kbd> → Manual for the full guide</div>
+      <!-- A. PLAY PANEL -->
+      <div class="dash-panel" id="dash-play">
+        <div style="margin-bottom: 18px; font-size: 12px; color: var(--gold-bright);">
+          Welcome back, <span id="lobbyUserName" style="font-weight: 700; color: #fff;">...</span>!
+        </div>
+
+        <div class="keys" style="margin: 0 0 20px 0;">
+          <div><kbd>W A S D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>Shift</kbd> sprint</div>
+          <div><kbd>Mouse</kbd> look &nbsp; <kbd>Left</kbd> mine &nbsp; <kbd>Right</kbd> place</div>
+          <div><kbd>1–8</kbd> select &nbsp; <kbd>E</kbd> menu &nbsp; <kbd>Q</kbd> eat &nbsp; <kbd>F</kbd> fly &nbsp; <kbd>Esc</kbd> pause</div>
+        </div>
+
+        <button id="playBtn">ENTER WORLD</button>
+        
+        <div class="secondary-actions">
+          <button id="surfaceBtn" class="minor-btn">↑ Teleport to surface</button>
+          <button id="resetBtn" class="minor-btn danger">Reset world</button>
+        </div>
       </div>
 
-      <button id="playBtn">ENTER WORLD</button>
-      
-      <div class="secondary-actions">
-        <button id="surfaceBtn" class="minor-btn">↑ Teleport to surface</button>
-        <button id="resetBtn" class="minor-btn danger">Reset world</button>
+      <!-- B. STATS PANEL -->
+      <div class="dash-panel hidden" id="dash-stats">
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-val" id="statBlocksMined">0</div>
+            <div class="stat-lbl">Blocks Mined</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="statBlocksPlaced">0</div>
+            <div class="stat-lbl">Blocks Placed</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="statPosition">8, 64, 8</div>
+            <div class="stat-lbl">Coordinates</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="statInventoryCount">0</div>
+            <div class="stat-lbl">Items Carried</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="statTimeOfDay">12:00</div>
+            <div class="stat-lbl">World Time</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="statSurvivalStatus">❤️ 20 / 🍗 20</div>
+            <div class="stat-lbl">Survival Stats</div>
+          </div>
+        </div>
       </div>
 
-      <div class="cloud-panel" style="margin-top: 20px;">
+      <!-- C. LEADERBOARD PANEL -->
+      <div class="dash-panel hidden" id="dash-leaderboard" style="width: 100%;">
+        <div class="leaderboard-container">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">Rank</th>
+                <th>Player</th>
+                <th style="width: 120px;">Blocks Placed</th>
+                <th style="width: 120px;">Blocks Mined</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardBody">
+              <tr>
+                <td colspan="4" style="color: #9a8a76; padding: 20px; text-align: center;">Loading global stats...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sync Status footer -->
+      <div class="cloud-panel" style="margin-top: 20px; width: 100%;">
         <div class="cloud-title">☁️ Cloud Sync Status</div>
         <div id="cloudStatus" class="cloud-status">Loading sync status...</div>
         <div class="cloud-actions" style="margin-top: 8px;">

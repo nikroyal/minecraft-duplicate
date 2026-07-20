@@ -13,7 +13,12 @@ import {
   persistentMultipleTabManager,
   doc, 
   getDoc, 
-  setDoc 
+  setDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
+  getDocs
 } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigured } from './config.js';
 import { SAVE_KEY } from './state.js';
@@ -185,5 +190,25 @@ export function resolveSyncConflict(keepCloud, cloudSavePending) {
           console.error("Failed to upload local save during conflict resolution:", err);
         });
     }
+  }
+}
+
+export async function fetchLeaderboard() {
+  if (!db) return [];
+  try {
+    const q = query(
+      collection(db, 'users'),
+      orderBy('placedBlocks', 'desc'),
+      limit(10)
+    );
+    const querySnapshot = await getDocs(q);
+    const list = [];
+    querySnapshot.forEach((doc) => {
+      list.push(doc.data());
+    });
+    return list;
+  } catch (error) {
+    console.error("Failed to fetch leaderboard:", error);
+    return [];
   }
 }

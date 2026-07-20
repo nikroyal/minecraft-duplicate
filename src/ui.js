@@ -10,7 +10,7 @@ import {
 import { attackMob } from './mobs.js';
 import { 
   initFirebase, loginWithEmail, signupWithEmail, loginAnonymously, logoutUser, 
-  manuallySyncLocalToCloud, resolveSyncConflict 
+  manuallySyncLocalToCloud, resolveSyncConflict, fetchLeaderboard
 } from './firebase.js';
 
 // Dom references
@@ -104,6 +104,87 @@ export function initUI(placeBlockCallback, miningStateRef) {
     toast("teleported to surface");
     startGame();
   });
+
+  // Lobby Dashboard Navigation
+  const dashTabs = [...document.querySelectorAll(".dash-tab")];
+  const dashPanels = [...document.querySelectorAll(".dash-panel")];
+  
+  dashTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.dash;
+      dashTabs.forEach(t => t.classList.toggle("active", t === tab));
+      dashPanels.forEach(p => p.classList.toggle("hidden", p.id !== `dash-${target}`));
+      
+      if (target === "stats") {
+        updateLobbyStats();
+      } else if (target === "leaderboard") {
+        updateLobbyLeaderboard();
+      }
+    });
+  });
+
+  async function updateLobbyLeaderboard() {
+    const lbody = document.getElementById("leaderboardBody");
+    if (!lbody) return;
+    lbody.innerHTML = `<tr><td colspan="4" style="color: var(--gold); text-align: center; padding: 20px;">Fetching global records...</td></tr>`;
+    
+    const list = await fetchLeaderboard();
+    if (list.length === 0) {
+      lbody.innerHTML = `<tr><td colspan="4" style="color: #9a8a76; text-align: center; padding: 20px;">No records found yet. Be the first to place a block!</td></tr>`;
+      return;
+    }
+    
+    lbody.innerHTML = "";
+    list.forEach((u, i) => {
+      const tr = document.createElement("tr");
+      const name = u.username || "Anonymous Player";
+      const placed = u.placedBlocks !== undefined ? u.placedBlocks : 0;
+      const mined = u.minedBlocks !== undefined ? u.minedBlocks : 0;
+      
+      tr.innerHTML = `
+        <td style="font-weight: 700; color: ${i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : 'var(--gold)'};">#${i + 1}</td>
+        <td style="color: #fff; font-weight: 600; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${name}</td>
+        <td style="color: var(--gold-bright); font-weight: bold;">${placed}</td>
+        <td>${mined}</td>
+      `;
+      lbody.appendChild(tr);
+    });
+  }
+
+  function updateLobbyStats() {
+    let mined = 0;
+    let placed = 0;
+    const edits = world.edits || {};
+    for (const key in edits) {
+      if (edits[key] === 0) mined++;
+      else placed++;
+    }
+    
+    let carried = 0;
+    for (const id in inventory) {
+      carried += inventory[id] || 0;
+    }
+    
+    const coordsStr = `${player.pos.x.toFixed(0)}, ${player.pos.y.toFixed(0)}, ${player.pos.z.toFixed(0)}`;
+    
+    const mins = Math.floor(game.timeOfDay * 24 * 60);
+    const hh = String(Math.floor(mins / 60)).padStart(2, "0");
+    const mm = String(mins % 60).padStart(2, "0");
+    
+    const minedEl = document.getElementById("statBlocksMined");
+    const placedEl = document.getElementById("statBlocksPlaced");
+    const posEl = document.getElementById("statPosition");
+    const invEl = document.getElementById("statInventoryCount");
+    const timeEl = document.getElementById("statTimeOfDay");
+    const survEl = document.getElementById("statSurvivalStatus");
+    
+    if (minedEl) minedEl.textContent = mined;
+    if (placedEl) placedEl.textContent = placed;
+    if (posEl) posEl.textContent = coordsStr;
+    if (invEl) invEl.textContent = carried;
+    if (timeEl) timeEl.textContent = `${hh}:${mm}`;
+    if (survEl) survEl.textContent = `❤️ ${player.health} / 🍗 ${player.hunger}`;
+  }
 
   // Reset World flow
   function showResetStep(n){
@@ -716,6 +797,14 @@ function setupFirebaseUI() {
 
 // ---- Save / Load Helpers ---------------------------------------------------
 export function saveWorld(){
+  let minedBlocks = 0;
+  let placedBlocks = 0;
+  const edits = world.edits || {};
+  for (const key in edits) {
+    if (edits[key] === 0) minedBlocks++;
+    else placedBlocks++;
+  }
+
   const payload={
     edits: world.edits,
     inventory,
@@ -727,6 +816,10 @@ export function saveWorld(){
     },
     survival: game.survival,
     timeOfDay: game.timeOfDay,
+    minedBlocks,
+    placedBlocks,
+    username: document.getElementById("lobbyUserName")?.textContent || "Guest",
+    lastUpdated: new Date().toISOString()
   };
   try{ 
     localStorage.setItem(SAVE_KEY, JSON.stringify(payload)); 
