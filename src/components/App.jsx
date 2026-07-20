@@ -16,7 +16,8 @@ import FurnaceScreen from './FurnaceScreen.jsx';
 
 import { 
   uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
-  closeCraft, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause
+  closeCraft, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
+  lastAuthStatus, lastSyncConflict
 } from '../ui.js';
 
 export default function App() {
@@ -74,6 +75,13 @@ export default function App() {
       setTargetBlockName(target > 0 ? thingName(target).toUpperCase() : null);
       setFps(game.fps || 60);
     };
+
+    if (lastAuthStatus) {
+      window.__onStatusChange(lastAuthStatus);
+    }
+    if (lastSyncConflict) {
+      window.__onSyncConflict(lastSyncConflict);
+    }
 
     return () => {
       reactBridge.updateUI = null;

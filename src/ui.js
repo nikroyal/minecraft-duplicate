@@ -215,15 +215,20 @@ export function loadWorld() {
   }
 }
 
+export let lastAuthStatus = null;
+export let lastSyncConflict = null;
+
 // Firebase initialization connector
 export function initUI(placeBlockCallback, miningStateRef) {
   const onStatusChange = (status) => {
+    lastAuthStatus = status;
     if (window.__onStatusChange) {
       window.__onStatusChange(status);
     }
   };
 
   const onSyncConflict = (cloudData) => {
+    lastSyncConflict = cloudData;
     if (window.__onSyncConflict) {
       window.__onSyncConflict(cloudData);
     }
