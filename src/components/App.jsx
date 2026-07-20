@@ -4,7 +4,7 @@ import { getBlock } from '../world.js';
 import { isSolid } from '../config.js';
 import { respawnPlayer, invCount } from '../player.js';
 import { resolveSyncConflict } from '../firebase.js';
-import { thingName, BLOCKS, craftableRecipes, isPlaceable } from '../config.js';
+import { thingName, BLOCKS, RECIPES, isPlaceable } from '../config.js';
 import { initAudio } from '../audio.js';
 
 import Swatch3D from './Swatch3D.jsx';
@@ -120,7 +120,7 @@ export default function App() {
     return true;
   };
 
-  const filteredRecipes = craftableRecipes.filter(r =>
+  const filteredRecipes = RECIPES.filter(r =>
     thingName(r.out).toLowerCase().includes(recipeFilter.toLowerCase())
   );
 
