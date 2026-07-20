@@ -613,6 +613,10 @@ function setupFirebaseUI() {
   const loggedInEl = document.getElementById("cloudLoggedIn");
   const unconfiguredEl = document.getElementById("cloudUnconfigured");
 
+  const authCard = document.getElementById("authCard");
+  const lobbyCard = document.getElementById("lobbyCard");
+  const lobbyUserName = document.getElementById("lobbyUserName");
+
   const loginBtn = document.getElementById("cloudLoginBtn");
   const signupBtn = document.getElementById("cloudSignupBtn");
   const anonBtn = document.getElementById("cloudAnonBtn");
@@ -636,25 +640,31 @@ function setupFirebaseUI() {
   };
 
   const onStatusChange = (status) => {
-    if (!statusEl) return;
-    
     if (status.state === 'unconfigured') {
-      statusEl.textContent = status.message;
+      if (statusEl) statusEl.textContent = status.message;
       unconfiguredEl?.classList.remove("hidden");
+      authCard?.classList.add("hidden");
+      lobbyCard?.classList.remove("hidden");
+      if (lobbyUserName) lobbyUserName.textContent = "Offline (Local Storage)";
     } else if (status.state === 'connecting') {
-      statusEl.textContent = status.message;
+      if (statusEl) statusEl.textContent = status.message;
     } else if (status.state === 'logged_in') {
-      statusEl.innerHTML = status.message;
+      if (statusEl) statusEl.innerHTML = status.message;
       authFormEl?.classList.add("hidden");
       loggedInEl?.classList.remove("hidden");
+      authCard?.classList.add("hidden");
+      lobbyCard?.classList.remove("hidden");
+      if (lobbyUserName) {
+        lobbyUserName.textContent = status.user.isAnonymous ? "Guest" : status.user.email;
+      }
     } else if (status.state === 'logged_out') {
-      statusEl.textContent = status.message;
+      if (statusEl) statusEl.textContent = status.message;
       authFormEl?.classList.remove("hidden");
       loggedInEl?.classList.add("hidden");
-    } else if (status.state === 'conflict') {
-      statusEl.textContent = status.message;
+      authCard?.classList.remove("hidden");
+      lobbyCard?.classList.add("hidden");
     } else {
-      statusEl.textContent = status.message;
+      if (statusEl) statusEl.textContent = status.message;
     }
   };
 

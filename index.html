@@ -94,56 +94,65 @@
   </div>
 
   <div id="overlay">
-    <div class="card">
+    <!-- 1. AUTH CARD (Show when logged out) -->
+    <div class="card" id="authCard">
       <h1>VOXEL</h1>
       <div class="tag">A TINY WORLD</div>
-      <p>Mine blocks. Gather them. Build something.</p>
-      <p>Your world saves to this browser automatically.</p>
+      <p style="margin-bottom: 20px; font-size: 11px; letter-spacing: 1px; color: var(--gold);">AUTHENTICATION REQUIRED</p>
+
+      <div class="cloud-panel" style="margin-top: 0;">
+        <div class="cloud-title">🔑 Sign In or Create Account</div>
+        <div class="cloud-input-group">
+          <input type="email" id="cloudEmail" class="cloud-input" placeholder="Email Address" autocomplete="email" />
+          <input type="password" id="cloudPassword" class="cloud-input" placeholder="Password" />
+        </div>
+        <div class="cloud-actions" style="margin-top: 15px; justify-content: center; gap: 8px;">
+          <button class="cloud-btn" id="cloudLoginBtn" style="flex: 1; padding: 10px;">Sign In</button>
+          <button class="cloud-btn secondary" id="cloudSignupBtn" style="flex: 1; padding: 10px;">Register</button>
+        </div>
+        <div class="cloud-actions" style="margin-top: 10px; justify-content: center;">
+          <button class="cloud-btn secondary" id="cloudAnonBtn" style="width: 100%; padding: 8px;">Play as Guest (Anonymous Auth)</button>
+        </div>
+        <div id="cloudAuthError" style="color: #ff9a86; font-size: 10px; margin-top: 8px; line-height: 1.3; text-align: center;"></div>
+      </div>
+      
+      <!-- Fallback when Firebase unconfigured -->
+      <div id="cloudUnconfigured" class="hidden" style="margin-top: 15px;">
+        <p style="font-size: 11px; color: #a9834f; line-height: 1.4;">
+          Firebase config is missing in <code>src/config.js</code>. Open config to enable Cloud Saves.
+        </p>
+      </div>
+    </div>
+
+    <!-- 2. LOBBY CARD (Show when logged in) -->
+    <div class="card hidden" id="lobbyCard">
+      <h1>VOXEL</h1>
+      <div class="tag">A TINY WORLD</div>
+      
+      <div style="margin-bottom: 18px; font-size: 12px; color: var(--gold-bright);">
+        Welcome, <span id="lobbyUserName" style="font-weight: 700; color: #fff;">...</span>!
+      </div>
+
       <div class="keys">
         <div><kbd>W A S D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>Shift</kbd> sprint</div>
         <div><kbd>Mouse</kbd> look &nbsp; <kbd>Left</kbd> mine &nbsp; <kbd>Right</kbd> place</div>
         <div><kbd>1–8</kbd> select &nbsp; <kbd>E</kbd> menu &nbsp; <kbd>Q</kbd> eat &nbsp; <kbd>F</kbd> fly &nbsp; <kbd>Esc</kbd> pause</div>
         <div style="margin-top:5px; opacity:.7">Left-click mobs to fight · watch your hearts &amp; hunger · press <kbd>E</kbd> → Manual for the full guide</div>
-        <div style="margin-top:6px; opacity:.7">New here? Press <kbd>E</kbd> in-game and open the <b>Manual</b> tab.</div>
       </div>
+
       <button id="playBtn">ENTER WORLD</button>
+      
       <div class="secondary-actions">
         <button id="surfaceBtn" class="minor-btn">↑ Teleport to surface</button>
         <button id="resetBtn" class="minor-btn danger">Reset world</button>
       </div>
 
-      <!-- Firebase Cloud Sync Panel -->
-      <div class="cloud-panel" id="cloudPanel">
-        <div class="cloud-title">☁️ Cloud Sync (Firebase)</div>
+      <div class="cloud-panel" style="margin-top: 20px;">
+        <div class="cloud-title">☁️ Cloud Sync Status</div>
         <div id="cloudStatus" class="cloud-status">Loading sync status...</div>
-        
-        <!-- Unconfigured State Hint -->
-        <div id="cloudUnconfigured" class="hidden">
-          <p style="font-size: 11px; color: #a9834f; margin-bottom: 8px; line-height: 1.4;">
-            Firebase is not configured. Add your Firebase credentials at the top of <code>src/config.js</code> to enable Cloud Saves.
-          </p>
-        </div>
-
-        <!-- Logged Out Auth State (Email/Pass + Anon) -->
-        <div id="cloudAuthForm" class="hidden">
-          <div class="cloud-input-group">
-            <input type="email" id="cloudEmail" class="cloud-input" placeholder="Email Address" autocomplete="email" />
-            <input type="password" id="cloudPassword" class="cloud-input" placeholder="Password" />
-          </div>
-          <div class="cloud-actions">
-            <button class="cloud-btn" id="cloudLoginBtn">Sign In</button>
-            <button class="cloud-btn secondary" id="cloudSignupBtn">Register</button>
-            <button class="cloud-btn secondary" id="cloudAnonBtn">Anon Sync</button>
-          </div>
-          <div id="cloudAuthError" style="color: #ff9a86; font-size: 10px; margin-top: 8px; line-height: 1.3;"></div>
-        </div>
-
-        <!-- Logged In State -->
-        <div id="cloudLoggedIn" class="hidden">
-          <div class="cloud-actions">
-            <button class="cloud-btn secondary" id="cloudSyncNowBtn">Sync Now</button>
-            <button class="cloud-btn danger" id="cloudLogoutBtn">Logout</button>
-          </div>
+        <div class="cloud-actions" style="margin-top: 8px;">
+          <button class="cloud-btn secondary" id="cloudSyncNowBtn">Sync Now</button>
+          <button class="cloud-btn danger" id="cloudLogoutBtn">Logout / Switch Account</button>
         </div>
       </div>
     </div>
