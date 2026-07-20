@@ -254,23 +254,58 @@ export default function App() {
                 )}
 
                 {craftTab === 'manual' && (
-                  <div className="manual-body" style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                  <div className="manual-body" style={{ maxHeight: '280px', overflowY: 'auto', paddingRight: '6px' }}>
                     <h3>Welcome to Voxel</h3>
                     <p>Mine resources, craft tools, build structures, customize your avatar, and survive the monsters of the night. Your progress saves to the cloud automatically.</p>
-                    <h3>Controls</h3>
+                    
+                    <h3>Controls &amp; Hotkeys</h3>
                     <ul>
                       <li><span className="m-key">W A S D</span> move &nbsp; <span className="m-key">Space</span> jump &nbsp; <span className="m-key">Shift</span> sprint</li>
-                      <li><span className="m-key">Left-click</span> mine / attack &nbsp; <span className="m-key">Right-click</span> place / open</li>
-                      <li><span className="m-key">1–8</span> select hotbar &nbsp; <span className="m-key">Q</span> eat &nbsp; <span className="m-key">F</span> fly &nbsp; <span className="m-key">F5</span> camera &nbsp; <span className="m-key">Esc</span> pause</li>
+                      <li><span className="m-key">Left-click</span> mine blocks / attack mobs</li>
+                      <li><span className="m-key">Right-click</span> place blocks / open chests &amp; furnaces</li>
+                      <li><span className="m-key">1–8</span> select active hotbar slot &nbsp; <span className="m-key">Scroll Wheel</span> cycle hotbar</li>
+                      <li><span className="m-key">E</span> open &amp; close crafting / containers</li>
+                      <li><span className="m-key">Q</span> eat food held in hand</li>
+                      <li><span className="m-key">F</span> toggle flying (Creative mode only)</li>
+                      <li><span className="m-key">F5</span> / <span className="m-key">H</span> cycle camera (First Person ➔ Third Person Back ➔ Front)</li>
+                      <li><span className="m-key">Esc</span> pause game and return to Lobby Dashboard</li>
                     </ul>
+
+                    <h3>Health &amp; Hunger</h3>
+                    <ul>
+                      <li><strong>Damage:</strong> Falling from heights (over 3.5 blocks), drowning under water, falling into the void, or getting hit by zombies/creepers reduces health hearts.</li>
+                      <li><strong>Starvation:</strong> Running out of hunger pips causes starvation damage. Sprinting depletes hunger faster.</li>
+                      <li><strong>Regeneration:</strong> When your hunger is at 16 pips or higher, your health will automatically regenerate over time.</li>
+                      <li><strong>Food:</strong> Hold food (e.g. Cooked Meat) in your hand slot and press <kbd>Q</kbd> to eat.</li>
+                    </ul>
+
                     <h3>Chests &amp; Furnaces</h3>
                     <ul>
-                      <li><strong>Chests</strong> (8 planks): Right-click to open. Click items to move them. Breaking a chest drops contents.</li>
-                      <li><strong>Furnaces</strong> (8 cobble): Place smeltable items in the top, fuel (coal / logs) in the bottom. Output appears when done.</li>
+                      <li><strong>Chests (8 planks):</strong> Place and right-click to open. Click items in your inventory to store them, or click items inside the chest to retrieve them. Breaking a chest drops all stored contents.</li>
+                      <li><strong>Furnaces (8 cobble):</strong> Place and right-click to smelt ores. Place smeltable ores (Iron Ore, Gold Ore) in the top slot, and combustible fuel (Coal, Log, Planks) in the bottom slot. Output appears on the right once smelted.</li>
                     </ul>
-                    <h3>Monsters</h3>
+
+                    <h3>Smelting Recipes Reference</h3>
                     <ul>
-                      <li>Zombies and Creepers spawn at night. Creepers will <strong>hiss and explode</strong> — run when you hear the sound!</li>
+                      <li><strong>Iron Ore</strong> ➔ Iron Ingot (Requires Coal / Planks)</li>
+                      <li><strong>Gold Ore</strong> ➔ Gold Ingot (Requires Coal / Planks)</li>
+                      <li><strong>Sand</strong> ➔ Glass</li>
+                      <li><strong>Wood Log</strong> ➔ Charcoal (High-efficiency fuel)</li>
+                      <li><strong>Cobblestone</strong> ➔ Stone ➔ Smooth Stone</li>
+                      <li><strong>Raw Meat (from Sheep/Pigs)</strong> ➔ Cooked Meat (Restores full hunger/health)</li>
+                    </ul>
+
+                    <h3>Monsters &amp; Threats</h3>
+                    <ul>
+                      <li>Zombies and Creepers spawn in dark areas and during the night cycle.</li>
+                      <li><strong>Zombies:</strong> Slow but dangerous in melee range. Deals damage on contact.</li>
+                      <li><strong>Creepers:</strong> Quietly sneaks up behind you. Creepers will <strong>hiss and inflate</strong> when close — run away immediately before they detonate and destroy blocks!</li>
+                    </ul>
+
+                    <h3>Cloud Saving &amp; Lobby</h3>
+                    <ul>
+                      <li>Your inventory, chest positions, furnace queues, placements, and coordinates save automatically to local storage and sync to your Firestore cloud profile.</li>
+                      <li>If you play on multiple devices, Voxel will automatically detect cloud conflicts on login and prompt you to choose which save state to keep.</li>
                     </ul>
                   </div>
                 )}
