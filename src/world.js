@@ -3,7 +3,7 @@ import { world, player, webgl, game, inventory } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, MAX_LIGHT, AIR, BLOCKS, VARIANTS,
   keyOf, hash2, hash3, vnoise3, surfaceHeight, isCave,
-  isSolid, isOpaque, tileFor, tileUV, trng, shade
+  isSolid, isOpaque, tileFor, tileUV, trng, shade, TILE, ATLAS_COLS, ATLAS_ROWS
 } from './config.js';
 
 // Streaming queue
