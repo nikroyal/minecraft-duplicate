@@ -62,11 +62,12 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           return (
             <div 
               key={index} 
-              className={`hotbar-slot ${index === selectedSlot ? 'active' : ''}`}
+              className={`slot ${index === selectedSlot ? 'active' : ''}`}
             >
               {hasItem && <Swatch3D id={id} />}
               {hasItem && <span className="count">{count}</span>}
-              <span className="slot-num">{index + 1}</span>
+              <span className="key">{index + 1}</span>
+              {hasItem && <span className="name">{thingName(id)}</span>}
             </div>
           );
         })}
