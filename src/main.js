@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { keys, touch, player, inventory, hotbar, game, webgl } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, BLOCKS, ITEMS, parentTiles, 
   tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe, thingColor
@@ -296,12 +296,45 @@ function loop(now){
   game.waterTimer += dt;
   if(game.waterTimer >= WATER_TICK){ game.waterTimer = 0; tickWater(); }
 
-  // Camera tracking
-  webgl.camera.position.set(player.pos.x, player.pos.y + 1.6, player.pos.z);
+  // Camera tracking with F5 modes and block collision safety
   const dir = lookDir();
-  webgl.camera.lookAt(webgl.camera.position.x + dir.x, webgl.camera.position.y + dir.y, webgl.camera.position.z + dir.z);
+  
+  if (player.cameraMode === 0) {
+    // First-Person
+    webgl.camera.position.set(player.pos.x, player.pos.y + 1.6, player.pos.z);
+    webgl.camera.lookAt(webgl.camera.position.x + dir.x, webgl.camera.position.y + dir.y, webgl.camera.position.z + dir.z);
+    if (webgl.playerMesh) webgl.playerMesh.visible = false;
+    if (webgl.heldGroup) webgl.heldGroup.visible = true;
+  } else {
+    // Third-Person (1 = Back, 2 = Front)
+    if (webgl.playerMesh) webgl.playerMesh.visible = true;
+    if (webgl.heldGroup) webgl.heldGroup.visible = false;
+    
+    const sign = (player.cameraMode === 1) ? -1 : 1;
+    
+    // Raycast camera collision test to prevent clipping
+    let maxDist = 3.5;
+    let finalDist = maxDist;
+    const step = 0.25;
+    for (let t = step; t <= maxDist; t += step) {
+      const tx = player.pos.x + dir.x * t * sign;
+      const ty = player.pos.y + 1.5 + dir.y * t * sign * 0.3;
+      const tz = player.pos.z + dir.z * t * sign;
+      if (isSolid(getBlock(Math.floor(tx), Math.floor(ty), Math.floor(tz)))) {
+        finalDist = Math.max(0.5, t - 0.2);
+        break;
+      }
+    }
+    
+    const camX = player.pos.x + dir.x * finalDist * sign;
+    const camY = player.pos.y + 1.5 + dir.y * finalDist * sign * 0.3 + 0.3;
+    const camZ = player.pos.z + dir.z * finalDist * sign;
+    
+    webgl.camera.position.set(camX, camY, camZ);
+    webgl.camera.lookAt(player.pos.x, player.pos.y + 1.3, player.pos.z);
+  }
 
-  // First person swinging animation
+  // First person swinging animation ticking
   if(player.swingProgress > 0){
     player.swingProgress += dt * 5.0;
     if(player.swingProgress >= 1.0){
@@ -319,6 +352,47 @@ function loop(now){
     } else {
       webgl.heldGroup.rotation.set(0, 0, 0);
       webgl.heldGroup.position.set(0.24, -0.2, -0.35);
+    }
+  }
+
+  // Update in-game player 3D avatar position, rotations, and limb swings
+  if (webgl.playerMesh && webgl.playerMesh.visible) {
+    webgl.playerMesh.position.copy(player.pos);
+    webgl.playerMesh.rotation.y = player.yaw;
+    
+    if (webgl.playerMesh.head) {
+      webgl.playerMesh.head.rotation.x = -player.pitch;
+    }
+    
+    const speed2D = Math.hypot(player.vel.x, player.vel.z);
+    const moving = speed2D > 0.1 && !player.flying;
+    if (moving) {
+      const freq = speed2D > 6.0 ? 0.016 : 0.012;
+      const amp = speed2D > 6.0 ? 0.8 : 0.55;
+      const swing = Math.sin(performance.now() * freq) * amp;
+      
+      if (webgl.playerMesh.leftLeg) webgl.playerMesh.leftLeg.rotation.x = swing;
+      if (webgl.playerMesh.rightLeg) webgl.playerMesh.rightLeg.rotation.x = -swing;
+      if (webgl.playerMesh.leftArm) webgl.playerMesh.leftArm.rotation.x = -swing;
+      if (player.swingProgress === 0 && webgl.playerMesh.rightArm) {
+        webgl.playerMesh.rightArm.rotation.x = swing;
+      }
+    } else {
+      if (webgl.playerMesh.leftLeg) webgl.playerMesh.leftLeg.rotation.x = 0;
+      if (webgl.playerMesh.rightLeg) webgl.playerMesh.rightLeg.rotation.x = 0;
+      if (webgl.playerMesh.leftArm) webgl.playerMesh.leftArm.rotation.x = 0;
+      if (player.swingProgress === 0 && webgl.playerMesh.rightArm) {
+        webgl.playerMesh.rightArm.rotation.x = 0;
+      }
+    }
+    
+    if (player.swingProgress > 0 && webgl.playerMesh.rightArm) {
+      const phase = player.swingProgress;
+      const swingAngle = Math.sin(phase * Math.PI) * -1.3;
+      webgl.playerMesh.rightArm.rotation.x = swingAngle;
+      webgl.playerMesh.rightArm.rotation.z = Math.sin(phase * Math.PI) * -0.3;
+    } else if (webgl.playerMesh.rightArm) {
+      webgl.playerMesh.rightArm.rotation.z = 0;
     }
   }
 
@@ -405,6 +479,10 @@ export function bootGame() {
   webgl.highlight.visible = false;
   webgl.scene.add(webgl.highlight);
 
+  // Player 3D avatar setup
+  createPlayerMesh();
+  avatarCallbacks.update = updatePlayerMeshMaterials;
+
   // Crack texture overlay setup
   webgl.crackTex = buildCrackTexture();
   const crackGeo = new THREE.BoxGeometry(1.004, 1.004, 1.004);
@@ -473,6 +551,14 @@ export function bootGame() {
   // Keyboard binding updates
   window.addEventListener("keydown", (e) => {
     if(isMenuOpen() || player.dead || !game.running) return;
+    
+    // Cycle camera modes on F5 / KeyH press
+    if(e.code === "F5" || e.code === "KeyH"){
+      e.preventDefault();
+      player.cameraMode = (player.cameraMode + 1) % 3;
+      toast(`Camera Mode: ${player.cameraMode === 0 ? "First-Person" : (player.cameraMode === 1 ? "Third-Person Back" : "Third-Person Front")}`);
+      updateHeldItemMesh();
+    }
     keys[e.code] = true;
     if(e.code === "KeyF"){
       player.flying = !player.flying;
@@ -582,6 +668,112 @@ export function updateHeldItemMesh() {
   
   webgl.heldGroup.position.set(0.24, -0.2, -0.35);
   webgl.heldGroup.rotation.set(0, 0, 0);
+
+  // Synchronize third-person avatar held tool
+  if (webgl.playerMesh && webgl.playerMesh.rightArm) {
+    const arm = webgl.playerMesh.rightArm;
+    while (arm.children.length > 0) {
+      const c = arm.children[0];
+      arm.remove(c);
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    }
+    
+    const id = hotbar[game.selected];
+    if (id !== 0 && invCount(id) > 0) {
+      const col = thingColor(id);
+      const placeable = isPlaceable(id);
+      const geo = placeable 
+        ? new THREE.BoxGeometry(0.12, 0.12, 0.12)
+        : new THREE.BoxGeometry(0.04, 0.04, 0.4);
+      const mat = new THREE.MeshLambertMaterial({color: col});
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(0, -0.25, 0.15);
+      arm.add(mesh);
+    }
+  }
+}
+
+export function createPlayerMesh() {
+  const group = new THREE.Group();
+  
+  const headMat = new THREE.MeshLambertMaterial();
+  const bodyMat = new THREE.MeshLambertMaterial();
+  const legMat = new THREE.MeshLambertMaterial();
+  const armMat = new THREE.MeshLambertMaterial();
+  
+  // Head
+  const headGeo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+  const headMesh = new THREE.Mesh(headGeo, headMat);
+  headMesh.position.set(0, 1.575, 0);
+  group.add(headMesh);
+  group.head = headMesh;
+  
+  // Body
+  const bodyGeo = new THREE.BoxGeometry(0.35, 0.525, 0.175);
+  const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+  bodyMesh.position.set(0, 1.1375, 0);
+  group.add(bodyMesh);
+  
+  // Left Leg
+  const legGeo = new THREE.BoxGeometry(0.16, 0.525, 0.16);
+  const leftLegMesh = new THREE.Mesh(legGeo, legMat);
+  leftLegMesh.position.set(-0.09, 0.2625, 0);
+  group.add(leftLegMesh);
+  group.leftLeg = leftLegMesh;
+  
+  // Right Leg
+  const rightLegMesh = new THREE.Mesh(legGeo, legMat);
+  rightLegMesh.position.set(0.09, 0.2625, 0);
+  group.add(rightLegMesh);
+  group.rightLeg = rightLegMesh;
+  
+  // Left Arm
+  const armGeo = new THREE.BoxGeometry(0.12, 0.525, 0.12);
+  const leftArmMesh = new THREE.Mesh(armGeo, armMat);
+  leftArmMesh.position.set(-0.24, 1.1375, 0);
+  group.add(leftArmMesh);
+  group.leftArm = leftArmMesh;
+  
+  // Right Arm
+  const rightArmMesh = new THREE.Mesh(armGeo, armMat);
+  rightArmMesh.position.set(0.24, 1.1375, 0);
+  group.add(rightArmMesh);
+  group.rightArm = rightArmMesh;
+  
+  webgl.scene.add(group);
+  webgl.playerMesh = group;
+  
+  updatePlayerMeshMaterials();
+}
+
+export function updatePlayerMeshMaterials() {
+  if (!webgl.playerMesh) return;
+  const avatar = player.avatar || { headType: "steve", shirtColor: "#008080", pantsColor: "#3c4e8c", skinColor: "#dfcfb7" };
+  
+  const headMat = webgl.playerMesh.head.material;
+  const bodyMat = webgl.playerMesh.children[1].material;
+  const leftLegMat = webgl.playerMesh.leftLeg.material;
+  const rightLegMat = webgl.playerMesh.rightLeg.material;
+  const leftArmMat = webgl.playerMesh.leftArm.material;
+  const rightArmMat = webgl.playerMesh.rightArm.material;
+  
+  let skinCol = new THREE.Color(avatar.skinColor);
+  let shirtCol = new THREE.Color(avatar.shirtColor);
+  let pantsCol = new THREE.Color(avatar.pantsColor);
+  
+  if (avatar.headType === "zombie") {
+    skinCol = new THREE.Color(0x4a7a4a);
+  } else if (avatar.headType === "creeper") {
+    skinCol = new THREE.Color(0x2e8b57);
+  }
+  
+  headMat.color.copy(skinCol);
+  bodyMat.color.copy(shirtCol);
+  leftLegMat.color.copy(pantsCol);
+  rightLegMat.color.copy(pantsCol);
+  leftArmMat.color.copy(shirtCol);
+  rightArmMat.color.copy(shirtCol);
 }
 
 // Auto start game bootloader

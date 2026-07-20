@@ -19,6 +19,13 @@ export const player = {
   dead: false,
   invuln: 0,
   swingProgress: 0,
+  cameraMode: 0,
+  avatar: {
+    headType: "steve",
+    shirtColor: "#008080",
+    pantsColor: "#3c4e8c",
+    skinColor: "#dfcfb7"
+  }
 };
 
 export const inventory = {};
@@ -60,3 +67,5 @@ export const touch = {
   jump: false,
   isTouch: false
 };
+
+export const avatarCallbacks = { update: null };

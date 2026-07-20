@@ -135,6 +135,7 @@
         <button class="dash-tab active" data-dash="play">🎮 Play</button>
         <button class="dash-tab" data-dash="stats">📊 My Stats</button>
         <button class="dash-tab" data-dash="leaderboard">🏆 Leaderboard</button>
+        <button class="dash-tab" data-dash="avatar">👕 Avatar</button>
       </div>
 
       <!-- A. PLAY PANEL -->
@@ -205,6 +206,92 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- D. AVATAR PANEL -->
+      <div class="dash-panel hidden" id="dash-avatar" style="width: 100%;">
+        <div style="display: flex; gap: 20px; align-items: stretch; margin-top: 10px;">
+          <!-- Left side: Customizer inputs -->
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 6px; border: 1px solid var(--slot-line);">
+            <div>
+              <label style="display: block; font-size: 10px; color: var(--gold); text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Head Type</label>
+              <select id="avatarHead" class="cloud-input" style="width: 100%; max-width: none; background: var(--ink); border: 1px solid var(--panel-line); color: #fff;">
+                <option value="steve">Steve (Classic)</option>
+                <option value="alex">Alex (Ginger)</option>
+                <option value="zombie">Zombie Skin</option>
+                <option value="creeper">Creeper Skin</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; color: var(--gold); text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Shirt Color</label>
+              <input type="color" id="avatarShirtColor" style="width: 100%; height: 32px; border: 1px solid var(--panel-line); border-radius: 4px; cursor: pointer; background: transparent;" value="#008080" />
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; color: var(--gold); text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Pants Color</label>
+              <input type="color" id="avatarPantsColor" style="width: 100%; height: 32px; border: 1px solid var(--panel-line); border-radius: 4px; cursor: pointer; background: transparent;" value="#3c4e8c" />
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; color: var(--gold); text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Skin Color</label>
+              <input type="color" id="avatarSkinColor" style="width: 100%; height: 32px; border: 1px solid var(--panel-line); border-radius: 4px; cursor: pointer; background: transparent;" value="#dfcfb7" />
+            </div>
+          </div>
+          <!-- Right side: 3D Preview -->
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.15); border: 1px dashed var(--slot-line); border-radius: 6px; padding: 12px; min-height: 220px; overflow: hidden;">
+            <div id="avatar3DPreviewContainer" style="width: 120px; height: 160px; position: relative; perspective: 400px;">
+              <div id="stevePreview" class="steve-model">
+                <div class="steve-head">
+                  <div class="sf face-front"></div>
+                  <div class="sf face-back"></div>
+                  <div class="sf face-left"></div>
+                  <div class="sf face-right"></div>
+                  <div class="sf face-top"></div>
+                  <div class="sf face-bottom"></div>
+                </div>
+                <div class="steve-body">
+                  <div class="sf face-front"></div>
+                  <div class="sf face-back"></div>
+                  <div class="sf face-left"></div>
+                  <div class="sf face-right"></div>
+                  <div class="sf face-top"></div>
+                  <div class="sf face-bottom"></div>
+                </div>
+                <div class="steve-limb left-arm">
+                  <div class="sf face-front"></div>
+                  <div class="sf face-back"></div>
+                  <div class="sf face-left"></div>
+                  <div class="sf face-right"></div>
+                  <div class="sf face-top"></div>
+                  <div class="sf face-bottom"></div>
+                </div>
+                <div class="steve-limb right-arm">
+                  <div class="sf face-front"></div>
+                  <div class="sf face-back"></div>
+                  <div class="sf face-left"></div>
+                  <div class="sf face-right"></div>
+                  <div class="sf face-top"></div>
+                  <div class="sf face-bottom"></div>
+                </div>
+                <div class="steve-limb left-leg">
+                  <div class="sf face-front"></div>
+                  <div class="sf face-back"></div>
+                  <div class="sf face-left"></div>
+                  <div class="sf face-right"></div>
+                  <div class="sf face-top"></div>
+                  <div class="sf face-bottom"></div>
+                </div>
+                <div class="steve-limb right-leg">
+                  <div class="sf face-front"></div>
+                  <div class="sf face-back"></div>
+                  <div class="sf face-left"></div>
+                  <div class="sf face-right"></div>
+                  <div class="sf face-top"></div>
+                  <div class="sf face-bottom"></div>
+                </div>
+              </div>
+            </div>
+            <div style="font-size: 9px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px;">Preview</div>
+          </div>
         </div>
       </div>
 

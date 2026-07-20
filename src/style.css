@@ -622,3 +622,99 @@ body.touch #touch { display: block; }
   opacity: 1;
 }
 
+/* Steve 3D Model CSS Preview */
+.steve-model {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  transform-style: preserve-3d;
+  transform: rotateX(-15deg) rotateY(135deg) translateY(60px);
+  animation: steveRotate 8s linear infinite;
+}
+@keyframes steveRotate {
+  0% { transform: rotateX(-15deg) rotateY(0deg) translateY(60px); }
+  100% { transform: rotateX(-15deg) rotateY(360deg) translateY(60px); }
+}
+.steve-model .steve-head {
+  position: absolute;
+  left: 48px;
+  bottom: 110px;
+  width: 24px;
+  height: 24px;
+  transform-style: preserve-3d;
+}
+.steve-model .steve-body {
+  position: absolute;
+  left: 48px;
+  bottom: 62px;
+  width: 24px;
+  height: 36px;
+  transform-style: preserve-3d;
+}
+.steve-model .steve-limb {
+  position: absolute;
+  width: 12px;
+  height: 36px;
+  transform-style: preserve-3d;
+}
+.steve-model .left-arm {
+  left: 36px;
+  bottom: 62px;
+}
+.steve-model .right-arm {
+  left: 72px;
+  bottom: 62px;
+}
+.steve-model .left-leg {
+  left: 48px;
+  bottom: 26px;
+  animation: legSwingLeft 1.5s ease-in-out infinite alternate;
+}
+.steve-model .right-leg {
+  left: 60px;
+  bottom: 26px;
+  animation: legSwingRight 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes legSwingLeft {
+  0% { transform: rotateX(-20deg); }
+  100% { transform: rotateX(20deg); }
+}
+@keyframes legSwingRight {
+  0% { transform: rotateX(20deg); }
+  100% { transform: rotateX(-20deg); }
+}
+
+/* Faces */
+.steve-model .sf {
+  position: absolute;
+  box-sizing: border-box;
+  border: 0.5px solid rgba(0,0,0,0.18);
+}
+/* Head Faces */
+.steve-model .steve-head .sf { width: 24px; height: 24px; }
+.steve-model .steve-head .face-front  { transform: translateZ(12px); }
+.steve-model .steve-head .face-back   { transform: rotateY(180deg) translateZ(12px); }
+.steve-model .steve-head .face-left   { transform: rotateY(-90deg) translateZ(12px); }
+.steve-model .steve-head .face-right  { transform: rotateY(90deg) translateZ(12px); }
+.steve-model .steve-head .face-top    { transform: rotateX(90deg) translateZ(12px); }
+.steve-model .steve-head .face-bottom { transform: rotateX(-90deg) translateZ(12px); }
+
+/* Body Faces */
+.steve-model .steve-body .sf { width: 24px; height: 36px; }
+.steve-model .steve-body .face-front  { transform: translateZ(6px); }
+.steve-model .steve-body .face-back   { transform: rotateY(180deg) translateZ(6px); }
+.steve-model .steve-body .face-left   { transform: rotateY(-90deg) translateZ(12px); width: 12px; }
+.steve-model .steve-body .face-right  { transform: rotateY(90deg) translateZ(12px); width: 12px; }
+.steve-model .steve-body .face-top    { transform: rotateX(90deg) translateZ(6px); height: 12px; }
+.steve-model .steve-body .face-bottom { transform: rotateX(-90deg) translateZ(30px); height: 12px; }
+
+/* Limb Faces */
+.steve-model .steve-limb .sf { width: 12px; height: 36px; }
+.steve-model .steve-limb .face-front  { transform: translateZ(6px); }
+.steve-model .steve-limb .face-back   { transform: rotateY(180deg) translateZ(6px); }
+.steve-model .steve-limb .face-left   { transform: rotateY(-90deg) translateZ(6px); }
+.steve-model .steve-limb .face-right  { transform: rotateY(90deg) translateZ(6px); }
+.steve-model .steve-limb .face-top    { transform: rotateX(90deg) translateZ(6px); height: 12px; }
+.steve-model .steve-limb .face-bottom { transform: rotateX(-90deg) translateZ(30px); height: 12px; }
+

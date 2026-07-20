@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { keys, touch, player, inventory, hotbar, game, webgl, SAVE_KEY } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, SAVE_KEY, avatarCallbacks } from './state.js';
 import { 
   thingColor, thingName, isPlaceable, isFood, isTool, craftableRecipes, BLOCKS, ITEMS, keyOf 
 } from './config.js';
@@ -130,9 +130,36 @@ export function initUI(placeBlockCallback, miningStateRef) {
         updateLobbyStats();
       } else if (target === "leaderboard") {
         updateLobbyLeaderboard();
+      } else if (target === "avatar") {
+        updateLobbyAvatarPreview();
       }
     });
   });
+
+  // Avatar Customizer Selectors
+  const headSel = document.getElementById("avatarHead");
+  const shirtSel = document.getElementById("avatarShirtColor");
+  const pantsSel = document.getElementById("avatarPantsColor");
+  const skinSel = document.getElementById("avatarSkinColor");
+  
+  const handleAvatarChange = () => {
+    player.avatar = player.avatar || {};
+    player.avatar.headType = headSel.value;
+    player.avatar.shirtColor = shirtSel.value;
+    player.avatar.pantsColor = pantsSel.value;
+    player.avatar.skinColor = skinSel.value;
+    
+    updateLobbyAvatarPreview();
+    if (avatarCallbacks.update) avatarCallbacks.update();
+    scheduleSave();
+  };
+  
+  if (headSel) {
+    headSel.addEventListener("change", handleAvatarChange);
+    shirtSel.addEventListener("input", handleAvatarChange);
+    pantsSel.addEventListener("input", handleAvatarChange);
+    skinSel.addEventListener("input", handleAvatarChange);
+  }
 
   async function updateLobbyLeaderboard() {
     const lbody = document.getElementById("leaderboardBody");
@@ -857,6 +884,7 @@ export function saveWorld(){
       yaw:player.yaw, pitch:player.pitch, flying:player.flying,
       health:player.health, hunger:player.hunger
     },
+    avatar: player.avatar,
     survival: game.survival,
     timeOfDay: game.timeOfDay,
     minedBlocks,
@@ -898,6 +926,20 @@ export function loadWorld(){
       player.flying=!!p.player.flying;
       if(typeof p.player.health==="number") player.health=p.player.health;
       if(typeof p.player.hunger==="number") player.hunger=p.player.hunger;
+    }
+    if(p.avatar){
+      Object.assign(player.avatar, p.avatar);
+      const headSel = document.getElementById("avatarHead");
+      const shirtSel = document.getElementById("avatarShirtColor");
+      const pantsSel = document.getElementById("avatarPantsColor");
+      const skinSel = document.getElementById("avatarSkinColor");
+      if (headSel) {
+        headSel.value = player.avatar.headType;
+        shirtSel.value = player.avatar.shirtColor;
+        pantsSel.value = player.avatar.pantsColor;
+        skinSel.value = player.avatar.skinColor;
+      }
+      updateLobbyAvatarPreview();
     }
     return true;
   } catch(e) {
@@ -1263,3 +1305,42 @@ export function tickFurnaces(dt) {
 
 // Setup before unload listener
 window.addEventListener("beforeunload", saveWorld);
+
+export function updateLobbyAvatarPreview() {
+  const head = document.getElementById("avatarHead")?.value || "steve";
+  const shirt = document.getElementById("avatarShirtColor")?.value || "#008080";
+  const pants = document.getElementById("avatarPantsColor")?.value || "#3c4e8c";
+  const skin = document.getElementById("avatarSkinColor")?.value || "#dfcfb7";
+  
+  const headModel = document.querySelector("#stevePreview .steve-head");
+  const bodyModel = document.querySelector("#stevePreview .steve-body");
+  const leftArm = document.querySelector("#stevePreview .left-arm");
+  const rightArm = document.querySelector("#stevePreview .right-arm");
+  const leftLeg = document.querySelector("#stevePreview .left-leg");
+  const rightLeg = document.querySelector("#stevePreview .right-leg");
+  
+  if (!headModel || !bodyModel) return;
+  
+  let headFront = skin, headSides = skin, headTop = skin;
+  if (head === "zombie") {
+    headFront = "#4a7a4a"; headSides = "#4a7a4a"; headTop = "#4a7a4a";
+  } else if (head === "creeper") {
+    headFront = "#2e8b57"; headSides = "#2e8b57"; headTop = "#2e8b57";
+  } else if (head === "alex") {
+    headFront = skin; headSides = "#d06010"; headTop = "#d06010";
+  }
+  
+  [...headModel.children].forEach(f => {
+    if (f.classList.contains("face-front")) f.style.backgroundColor = headFront;
+    else if (f.classList.contains("face-top")) f.style.backgroundColor = headTop;
+    else f.style.backgroundColor = headSides;
+  });
+  
+  [...bodyModel.children].forEach(f => f.style.backgroundColor = shirt);
+  
+  [...leftArm.children].forEach(f => f.style.backgroundColor = f.classList.contains("face-bottom") ? skin : shirt);
+  [...rightArm.children].forEach(f => f.style.backgroundColor = f.classList.contains("face-bottom") ? skin : shirt);
+  
+  [...leftLeg.children].forEach(f => f.style.backgroundColor = pants);
+  [...rightLeg.children].forEach(f => f.style.backgroundColor = pants);
+}
