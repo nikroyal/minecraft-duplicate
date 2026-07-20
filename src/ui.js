@@ -10,7 +10,7 @@ import {
 import { attackMob } from './mobs.js';
 import { initAudio, playPlaceSound } from './audio.js';
 import { 
-  initFirebase, loginWithEmail, signupWithEmail, loginAnonymously, logoutUser, 
+  initFirebase, loginWithEmail, signupWithEmail, logoutUser, 
   manuallySyncLocalToCloud, resolveSyncConflict, fetchLeaderboard
 } from './firebase.js';
 
@@ -768,7 +768,6 @@ function setupFirebaseUI() {
 
   const loginBtn = document.getElementById("cloudLoginBtn");
   const signupBtn = document.getElementById("cloudSignupBtn");
-  const anonBtn = document.getElementById("cloudAnonBtn");
   const logoutBtn = document.getElementById("cloudLogoutBtn");
   const syncNowBtn = document.getElementById("cloudSyncNowBtn");
 
@@ -804,7 +803,7 @@ function setupFirebaseUI() {
       authCard?.classList.add("hidden");
       lobbyCard?.classList.remove("hidden");
       if (lobbyUserName) {
-        lobbyUserName.textContent = status.user.isAnonymous ? "Guest" : status.user.email;
+        lobbyUserName.textContent = status.user.email;
       }
     } else if (status.state === 'logged_out') {
       if (statusEl) statusEl.textContent = status.message;
@@ -812,6 +811,10 @@ function setupFirebaseUI() {
       loggedInEl?.classList.add("hidden");
       authCard?.classList.remove("hidden");
       lobbyCard?.classList.add("hidden");
+      
+      // Ensure buttons are reset on logout
+      if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = "Sign In"; }
+      if (signupBtn) { signupBtn.disabled = false; signupBtn.textContent = "Register"; }
     } else {
       if (statusEl) statusEl.textContent = status.message;
     }
@@ -830,7 +833,16 @@ function setupFirebaseUI() {
     const email = emailInp.value.trim();
     const password = passInp.value;
     if (!email || !password) return showError("Please enter email and password.");
-    loginWithEmail(email, password).catch(err => showError(err.message));
+    
+    if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = "Signing In..."; }
+    if (signupBtn) signupBtn.disabled = true;
+    
+    loginWithEmail(email, password)
+      .catch(err => {
+        showError(err.message);
+        if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = "Sign In"; }
+        if (signupBtn) signupBtn.disabled = false;
+      });
   });
 
   signupBtn?.addEventListener("click", () => {
@@ -838,11 +850,16 @@ function setupFirebaseUI() {
     const password = passInp.value;
     if (!email || !password) return showError("Please enter email and password.");
     if (password.length < 6) return showError("Password must be at least 6 characters.");
-    signupWithEmail(email, password).catch(err => showError(err.message));
-  });
-
-  anonBtn?.addEventListener("click", () => {
-    loginAnonymously().catch(err => showError(err.message));
+    
+    if (signupBtn) { signupBtn.disabled = true; signupBtn.textContent = "Registering..."; }
+    if (loginBtn) loginBtn.disabled = true;
+    
+    signupWithEmail(email, password)
+      .catch(err => {
+        showError(err.message);
+        if (signupBtn) { signupBtn.disabled = false; signupBtn.textContent = "Register"; }
+        if (loginBtn) loginBtn.disabled = false;
+      });
   });
 
   logoutBtn?.addEventListener("click", () => {

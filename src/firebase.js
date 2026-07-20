@@ -3,7 +3,6 @@ import {
   getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  signInAnonymously, 
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
@@ -51,11 +50,10 @@ export function initFirebase(onStatusChange, onSyncConflict) {
     onAuthStateChanged(auth, (user) => {
       currentUser = user;
       if (user) {
-        const displayName = user.isAnonymous ? "Anonymous User" : user.email;
         onStatusChange({ 
           state: 'logged_in', 
           user: user, 
-          message: `Signed in as: ${displayName}` 
+          message: `Signed in as: ${user.email}` 
         });
 
         // Trigger sync
@@ -130,11 +128,6 @@ export async function loginWithEmail(email, password) {
 export async function signupWithEmail(email, password) {
   if (!auth) throw new Error("Auth not initialized");
   return createUserWithEmailAndPassword(auth, email, password);
-}
-
-export async function loginAnonymously() {
-  if (!auth) throw new Error("Auth not initialized");
-  return signInAnonymously(auth);
 }
 
 export async function logoutUser() {
