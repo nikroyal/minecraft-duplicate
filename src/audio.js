@@ -221,3 +221,97 @@ export function playExplodeSound() {
   noise.start(now);
   noise.stop(now + 1.2);
 }
+
+export function playPigSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(80, now);
+  osc.frequency.linearRampToValueAtTime(110, now + 0.12);
+  
+  gain.gain.setValueAtTime(0.08, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(320, now);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  
+  osc.start(now);
+  osc.stop(now + 0.15);
+}
+
+export function playSheepSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(140, now);
+  osc.frequency.linearRampToValueAtTime(110, now + 0.4);
+  
+  gain.gain.setValueAtTime(0.06, now);
+  
+  // Sheep vibrating LFO
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = 16; 
+  const lfoGain = ctx.createGain();
+  lfoGain.gain.value = 0.04;
+  
+  lfo.connect(lfoGain);
+  lfoGain.connect(gain.gain);
+  
+  gain.gain.setValueAtTime(0.06, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(450, now);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  
+  lfo.start(now);
+  osc.start(now);
+  lfo.stop(now + 0.45);
+  osc.stop(now + 0.45);
+}
+
+export function playZombieSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(65, now);
+  osc.frequency.exponentialRampToValueAtTime(50, now + 0.7);
+  
+  gain.gain.setValueAtTime(0.12, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(220, now);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  
+  osc.start(now);
+  osc.stop(now + 0.75);
+}

@@ -18,6 +18,7 @@ export const player = {
   hunger: 20,
   dead: false,
   invuln: 0,
+  swingProgress: 0,
 };
 
 export const inventory = {};

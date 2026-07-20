@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { keys, touch, player, inventory, hotbar, game, webgl } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, BLOCKS, ITEMS, parentTiles, 
-  tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe
+  tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe, thingColor
 } from './config.js';
 import { 
   Chunk, getChunk, generateChunk, getBlock, setBlock, getLightGlobal, 
@@ -23,7 +23,8 @@ import {
   initUI, toast, updateHUD, updateClock, updateStatsHUD, flashDamage, 
   showDeathScreen, hideDeathScreen, buildHotbar, selectSlot, refreshCounts, 
   openCraft, closeCraft, switchTab, renderInventory, renderRecipes, 
-  craft, renderBlocks, saveWorld, scheduleSave, loadWorld, getCraftOpen 
+  craft, renderBlocks, saveWorld, scheduleSave, loadWorld, getCraftOpen,
+  openChest, openFurnace, isMenuOpen, tickFurnaces
 } from './ui.js';
 import { playPlaceSound, playMineSound } from './audio.js';
 
@@ -222,6 +223,18 @@ function blockColor(id){
 export function placeBlock(){
   const r = raycastVoxel(6);
   if(!r) return;
+  
+  // Intercept right click container interaction
+  const hitBlockId = getBlock(r.hit[0], r.hit[1], r.hit[2]);
+  if(hitBlockId === 43){ // Chest
+    openChest(r.hit[0], r.hit[1], r.hit[2]);
+    return;
+  }
+  if(hitBlockId === 42){ // Furnace
+    openFurnace(r.hit[0], r.hit[1], r.hit[2]);
+    return;
+  }
+
   const [x, y, z] = r.prev;
   const id = hotbar[game.selected];
   
@@ -272,6 +285,7 @@ function loop(now){
     updateMining(dt);
     updateSurvival(dt);
     updateMobs(dt);
+    tickFurnaces(dt);
   }
   
   updateChunkLoading();
@@ -286,6 +300,27 @@ function loop(now){
   webgl.camera.position.set(player.pos.x, player.pos.y + 1.6, player.pos.z);
   const dir = lookDir();
   webgl.camera.lookAt(webgl.camera.position.x + dir.x, webgl.camera.position.y + dir.y, webgl.camera.position.z + dir.z);
+
+  // First person swinging animation
+  if(player.swingProgress > 0){
+    player.swingProgress += dt * 5.0;
+    if(player.swingProgress >= 1.0){
+      player.swingProgress = 0;
+    }
+  }
+  
+  if(webgl.heldGroup){
+    if(player.swingProgress > 0){
+      const phase = player.swingProgress;
+      const rotX = Math.sin(phase * Math.PI) * -0.7;
+      const rotY = Math.sin(phase * Math.PI) * 0.4;
+      webgl.heldGroup.rotation.set(rotX, rotY, rotX * 0.5);
+      webgl.heldGroup.position.set(0.24 - Math.sin(phase * Math.PI)*0.08, -0.2 - Math.sin(phase * Math.PI)*0.06, -0.35);
+    } else {
+      webgl.heldGroup.rotation.set(0, 0, 0);
+      webgl.heldGroup.position.set(0.24, -0.2, -0.35);
+    }
+  }
 
   // Crosshair targeted block highlight
   if(game.running){
@@ -334,6 +369,11 @@ export function bootGame() {
   webgl.scene.fog = new THREE.Fog(0x8fc3e8, RENDER_DIST*16*0.55, RENDER_DIST*16*0.95);
 
   webgl.camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 1000);
+  
+  // First person held tool camera group
+  webgl.heldGroup = new THREE.Group();
+  webgl.camera.add(webgl.heldGroup);
+  webgl.scene.add(webgl.camera);
 
   webgl.dirLight = new THREE.DirectionalLight(0xfff0d8, 0.9);
   webgl.dirLight.position.set(0.5, 1, 0.3);
@@ -414,9 +454,10 @@ export function bootGame() {
       if(!touch.isTouch && game.running) webgl.renderer.domElement.requestPointerLock();
       return;
     }
-    if(getCraftOpen()) return;
+    if(getCraftOpen() || isMenuOpen()) return;
     
     if(e.button === 0){ // Left Click: mine / attack
+      if(player.swingProgress === 0) player.swingProgress = 0.01;
       if(!attackMob()){
         mining.held = true;
       }
@@ -453,7 +494,7 @@ export function bootGame() {
 
   // Scroll wheel to change selected slot
   window.addEventListener("wheel", (e) => {
-    if(document.pointerLockElement !== webgl.renderer.domElement || getCraftOpen()) return;
+    if(document.pointerLockElement !== webgl.renderer.domElement || isMenuOpen()) return;
     let s = game.selected + Math.sign(e.deltaY);
     if(s < 0) s = 7;
     if(s > 7) s = 0;
@@ -501,7 +542,45 @@ export function bootGame() {
   }
 
   unstick();
+  updateHeldItemMesh();
   requestAnimationFrame(loop);
+}
+
+export function updateHeldItemMesh() {
+  if (!webgl.heldGroup) return;
+  
+  while(webgl.heldGroup.children.length > 0) {
+    const c = webgl.heldGroup.children[0];
+    webgl.heldGroup.remove(c);
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) {
+      if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+      else c.material.dispose();
+    }
+  }
+  
+  const id = hotbar[game.selected];
+  if (id === 0 || invCount(id) <= 0) {
+    const geo = new THREE.BoxGeometry(0.06, 0.06, 0.22);
+    const mat = new THREE.MeshLambertMaterial({color: 0xdfcfb7});
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(0, 0, 0);
+    webgl.heldGroup.add(m);
+  } else {
+    const col = thingColor(id);
+    const placeable = isPlaceable(id);
+    
+    const geo = placeable 
+      ? new THREE.BoxGeometry(0.08, 0.08, 0.08)
+      : new THREE.BoxGeometry(0.02, 0.02, 0.25);
+    const mat = new THREE.MeshLambertMaterial({color: col});
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(0, 0, 0);
+    webgl.heldGroup.add(m);
+  }
+  
+  webgl.heldGroup.position.set(0.24, -0.2, -0.35);
+  webgl.heldGroup.rotation.set(0, 0, 0);
 }
 
 // Auto start game bootloader

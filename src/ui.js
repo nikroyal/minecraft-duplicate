@@ -8,7 +8,7 @@ import {
   respawnPlayer, eatSelected, invCount, addItem, removeItem, heldTool, unstick 
 } from './player.js';
 import { attackMob } from './mobs.js';
-import { initAudio } from './audio.js';
+import { initAudio, playPlaceSound } from './audio.js';
 import { 
   initFirebase, loginWithEmail, signupWithEmail, loginAnonymously, logoutUser, 
   manuallySyncLocalToCloud, resolveSyncConflict, fetchLeaderboard
@@ -44,6 +44,7 @@ let blockFilter = "All";
 const CAT_ORDER = ["Nature","Wood","Stone","Ore","Glass","Light","Wool","Utility","Storage","Liquid","Shape"];
 
 export function getCraftOpen() { return craftOpen; }
+export function isMenuOpen() { return craftOpen || chestOpen || furnaceOpen; }
 
 // Initialize all DOM elements and set up event listeners
 export function initUI(placeBlockCallback, miningStateRef) {
@@ -77,6 +78,12 @@ export function initUI(placeBlockCallback, miningStateRef) {
   // Core Buttons
   document.getElementById("craftClose").addEventListener("click", closeCraft);
   document.getElementById("respawnBtn").addEventListener("click", () => respawnPlayer());
+
+  chestScreen = document.getElementById("chestScreen");
+  furnaceScreen = document.getElementById("furnaceScreen");
+  
+  document.getElementById("chestClose").addEventListener("click", closeChest);
+  document.getElementById("furnaceClose").addEventListener("click", closeFurnace);
 
   const surfaceBtn = document.getElementById("surfaceBtn");
   const playBtn = document.getElementById("playBtn");
@@ -236,11 +243,15 @@ export function initUI(placeBlockCallback, miningStateRef) {
   window.addEventListener("keydown", (e) => {
     if(e.code === "KeyE" && game.running){
       if(craftOpen) closeCraft();
+      else if(chestOpen) closeChest();
+      else if(furnaceOpen) closeFurnace();
       else openCraft();
       e.preventDefault();
     }
     if(e.code === "Escape"){
       if(craftOpen) { closeCraft(); e.preventDefault(); }
+      else if(chestOpen) { closeChest(); e.preventDefault(); }
+      else if(furnaceOpen) { closeFurnace(); e.preventDefault(); }
     }
   });
 
@@ -836,6 +847,8 @@ export function saveWorld(){
 
   const payload={
     edits: world.edits,
+    chests: world.chests,
+    furnaces: world.furnaces,
     inventory,
     hotbar,
     player:{
@@ -870,6 +883,8 @@ export function loadWorld(){
     if(!raw) return false;
     const p=JSON.parse(raw);
     world.edits=p.edits||{};
+    world.chests=p.chests||{};
+    world.furnaces=p.furnaces||{};
     if(p.inventory) Object.assign(inventory,p.inventory);
     if(Array.isArray(p.hotbar) && p.hotbar.length===8) {
       for(let i=0; i<8; i++) hotbar[i] = p.hotbar[i];
@@ -886,6 +901,360 @@ export function loadWorld(){
     return true;
   } catch(e) {
     return false;
+  }
+}
+
+// Setup before unload listener
+window.addEventListener("beforeunload", saveWorld);
+
+// ---- Chest & Furnace Systems -----------------------------------------------
+export let chestOpen = false;
+export let furnaceOpen = false;
+let activeChestCoords = null;
+let activeFurnaceCoords = null;
+
+let chestScreen = null;
+let furnaceScreen = null;
+
+const chestPlayerGrid = () => document.getElementById("chestPlayerGrid");
+const chestGrid = () => document.getElementById("chestGrid");
+const furnaceInventoryGrid = () => document.getElementById("furnaceInventoryGrid");
+const furnaceInputSlot = () => document.getElementById("furnaceInputSlot");
+const furnaceFuelSlot = () => document.getElementById("furnaceFuelSlot");
+const furnaceOutputSlot = () => document.getElementById("furnaceOutputSlot");
+const furnaceFlame = () => document.getElementById("furnaceFlame");
+const furnaceSmeltProgress = () => document.getElementById("furnaceSmeltProgress");
+
+export function openChest(x, y, z) {
+  chestOpen = true;
+  activeChestCoords = `${x},${y},${z}`;
+  
+  world.chests = world.chests || {};
+  if (!world.chests[activeChestCoords]) {
+    world.chests[activeChestCoords] = Array.from({length: 27}, () => ({id: 0, count: 0}));
+  }
+  
+  if (chestScreen) chestScreen.classList.remove("hidden");
+  document.exitPointerLock();
+  renderChestGUI();
+}
+
+export function closeChest() {
+  chestOpen = false;
+  activeChestCoords = null;
+  if (chestScreen) chestScreen.classList.add("hidden");
+  if (!touch.isTouch && game.running) {
+    webgl.renderer.domElement.requestPointerLock();
+  }
+}
+
+function renderChestGUI() {
+  const pGrid = chestPlayerGrid();
+  const cGrid = chestGrid();
+  if (!pGrid || !cGrid) return;
+  
+  pGrid.innerHTML = "";
+  cGrid.innerHTML = "";
+  
+  // Render Player Inventory
+  const ids = Object.keys(inventory).map(Number).filter(id => invCount(id) > 0);
+  if (ids.length === 0) {
+    pGrid.innerHTML = '<div class="inv-empty" style="font-size:10px;">Empty inventory</div>';
+  } else {
+    ids.sort((a,b) => a-b);
+    for (const id of ids) {
+      const cell = document.createElement("div");
+      cell.className = "inv-cell clickable";
+      cell.innerHTML = `
+        ${swatch3DMarkup(id)}
+        <span class="count">${invCount(id)}</span>
+        <span class="tip">${thingName(id)} (Click to store)</span>
+      `;
+      cell.addEventListener("click", () => {
+        const chest = world.chests[activeChestCoords];
+        let slot = chest.find(s => s.id === id && s.count < 64);
+        if (!slot) slot = chest.find(s => s.id === 0);
+        if (slot) {
+          slot.id = id;
+          slot.count = (slot.count || 0) + 1;
+          removeItem(id, 1);
+          playPlaceSound(id);
+          renderChestGUI();
+          refreshCounts();
+          scheduleSave();
+        }
+      });
+      pGrid.appendChild(cell);
+    }
+  }
+  
+  // Render Chest Storage (27 slots)
+  const chest = world.chests[activeChestCoords];
+  chest.forEach((slot, idx) => {
+    const cell = document.createElement("div");
+    cell.className = "inv-cell clickable";
+    cell.style.minHeight = "40px";
+    
+    if (slot.id !== 0) {
+      cell.innerHTML = `
+        ${swatch3DMarkup(slot.id)}
+        <span class="count">${slot.count}</span>
+        <span class="tip">${thingName(slot.id)} (Click to retrieve)</span>
+      `;
+      cell.addEventListener("click", () => {
+        const id = slot.id;
+        addItem(id, 1);
+        slot.count--;
+        if (slot.count <= 0) {
+          slot.id = 0;
+          slot.count = 0;
+        }
+        playPlaceSound(id);
+        renderChestGUI();
+        refreshCounts();
+        scheduleSave();
+      });
+    } else {
+      cell.innerHTML = `<span style="font-size:8px; color:rgba(255,255,255,0.15); font-weight:700;">${idx+1}</span>`;
+      cell.style.border = "1px solid rgba(214,178,120,0.15)";
+      cell.style.background = "rgba(0,0,0,0.2)";
+    }
+    cGrid.appendChild(cell);
+  });
+}
+
+function getFuelBurnTime(id) {
+  if (id === 11 || id === 101 || id === 120) return 80;
+  if (id === 5 || id === 22 || id === 23) return 15;
+  if (id === 7 || id === 31 || id === 32) return 15;
+  return 0;
+}
+
+function getSmeltResult(id) {
+  if (id === 133) return { out: 134, label: "Cooked Meat" };
+  if (id === 12) return { out: 102, label: "Iron Ingot" };
+  if (id === 13) return { out: 103, label: "Gold Ingot" };
+  if (id === 14) return { out: 104, label: "Diamond" };
+  if (id === 4) return { out: 9, label: "Glass" };
+  if (id === 15) return { out: 3, label: "Stone" };
+  if (id === 3) return { out: 40, label: "Smooth Stone" };
+  return null;
+}
+
+export function openFurnace(x, y, z) {
+  furnaceOpen = true;
+  activeFurnaceCoords = `${x},${y},${z}`;
+  
+  world.furnaces = world.furnaces || {};
+  if (!world.furnaces[activeFurnaceCoords]) {
+    world.furnaces[activeFurnaceCoords] = {
+      inputId: 0, inputCount: 0,
+      fuelId: 0, fuelCount: 0,
+      outputId: 0, outputCount: 0,
+      smeltProgress: 0,
+      burnTime: 0,
+      maxBurnTime: 0
+    };
+  }
+  
+  if (furnaceScreen) furnaceScreen.classList.remove("hidden");
+  document.exitPointerLock();
+  updateFurnaceGUI();
+}
+
+export function closeFurnace() {
+  furnaceOpen = false;
+  activeFurnaceCoords = null;
+  if (furnaceScreen) furnaceScreen.classList.add("hidden");
+  if (!touch.isTouch && game.running) {
+    webgl.renderer.domElement.requestPointerLock();
+  }
+}
+
+function updateFurnaceGUI() {
+  const f = world.furnaces[activeFurnaceCoords];
+  if (!f) return;
+  
+  const inSlot = furnaceInputSlot();
+  const fuSlot = furnaceFuelSlot();
+  const outSlot = furnaceOutputSlot();
+  const flame = furnaceFlame();
+  const prog = furnaceSmeltProgress();
+  const invGrid = furnaceInventoryGrid();
+  
+  if (!inSlot || !fuSlot || !outSlot || !flame || !prog || !invGrid) return;
+  
+  if (f.inputId !== 0) {
+    inSlot.innerHTML = `
+      ${swatch3DMarkup(f.inputId)}
+      <span class="count">${f.inputCount}</span>
+      <span class="tip">${thingName(f.inputId)} (Click to take)</span>
+    `;
+    inSlot.style.border = "2px solid var(--gold)";
+    inSlot.onclick = () => {
+      addItem(f.inputId, 1);
+      f.inputCount--;
+      if (f.inputCount <= 0) { f.inputId = 0; f.inputCount = 0; }
+      playPlaceSound(f.inputId);
+      updateFurnaceGUI();
+      refreshCounts();
+      scheduleSave();
+    };
+  } else {
+    inSlot.innerHTML = `<span style="font-size:9px; color:rgba(255,255,255,0.2);">IN</span>`;
+    inSlot.style.border = "2px dashed rgba(214,178,120,0.3)";
+    inSlot.onclick = null;
+  }
+  
+  if (f.fuelId !== 0) {
+    fuSlot.innerHTML = `
+      ${swatch3DMarkup(f.fuelId)}
+      <span class="count">${f.fuelCount}</span>
+      <span class="tip">${thingName(f.fuelId)} (Click to take)</span>
+    `;
+    fuSlot.style.border = "2px solid var(--gold)";
+    fuSlot.onclick = () => {
+      addItem(f.fuelId, 1);
+      f.fuelCount--;
+      if (f.fuelCount <= 0) { f.fuelId = 0; f.fuelCount = 0; }
+      playPlaceSound(f.fuelId);
+      updateFurnaceGUI();
+      refreshCounts();
+      scheduleSave();
+    };
+  } else {
+    fuSlot.innerHTML = `<span style="font-size:9px; color:rgba(255,255,255,0.2);">FUEL</span>`;
+    fuSlot.style.border = "2px dashed rgba(214,178,120,0.3)";
+    fuSlot.onclick = null;
+  }
+  
+  if (f.outputId !== 0) {
+    outSlot.innerHTML = `
+      ${swatch3DMarkup(f.outputId)}
+      <span class="count">${f.outputCount}</span>
+      <span class="tip">${thingName(f.outputId)} (Click to take all)</span>
+    `;
+    outSlot.onclick = () => {
+      addItem(f.outputId, f.outputCount);
+      const outId = f.outputId;
+      f.outputId = 0;
+      f.outputCount = 0;
+      playPlaceSound(outId);
+      updateFurnaceGUI();
+      refreshCounts();
+      scheduleSave();
+    };
+  } else {
+    outSlot.innerHTML = `<span style="font-size:9px; color:rgba(255,255,255,0.2);">OUT</span>`;
+    outSlot.onclick = null;
+  }
+  
+  flame.style.color = f.burnTime > 0 ? "#ff5722" : "#888";
+  flame.style.textShadow = f.burnTime > 0 ? "0 0 8px #ff5722" : "none";
+  
+  const percent = (f.smeltProgress / 8.0) * 100;
+  prog.style.width = `${Math.min(100, percent)}%`;
+  
+  invGrid.innerHTML = "";
+  const ids = Object.keys(inventory).map(Number).filter(id => invCount(id) > 0);
+  if (ids.length === 0) {
+    invGrid.innerHTML = '<div class="inv-empty" style="font-size:10px;">Empty inventory</div>';
+  } else {
+    ids.sort((a,b) => a-b);
+    for (const id of ids) {
+      const cell = document.createElement("div");
+      cell.className = "inv-cell clickable";
+      cell.innerHTML = `
+        ${swatch3DMarkup(id)}
+        <span class="count">${invCount(id)}</span>
+        <span class="tip">${thingName(id)}</span>
+      `;
+      cell.addEventListener("click", () => {
+        const smeltable = getSmeltResult(id);
+        const fuelVal = getFuelBurnTime(id);
+        
+        if (smeltable) {
+          if (f.inputId === 0 || f.inputId === id) {
+            f.inputId = id;
+            f.inputCount = (f.inputCount || 0) + 1;
+            removeItem(id, 1);
+            playPlaceSound(id);
+            updateFurnaceGUI();
+            refreshCounts();
+            scheduleSave();
+          } else {
+            toast("Input slot occupied");
+          }
+        } else if (fuelVal > 0) {
+          if (f.fuelId === 0 || f.fuelId === id) {
+            f.fuelId = id;
+            f.fuelCount = (f.fuelCount || 0) + 1;
+            removeItem(id, 1);
+            playPlaceSound(id);
+            updateFurnaceGUI();
+            refreshCounts();
+            scheduleSave();
+          } else {
+            toast("Fuel slot occupied");
+          }
+        } else {
+          toast("Not smelting item / fuel");
+        }
+      });
+      invGrid.appendChild(cell);
+    }
+  }
+}
+
+export function tickFurnaces(dt) {
+  if (!world.furnaces) return;
+  
+  for (const coords in world.furnaces) {
+    const f = world.furnaces[coords];
+    
+    if (f.burnTime > 0) {
+      f.burnTime -= dt;
+      if (f.burnTime < 0) f.burnTime = 0;
+    }
+    
+    const smeltable = getSmeltResult(f.inputId);
+    
+    if (f.burnTime <= 0 && f.fuelCount > 0 && f.inputCount > 0 && smeltable) {
+      const canOutput = f.outputCount === 0 || (f.outputId === smeltable.out && f.outputCount < 64);
+      if (canOutput) {
+        const duration = getFuelBurnTime(f.fuelId);
+        if (duration > 0) {
+          f.burnTime = duration;
+          f.maxBurnTime = duration;
+          f.fuelCount--;
+          if (f.fuelCount <= 0) { f.fuelId = 0; f.fuelCount = 0; }
+          scheduleSave();
+        }
+      }
+    }
+    
+    if (f.burnTime > 0 && f.inputCount > 0 && smeltable) {
+      const canOutput = f.outputCount === 0 || (f.outputId === smeltable.out && f.outputCount < 64);
+      if (canOutput) {
+        f.smeltProgress += dt;
+        if (f.smeltProgress >= 8.0) {
+          f.smeltProgress = 0;
+          f.inputCount--;
+          if (f.inputCount <= 0) { f.inputId = 0; f.inputCount = 0; }
+          f.outputId = smeltable.out;
+          f.outputCount = (f.outputCount || 0) + 1;
+          scheduleSave();
+        }
+      } else {
+        f.smeltProgress = 0;
+      }
+    } else {
+      f.smeltProgress = Math.max(0, f.smeltProgress - dt * 2.0);
+    }
+    
+    if (furnaceOpen && activeFurnaceCoords === coords) {
+      updateFurnaceGUI();
+    }
   }
 }
 

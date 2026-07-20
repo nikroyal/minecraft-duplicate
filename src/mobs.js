@@ -6,7 +6,7 @@ import {
   hurtPlayer, addItem, heldTool, collisionSolid, chunkReadyAt, eyePos, lookDir 
 } from './player.js';
 import { toast, scheduleSave } from './ui.js';
-import { playHissSound, stopHissSound, playExplodeSound, playHitSound } from './audio.js';
+import { playHissSound, stopHissSound, playExplodeSound, playHitSound, playPigSound, playSheepSound, playZombieSound } from './audio.js';
 
 const GRAV = -26;
 
@@ -325,6 +325,18 @@ export function updateMobs(dt){
 
     if(wishX || wishZ) m.mesh.rotation.y = Math.atan2(wishX, wishZ);
     m.mesh.position.copy(m.pos); 
+
+    // Ambient sound triggers
+    m.ambientTimer = (m.ambientTimer || 0) + dt;
+    const voiceTrigger = 10 + Math.random()*15;
+    if(m.ambientTimer >= voiceTrigger){
+      m.ambientTimer = 0;
+      if(distToPlayer < 24){
+        if(m.type === "pig") playPigSound();
+        else if(m.type === "sheep") playSheepSound();
+        else if(m.type === "zombie") playZombieSound();
+      }
+    }
 
     // Animate leg swings
     if(m.mesh.legs && (Math.abs(m.vel.x) + Math.abs(m.vel.z) > 0.1)){
