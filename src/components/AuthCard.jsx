@@ -45,6 +45,7 @@ export default function AuthCard({ authStatus }) {
         <div className="cloud-title">🔑 Sign In or Create Account</div>
         <div className="cloud-input-group">
           <input
+            id="authEmail"
             type="email"
             className="cloud-input"
             placeholder="Email Address"
@@ -54,6 +55,7 @@ export default function AuthCard({ authStatus }) {
             disabled={loading}
           />
           <input
+            id="authPassword"
             type="password"
             className="cloud-input"
             placeholder="Password"
@@ -67,6 +69,7 @@ export default function AuthCard({ authStatus }) {
         </div>
         <div className="cloud-actions" style={{ marginTop: '15px', justifyContent: 'center', gap: '8px' }}>
           <button
+            id="authSignInBtn"
             className="cloud-btn"
             disabled={loading}
             onClick={handleSignIn}
@@ -75,6 +78,7 @@ export default function AuthCard({ authStatus }) {
             {loading ? "Signing In..." : "Sign In"}
           </button>
           <button
+            id="authRegisterBtn"
             className="cloud-btn secondary"
             disabled={loading}
             onClick={handleRegister}
