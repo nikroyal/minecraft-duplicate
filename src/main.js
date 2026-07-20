@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks, world } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks, world, reactBridge } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, BLOCKS, ITEMS, parentTiles, 
   tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe, thingColor
@@ -23,7 +23,8 @@ import {
   initUI, toast, updateHUD, updateClock, updateStatsHUD, flashDamage, 
   showDeathScreen, hideDeathScreen, buildHotbar, selectSlot, refreshCounts, 
   openCraft, closeCraft, craft, saveWorld, scheduleSave, loadWorld, getCraftOpen,
-  openChest, openFurnace, isMenuOpen, tickFurnaces
+  openChest, openFurnace, isMenuOpen, tickFurnaces, uiState,
+  setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords
 } from './ui.js';
 import { playPlaceSound, playMineSound } from './audio.js';
 
@@ -513,6 +514,10 @@ export function bootGame() {
 
   document.addEventListener("pointerlockchange", () => {
     game.pointerLocked = (document.pointerLockElement === webgl.renderer.domElement);
+    if (!game.pointerLocked && !isMenuOpen() && !player.dead && game.running) {
+      game.running = false;
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    }
   });
 
   // Action listeners (left/right click)
@@ -540,7 +545,38 @@ export function bootGame() {
 
   // Keyboard binding updates
   window.addEventListener("keydown", (e) => {
-    if(isMenuOpen() || player.dead || !game.running) return;
+    // If a menu is open, only capture E or Escape keys to close it
+    if(isMenuOpen()){
+      if(e.code === "KeyE" || e.code === "Escape"){
+        e.preventDefault();
+        if (uiState.craftOpen) closeCraft();
+        if (uiState.chestOpen) {
+          setChestOpen(false);
+          setActiveChestCoords(null);
+          if (!window.__touch?.isTouch && game.running) {
+            try { document.getElementById('game')?.requestPointerLock(); } catch(err){}
+          }
+          if (reactBridge.updateUI) reactBridge.updateUI();
+        }
+        if (uiState.furnaceOpen) {
+          setFurnaceOpen(false);
+          setActiveFurnaceCoords(null);
+          if (!window.__touch?.isTouch && game.running) {
+            try { document.getElementById('game')?.requestPointerLock(); } catch(err){}
+          }
+          if (reactBridge.updateUI) reactBridge.updateUI();
+        }
+      }
+      return;
+    }
+
+    if(player.dead || !game.running) return;
+
+    if(e.code === "KeyE"){
+      e.preventDefault();
+      openCraft();
+      return;
+    }
     
     // Cycle camera modes on F5 / KeyH press
     if(e.code === "F5" || e.code === "KeyH"){

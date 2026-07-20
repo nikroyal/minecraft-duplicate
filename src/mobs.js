@@ -204,15 +204,25 @@ export function mobCollides(m, px, py, pz){
 
 export function mobMoveAxis(m, axis, amt){
   const p = m.pos;
-  if(axis === "x"){ 
-    if(!mobCollides(m, p.x+amt, p.y, p.z)) p.x += amt; 
-    else m.vel.x = 0; 
-  } else if(axis === "y"){ 
-    if(!mobCollides(m, p.x, p.y+amt, p.z)) p.y += amt; 
-    else { if(amt < 0) m.onGround = true; m.vel.y = 0; } 
-  } else { 
-    if(!mobCollides(m, p.x, p.y, p.z+amt)) p.z += amt; 
-    else m.vel.z = 0; 
+  let remaining = amt;
+  const stepSize = 0.15; // smaller steps for precise landing
+  while(Math.abs(remaining) > 0.001){
+    const step = Math.sign(remaining) * Math.min(Math.abs(remaining), stepSize);
+    if(axis === "x"){
+      if(!mobCollides(m, p.x+step, p.y, p.z)) p.x += step;
+      else { m.vel.x = 0; break; }
+    } else if(axis === "y"){
+      if(!mobCollides(m, p.x, p.y+step, p.z)) p.y += step;
+      else {
+        if(step < 0) m.onGround = true;
+        m.vel.y = 0;
+        break;
+      }
+    } else {
+      if(!mobCollides(m, p.x, p.y, p.z+step)) p.z += step;
+      else { m.vel.z = 0; break; }
+    }
+    remaining -= step;
   }
 }
 
