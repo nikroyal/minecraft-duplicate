@@ -524,7 +524,12 @@ export function bootGame() {
   webgl.renderer.domElement.addEventListener("mousedown", (e) => {
     if(player.dead) return;
     if(document.pointerLockElement !== webgl.renderer.domElement){
-      if(!touch.isTouch && game.running) document.getElementById('game')?.requestPointerLock();
+      if(!touch.isTouch && game.running) {
+        try {
+          const promise = document.getElementById('game')?.requestPointerLock();
+          if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+        } catch(e){}
+      }
       return;
     }
     if(getCraftOpen() || isMenuOpen()) return;
@@ -554,7 +559,10 @@ export function bootGame() {
           setChestOpen(false);
           setActiveChestCoords(null);
           if (!window.__touch?.isTouch && game.running) {
-            try { document.getElementById('game')?.requestPointerLock(); } catch(err){}
+            try {
+              const promise = document.getElementById('game')?.requestPointerLock();
+              if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+            } catch(err){}
           }
           if (reactBridge.updateUI) reactBridge.updateUI();
         }
@@ -562,7 +570,10 @@ export function bootGame() {
           setFurnaceOpen(false);
           setActiveFurnaceCoords(null);
           if (!window.__touch?.isTouch && game.running) {
-            try { document.getElementById('game')?.requestPointerLock(); } catch(err){}
+            try {
+              const promise = document.getElementById('game')?.requestPointerLock();
+              if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+            } catch(err){}
           }
           if (reactBridge.updateUI) reactBridge.updateUI();
         }

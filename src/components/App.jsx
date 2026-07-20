@@ -94,7 +94,10 @@ export default function App() {
     setChestOpen(false);
     setActiveChestCoords(null);
     if (!window.__touch?.isTouch && game.running) {
-      try { document.getElementById('game')?.requestPointerLock(); } catch(e){}
+      try {
+        const promise = document.getElementById('game')?.requestPointerLock();
+        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+      } catch(e){}
     }
     forceUpdate();
   };
@@ -103,7 +106,10 @@ export default function App() {
     setFurnaceOpen(false);
     setActiveFurnaceCoords(null);
     if (!window.__touch?.isTouch && game.running) {
-      try { document.getElementById('game')?.requestPointerLock(); } catch(e){}
+      try {
+        const promise = document.getElementById('game')?.requestPointerLock();
+        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+      } catch(e){}
     }
     forceUpdate();
   };
@@ -148,7 +154,10 @@ export default function App() {
                 initAudio();
                 forceUpdate();
                 setTimeout(() => {
-                  try { document.getElementById('game')?.requestPointerLock(); } catch(e){}
+                  try {
+                    const promise = document.getElementById('game')?.requestPointerLock();
+                    if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+                  } catch(e){}
                 }, 100);
               }}
             />

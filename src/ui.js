@@ -32,7 +32,10 @@ export function openCraft() {
 export function closeCraft() {
   uiState.craftOpen = false;
   if(!touch.isTouch && game.running) {
-    try { webgl.renderer.domElement.requestPointerLock(); } catch(e){}
+    try {
+      const promise = webgl.renderer.domElement.requestPointerLock();
+      if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+    } catch(e){}
   }
   if (reactBridge.updateUI) reactBridge.updateUI();
 }
