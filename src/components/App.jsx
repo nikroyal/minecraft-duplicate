@@ -182,11 +182,11 @@ export default function App() {
               <div className="chest-card" style={{ maxWidth: '640px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                   <div className="dashboard-tabs" style={{ margin: 0 }}>
-                    {['craft','blocks','manual'].map(tab => (
+                    {['craft','blocks','recipes','manual'].map(tab => (
                       <button key={tab} className={`dash-tab ${craftTab === tab ? 'active' : ''}`}
                         style={{ padding: '4px 10px', fontSize: '10px' }}
                         onClick={() => setCraftTab(tab)}>
-                        {tab === 'craft' ? '🔨 Craft' : tab === 'blocks' ? '📚 Encyclopedia' : '📖 Manual'}
+                        {tab === 'craft' ? '🔨 Craft' : tab === 'blocks' ? '📚 Encyclopedia' : tab === 'recipes' ? '📜 Recipes' : '📖 Manual'}
                       </button>
                     ))}
                   </div>
@@ -253,6 +253,63 @@ export default function App() {
                   </div>
                 )}
 
+                {craftTab === 'recipes' && (
+                  <div className="craft-body" style={{ maxHeight: '280px', overflowY: 'auto', gap: '20px', padding: '10px 0' }}>
+                    {/* Crafting Table Recipes (left) */}
+                    <div className="craft-col" style={{ flex: 1.2 }}>
+                      <div className="craft-label" style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>🔨 Crafting Table Recipes</div>
+                      <div className="recipe-list" style={{ maxHeight: '230px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {RECIPES.map((recipe, i) => (
+                          <div key={i} className="recipe-row" style={{ opacity: 1, cursor: 'default', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--slot-line)', borderRadius: '4px', padding: '6px', marginBottom: '4px', display: 'flex', alignItems: 'center', minHeight: '44px' }}>
+                            <div className="r-swatch-container" style={{ width: '28px', height: '28px', display: 'grid', placeItems: 'center' }}><Swatch3D id={recipe.out} /></div>
+                            <div style={{ flex: 1, paddingLeft: '10px' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>
+                                {thingName(recipe.out)}{recipe.qty > 1 ? ` ×${recipe.qty}` : ''}
+                              </div>
+                              <div style={{ fontSize: '8px', color: '#9a8a76', lineHeight: 1.2 }}>{recipe.label}</div>
+                              <div style={{ fontSize: '8px', color: 'var(--gold)', marginTop: '2px', fontWeight: 600 }}>
+                                Req: {Object.keys(recipe.in).map(reqId => `${recipe.in[reqId]}x ${thingName(Number(reqId))}`).join(', ')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Smelting Recipes (right) */}
+                    <div className="craft-col" style={{ flex: 1 }}>
+                      <div className="craft-label" style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>🔥 Furnace Smelting Guide</div>
+                      <div className="recipe-list" style={{ maxHeight: '230px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {[
+                          { inId: 12, outId: 102, desc: "Smelts Iron Ore into Iron Ingots" },
+                          { inId: 13, outId: 103, desc: "Smelts Gold Ore into Gold Ingots" },
+                          { inId: 14, outId: 104, desc: "Smelts Diamond Ore into Diamonds" },
+                          { inId: 4, outId: 9, desc: "Smelts Sand blocks into Glass blocks" },
+                          { inId: 15, outId: 3, desc: "Smelts Cobblestone into Stone blocks" },
+                          { inId: 3, outId: 40, desc: "Smelts Stone into Smooth Stone blocks" },
+                          { inId: 23, outId: 120, desc: "Smelts Oak Wood logs into Charcoal fuel" },
+                          { inId: 28, outId: 36, desc: "Smelts Clay blocks into Terracotta blocks" },
+                          { inId: 133, outId: 134, desc: "Smelts raw meat into Cooked Meat food" }
+                        ].map((s, idx) => (
+                          <div key={idx} className="recipe-row" style={{ opacity: 1, cursor: 'default', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--slot-line)', borderRadius: '4px', padding: '6px', marginBottom: '4px', display: 'flex', alignItems: 'center', minHeight: '44px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                              <Swatch3D id={s.inId} />
+                              <span style={{ color: 'var(--gold)', fontSize: '8px', fontWeight: 'bold' }}>➔</span>
+                              <Swatch3D id={s.outId} />
+                            </div>
+                            <div style={{ flex: 1, paddingLeft: '10px' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>
+                                {thingName(s.outId)}
+                              </div>
+                              <div style={{ fontSize: '8px', color: '#9a8a76', lineHeight: 1.2 }}>{s.desc}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {craftTab === 'manual' && (
                   <div className="manual-body" style={{ maxHeight: '280px', overflowY: 'auto', paddingRight: '6px' }}>
                     <h3>Welcome to Voxel</h3>
@@ -283,16 +340,6 @@ export default function App() {
                     <ul>
                       <li><strong>Chests (8 planks):</strong> Place and right-click to open. Click items in your inventory to store them, or click items inside the chest to retrieve them. Breaking a chest drops all stored contents.</li>
                       <li><strong>Furnaces (8 cobble):</strong> Place and right-click to smelt ores. Place smeltable ores (Iron Ore, Gold Ore) in the top slot, and combustible fuel (Coal, Log, Planks) in the bottom slot. Output appears on the right once smelted.</li>
-                    </ul>
-
-                    <h3>Smelting Recipes Reference</h3>
-                    <ul>
-                      <li><strong>Iron Ore</strong> ➔ Iron Ingot (Requires Coal / Planks)</li>
-                      <li><strong>Gold Ore</strong> ➔ Gold Ingot (Requires Coal / Planks)</li>
-                      <li><strong>Sand</strong> ➔ Glass</li>
-                      <li><strong>Wood Log</strong> ➔ Charcoal (High-efficiency fuel)</li>
-                      <li><strong>Cobblestone</strong> ➔ Stone ➔ Smooth Stone</li>
-                      <li><strong>Raw Meat (from Sheep/Pigs)</strong> ➔ Cooked Meat (Restores full hunger/health)</li>
                     </ul>
 
                     <h3>Monsters &amp; Threats</h3>
