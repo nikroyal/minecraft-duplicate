@@ -844,15 +844,21 @@ function setupFirebaseUI() {
 
   // Bind Buttons
   loginBtn?.addEventListener("click", () => {
+    console.log("Sign In button clicked");
     const email = emailInp.value.trim();
     const password = passInp.value;
+    console.log("Attempting login for:", email);
     if (!email || !password) return showError("Please enter email and password.");
     
     if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = "Signing In..."; }
     if (signupBtn) signupBtn.disabled = true;
     
     loginWithEmail(email, password)
+      .then((user) => {
+        console.log("Login successful:", user);
+      })
       .catch(err => {
+        console.error("Login failed with error:", err);
         showError(err.message);
         if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = "Sign In"; }
         if (signupBtn) signupBtn.disabled = false;
@@ -860,8 +866,10 @@ function setupFirebaseUI() {
   });
 
   signupBtn?.addEventListener("click", () => {
+    console.log("Register button clicked");
     const email = emailInp.value.trim();
     const password = passInp.value;
+    console.log("Attempting registration for:", email);
     if (!email || !password) return showError("Please enter email and password.");
     if (password.length < 6) return showError("Password must be at least 6 characters.");
     
@@ -869,7 +877,11 @@ function setupFirebaseUI() {
     if (loginBtn) loginBtn.disabled = true;
     
     signupWithEmail(email, password)
+      .then((user) => {
+        console.log("Registration successful:", user);
+      })
       .catch(err => {
+        console.error("Registration failed with error:", err);
         showError(err.message);
         if (signupBtn) { signupBtn.disabled = false; signupBtn.textContent = "Register"; }
         if (loginBtn) loginBtn.disabled = false;
