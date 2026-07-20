@@ -358,6 +358,9 @@ export function updateMobs(dt){
 
 export function removeMob(i){
   const m = game.mobs[i];
+  if(m.type === "creeper"){
+    stopHissSound();
+  }
   webgl.scene.remove(m.mesh); 
   m.mesh.traverse(child => {
     if(child.geometry) child.geometry.dispose();

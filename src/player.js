@@ -5,7 +5,8 @@ import {
 } from './config.js';
 import { getBlock, getChunk } from './world.js';
 import { 
-  flashDamage, updateStatsHUD, showDeathScreen, hideDeathScreen, toast, refreshCounts 
+  flashDamage, updateStatsHUD, showDeathScreen, hideDeathScreen, toast, refreshCounts,
+  isMenuOpen
 } from './ui.js';
 import { playHitSound, playFootstepSound } from './audio.js';
 
@@ -73,19 +74,23 @@ export function updatePlayer(dt){
   const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   let wish = new THREE.Vector3();
   
-  if(keys["KeyW"]) wish.add(forward);
-  if(keys["KeyS"]) wish.sub(forward);
-  if(keys["KeyD"]) wish.add(right);
-  if(keys["KeyA"]) wish.sub(right);
+  const blockInput = (!touch.isTouch && document.pointerLockElement !== webgl.renderer.domElement) || isMenuOpen();
   
-  // touch stick
-  if(touch.move.x || touch.move.y){
-    wish.add(forward.clone().multiplyScalar(-touch.move.y));
-    wish.add(right.clone().multiplyScalar(touch.move.x));
+  if(!blockInput){
+    if(keys["KeyW"]) wish.add(forward);
+    if(keys["KeyS"]) wish.sub(forward);
+    if(keys["KeyD"]) wish.add(right);
+    if(keys["KeyA"]) wish.sub(right);
+    
+    // touch stick
+    if(touch.move.x || touch.move.y){
+      wish.add(forward.clone().multiplyScalar(-touch.move.y));
+      wish.add(right.clone().multiplyScalar(touch.move.x));
+    }
   }
   if(wish.lengthSq() > 0) wish.normalize();
 
-  const sprint = keys["ShiftLeft"] || keys["ShiftRight"];
+  const sprint = blockInput ? false : (keys["ShiftLeft"] || keys["ShiftRight"]);
 
   if(!chunkReadyAt(player.pos.x, player.pos.z) && !player.flying){
     player.vel.set(0,0,0);
@@ -95,8 +100,10 @@ export function updatePlayer(dt){
   if(player.flying){
     const sp = FLYSPEED * (sprint ? 2 : 1);
     let vy = 0;
-    if(keys["Space"] || touch.jump) vy += sp;
-    if(keys["ControlLeft"] || keys["KeyC"]) vy -= sp;
+    if(!blockInput){
+      if(keys["Space"] || touch.jump) vy += sp;
+      if(keys["ControlLeft"] || keys["KeyC"]) vy -= sp;
+    }
     
     moveAxis("x", wish.x*sp*dt);
     moveAxis("z", wish.z*sp*dt);
@@ -113,7 +120,7 @@ export function updatePlayer(dt){
   player.vel.y += GRAV * dt;
   if(player.vel.y < -55) player.vel.y = -55;
 
-  if((keys["Space"] || touch.jump) && player.onGround){
+  if(!blockInput && (keys["Space"] || touch.jump) && player.onGround){
     player.vel.y = JUMP; player.onGround = false;
   }
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { world, player, webgl, game } from './state.js';
+import { world, player, webgl, game, inventory } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, MAX_LIGHT, AIR, BLOCKS, VARIANTS,
   keyOf, hash2, hash3, vnoise3, surfaceHeight, isCave,
@@ -100,6 +100,33 @@ export function setBlock(wx,wy,wz,v, record, scheduleSaveCallback){
   const ch=getChunk(cx,cz);
   if(!ch) return;
   const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
+  
+  if (v === 0) {
+    const prev = ch.get(lx, wy, lz);
+    const key = wx + "," + wy + "," + wz;
+    if (prev === 43 && world.chests && world.chests[key]) {
+      world.chests[key].forEach(slot => {
+        if (slot.id > 0 && slot.count > 0) {
+          inventory[slot.id] = (inventory[slot.id] || 0) + slot.count;
+        }
+      });
+      delete world.chests[key];
+    }
+    else if (prev === 42 && world.furnaces && world.furnaces[key]) {
+      const f = world.furnaces[key];
+      if (f.inputId > 0 && f.inputCount > 0) {
+        inventory[f.inputId] = (inventory[f.inputId] || 0) + f.inputCount;
+      }
+      if (f.fuelId > 0 && f.fuelCount > 0) {
+        inventory[f.fuelId] = (inventory[f.fuelId] || 0) + f.fuelCount;
+      }
+      if (f.outputId > 0 && f.outputCount > 0) {
+        inventory[f.outputId] = (inventory[f.outputId] || 0) + f.outputCount;
+      }
+      delete world.furnaces[key];
+    }
+  }
+
   ch.set(lx,wy,lz,v);
   ch.dirty=true;
   if(record){ 

@@ -472,13 +472,14 @@ export function bootGame() {
 
   // Keyboard binding updates
   window.addEventListener("keydown", (e) => {
+    if(isMenuOpen() || player.dead || !game.running) return;
     keys[e.code] = true;
-    if(e.code === "KeyF" && game.running && !player.dead){
+    if(e.code === "KeyF"){
       player.flying = !player.flying;
       toast(player.flying ? "flying enabled" : "flying disabled");
       updateHUD();
     }
-    if(e.code === "KeyQ" && game.running && !player.dead){
+    if(e.code === "KeyQ"){
       eatSelected();
     }
     // hotbar numbers 1..8

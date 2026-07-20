@@ -401,6 +401,7 @@ export function refreshCounts(){
 // ---- Crafting Screens ------------------------------------------------------
 export function openCraft(){
   if(!game.running && !craftOpen) return;
+  Object.keys(keys).forEach(k => keys[k] = false);
   craftOpen=true;
   craftScreen.classList.remove("hidden");
   if(document.pointerLockElement) document.exitPointerLock();
@@ -926,6 +927,7 @@ const furnaceFlame = () => document.getElementById("furnaceFlame");
 const furnaceSmeltProgress = () => document.getElementById("furnaceSmeltProgress");
 
 export function openChest(x, y, z) {
+  Object.keys(keys).forEach(k => keys[k] = false);
   chestOpen = true;
   activeChestCoords = `${x},${y},${z}`;
   
@@ -1042,6 +1044,7 @@ function getSmeltResult(id) {
 }
 
 export function openFurnace(x, y, z) {
+  Object.keys(keys).forEach(k => keys[k] = false);
   furnaceOpen = true;
   activeFurnaceCoords = `${x},${y},${z}`;
   
