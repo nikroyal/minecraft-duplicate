@@ -69,3 +69,5 @@ export const touch = {
 };
 
 export const avatarCallbacks = { update: null };
+
+export const reactBridge = { updateUI: null };

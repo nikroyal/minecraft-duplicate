@@ -22,8 +22,7 @@ import {
 import { 
   initUI, toast, updateHUD, updateClock, updateStatsHUD, flashDamage, 
   showDeathScreen, hideDeathScreen, buildHotbar, selectSlot, refreshCounts, 
-  openCraft, closeCraft, switchTab, renderInventory, renderRecipes, 
-  craft, renderBlocks, saveWorld, scheduleSave, loadWorld, getCraftOpen,
+  openCraft, closeCraft, craft, saveWorld, scheduleSave, loadWorld, getCraftOpen,
   openChest, openFurnace, isMenuOpen, tickFurnaces
 } from './ui.js';
 import { playPlaceSound, playMineSound } from './audio.js';
