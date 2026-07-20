@@ -267,12 +267,25 @@ export function buildChunkMesh(ch){
     const alpha = bl.alpha;
     const g = bl.cutout ? groups.cutout : (alpha ? groups.alpha : groups.opaque);
 
+    // Compute preferred mounting wall face for ladders
+    let wallFace = 3;
+    if (id === 45) {
+      if (isSolid(getBlock(ox+x, y, oz+z-1))) wallFace = 3;
+      else if (isSolid(getBlock(ox+x-1, y, oz+z))) wallFace = 5;
+      else if (isSolid(getBlock(ox+x+1, y, oz+z))) wallFace = 4;
+      else if (isSolid(getBlock(ox+x, y, oz+z+1))) wallFace = 2;
+    }
+
     for(const F of FACES){
       const nx=x+F.n[0], ny=y+F.n[1], nz=z+F.n[2];
       const neigh = getBlock(ox+nx, ny, oz+nz);
       let draw;
       if(id === 20) {
-        draw = true; // Torch post has open air around it inside the block
+        draw = true; // Torch post
+      } else if(id === 45) {
+        draw = (F.f === wallFace); // Draw only the wall-mounted face of the ladder
+      } else if(id === 49) {
+        draw = (F.f === 3 || F.f === 5); // Draw intersecting cross-planes for panes
       } else if(alpha){
         if(neigh===AIR) draw=true;
         else if(isOpaque(neigh)) draw=false;
@@ -284,7 +297,8 @@ export function buildChunkMesh(ch){
 
       const base = g.pos.length/3;
       const dirS = F.f===0?1.0 : F.f===1?0.5 : (F.f===2||F.f===3)?0.82:0.68;
-      const lvl = (id === 20) ? getLightGlobal(ox+x, y, oz+z) : getLightGlobal(ox+nx, ny, oz+nz);
+      const useOwnLight = (id === 20 || id === 45 || id === 49);
+      const lvl = useOwnLight ? getLightGlobal(ox+x, y, oz+z) : getLightGlobal(ox+nx, ny, oz+nz);
       const ln = lvl/MAX_LIGHT;
       const lightB = 0.35 + Math.sqrt(ln)*0.65;
       const warm = lvl>8 ? (lvl-8)/7 : 0;
@@ -304,6 +318,14 @@ export function buildChunkMesh(ch){
           px = ox + x + 0.4375 + c[0]*0.125;
           py = y + c[1]*0.625;
           pz = oz + z + 0.4375 + c[2]*0.125;
+        } else if (id === 45) {
+          if (F.f === 3) pz = oz + z + 0.05;
+          if (F.f === 2) pz = oz + z + 0.95;
+          if (F.f === 5) px = ox + x + 0.05;
+          if (F.f === 4) px = ox + x + 0.95;
+        } else if (id === 49) {
+          if (F.f === 3) pz = oz + z + 0.5;
+          if (F.f === 5) px = ox + x + 0.5;
         }
         g.pos.push(px, py, pz);
         g.col.push(rC,gC,bC);
