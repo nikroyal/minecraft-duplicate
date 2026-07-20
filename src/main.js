@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks, world } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, BLOCKS, ITEMS, parentTiles, 
   tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe, thingColor
