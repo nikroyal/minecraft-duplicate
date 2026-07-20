@@ -9,7 +9,7 @@ import {
   computeChunkLight, relightAround, updateChunkMesh, disposeMesh, 
   updateChunkLoading, processGenBudget, buildAtlas, buildCrackTexture, 
   showCrack, hideCrack, spawnBreakBurst, updateParticles, initParticles,
-  disturbWater, tickWater, wkey, setWater, WATER_TICK, queueWater
+  disturbWater, tickWater, wkey, setWater, WATER_TICK, queueWater, genQueue
 } from './world.js';
 import { 
   spawnPlayer, collidesAt, moveAxis, updatePlayer, hurtPlayer, healPlayer, 
