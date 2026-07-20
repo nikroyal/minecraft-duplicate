@@ -16,7 +16,7 @@ import FurnaceScreen from './FurnaceScreen.jsx';
 
 import { 
   uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
-  closeCraft, scheduleSave, craft, updateLobbyAvatarPreview, toast
+  closeCraft, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause
 } from '../ui.js';
 
 export default function App() {
@@ -52,6 +52,7 @@ export default function App() {
       } else if (status.state === 'logged_in') {
         setAuthStatus('logged_in'); setSyncMsg(status.message);
         setCurrentUser(status.user);
+        window.__currentUserEmail = status.user.email;
       } else if (status.state === 'logged_out') {
         setAuthStatus('logged_out'); setSyncMsg(status.message);
         setCurrentUser(null);
@@ -283,7 +284,7 @@ export default function App() {
             <div className="death" style={{ display: 'flex' }}>
               <div className="death-card">
                 <h1>You Died</h1>
-                <p id="deathCause">The world got the better of you.</p>
+                <p id="deathCause">{deathCause}</p>
                 <button id="respawnBtn" onClick={() => { respawnPlayer(); forceUpdate(); }}>Respawn</button>
               </div>
             </div>

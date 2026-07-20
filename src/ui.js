@@ -74,7 +74,18 @@ export function updateClock() { if (reactBridge.updateUI) reactBridge.updateUI()
 export function updateStatsHUD() { if (reactBridge.updateUI) reactBridge.updateUI(); }
 export function refreshCounts() { if (reactBridge.updateUI) reactBridge.updateUI(); }
 export function buildHotbar() { if (reactBridge.updateUI) reactBridge.updateUI(); }
-export function showDeathScreen() { if (reactBridge.updateUI) reactBridge.updateUI(); }
+export let deathCause = "The world got the better of you.";
+export function showDeathScreen(cause) {
+  if (cause === "starve") deathCause = "You starved to death.";
+  else if (cause === "drown") deathCause = "You drowned.";
+  else if (cause === "fall") deathCause = "You fell from a high place.";
+  else if (cause === "void") deathCause = "You fell into the void.";
+  else if (cause === "mob" || cause === "zombie") deathCause = "You were slain by a monster.";
+  else if (cause === "creeper" || cause === "explosion") deathCause = "You were blown up by a Creeper.";
+  else deathCause = cause || "The world got the better of you.";
+  
+  if (reactBridge.updateUI) reactBridge.updateUI();
+}
 export function hideDeathScreen() { if (reactBridge.updateUI) reactBridge.updateUI(); }
 
 export function selectSlot(n) {
@@ -158,7 +169,7 @@ export function saveWorld() {
     timeOfDay: game.timeOfDay,
     minedBlocks,
     placedBlocks,
-    username: document.getElementById("lobbyUserName")?.textContent || "Guest",
+    username: window.__currentUserEmail || 'player',
     lastUpdated: new Date().toISOString()
   };
   try {

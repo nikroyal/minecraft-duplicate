@@ -395,35 +395,26 @@ function loop(now){
     }
   }
 
-  // Crosshair targeted block highlight
   if(game.running){
     const r = raycastVoxel(6);
-    const hudTarget = document.getElementById("blockTargetHUD");
     if(r){ 
       webgl.highlight.visible = true; 
       webgl.highlight.position.set(r.hit[0]+0.5, r.hit[1]+0.5, r.hit[2]+0.5); 
-      
       const bid = getBlock(r.hit[0], r.hit[1], r.hit[2]);
-      if(hudTarget && bid !== 0){
-        hudTarget.textContent = thingName(bid);
-        hudTarget.classList.add("visible");
-      }
+      window.__targetBlockId = bid;
     } else {
       webgl.highlight.visible = false;
-      if(hudTarget){
-        hudTarget.classList.remove("visible");
-      }
+      window.__targetBlockId = 0;
     }
   }
 
   webgl.renderer.render(webgl.scene, webgl.camera);
 
-  // FPS ticker
+  // FPS ticker — update via reactBridge instead of direct DOM
   loop.fpsCnt = (loop.fpsCnt || 0) + 1;
   loop.fpsTimer = (loop.fpsTimer || 0) + dt;
   if(loop.fpsTimer >= 0.5){
-    const fps = Math.round(loop.fpsCnt/loop.fpsTimer);
-    document.getElementById("fps").textContent = fps;
+    game.fps = Math.round(loop.fpsCnt/loop.fpsTimer);
     loop.fpsCnt = 0; loop.fpsTimer = 0;
     updateHUD();
   }
@@ -528,7 +519,7 @@ export function bootGame() {
   webgl.renderer.domElement.addEventListener("mousedown", (e) => {
     if(player.dead) return;
     if(document.pointerLockElement !== webgl.renderer.domElement){
-      if(!touch.isTouch && game.running) webgl.renderer.domElement.requestPointerLock();
+      if(!touch.isTouch && game.running) document.getElementById('game')?.requestPointerLock();
       return;
     }
     if(getCraftOpen() || isMenuOpen()) return;

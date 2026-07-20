@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { player, game, world, SAVE_KEY, avatarCallbacks } from '../state.js';
-import { getChunk, generateChunk, getBlock } from '../world.js';
+import { player, game, world, inventory, SAVE_KEY, avatarCallbacks } from '../state.js';
+import { Chunk, getChunk, generateChunk, getBlock } from '../world.js';
 import { isSolid, keyOf } from '../config.js';
 import { invCount } from '../player.js';
 import { logoutUser, fetchLeaderboard, manuallySyncLocalToCloud } from '../firebase.js';
