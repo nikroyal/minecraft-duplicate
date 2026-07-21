@@ -12,26 +12,78 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
   // Render 10 heart slots (each represents 2 HP)
   const hearts = Array.from({ length: 10 }, (_, i) => {
     const heartVal = hp - i * 2;
-    if (heartVal >= 1.5) return '❤️'; // Full heart
-    if (heartVal >= 0.5) return '💔'; // Half heart
-    return '🖤'; // Empty heart
+    if (heartVal >= 1.5) return '❤️';
+    if (heartVal >= 0.5) return '💔';
+    return '🖤';
   });
 
   // Render 10 hunger slots (each represents 2 Hunger)
   const hungers = Array.from({ length: 10 }, (_, i) => {
     const hungerVal = hunger - i * 2;
-    if (hungerVal >= 1.5) return '🍗'; // Full hunger leg
-    if (hungerVal >= 0.5) return '🦴'; // Half hunger
-    return '⚪'; // Empty hunger
+    if (hungerVal >= 1.5) return '🍗';
+    if (hungerVal >= 0.5) return '🦴';
+    return '⚪';
   });
 
   const selectedId = hotbar[game.selected];
 
+  // Determine day/night icon from timeOfDay (0–1 cycle)
+  const timeOfDay = game.timeOfDay || 0.3;
+  const isNight = timeOfDay < 0.22 || timeOfDay > 0.80;
+  const isTransition = (timeOfDay >= 0.22 && timeOfDay < 0.36) || (timeOfDay >= 0.64 && timeOfDay < 0.80);
+  const timeIcon = isNight ? '🌙' : isTransition ? '🌅' : '☀️';
+
   return (
     <div id="hud">
-      {/* Voxel Title & Stats */}
+      {/* Voxel Title */}
       <div className="title">VOXEL</div>
-      
+
+      {/* ── Time / Clock + Coords HUD — top right ── */}
+      <div style={{
+        position: 'fixed',
+        top: '12px',
+        right: '14px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '4px',
+        zIndex: 120,
+        pointerEvents: 'none',
+        userSelect: 'none',
+      }}>
+        {/* Clock pill */}
+        <div style={{
+          background: 'rgba(0,0,0,0.50)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          borderRadius: '8px',
+          padding: '4px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '14px',
+          fontFamily: '"Courier New", monospace',
+          color: '#f0e6cc',
+          letterSpacing: '0.06em',
+          backdropFilter: 'blur(4px)',
+        }}>
+          <span style={{ fontSize: '16px', lineHeight: 1 }}>{timeIcon}</span>
+          <span style={{ fontWeight: 700 }}>{clockStr || '--:--'}</span>
+        </div>
+        {/* Coords + FPS pill */}
+        <div style={{
+          background: 'rgba(0,0,0,0.35)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: '6px',
+          padding: '2px 10px',
+          fontSize: '9px',
+          fontFamily: '"Courier New", monospace',
+          color: 'rgba(200,185,155,0.75)',
+          letterSpacing: '0.04em',
+        }}>
+          {coordsStr}&nbsp;&nbsp;|&nbsp;&nbsp;{fps} fps
+        </div>
+      </div>
+
       {/* Target Block HUD */}
       <div id="targetHud" className="target-hud" style={{ display: 'none' }}>
         <span id="targetName">Air</span>
@@ -58,26 +110,19 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
         {hotbar.map((id, index) => {
           const count = invCount(id);
           const isSelected = activeSelected === index;
-          
-          // Tool Durability calculation
+
           const itemDef = ITEMS[id];
           const isTool = itemDef && itemDef.tool;
           const maxDurability = isTool ? ([30, 60, 150, 500][(itemDef.tier || 1) - 1] || 30) : 0;
-          
-          // Use item ID for durability key
           const currentDurability = isTool ? (toolDurability[id] !== undefined ? toolDurability[id] : maxDurability) : 0;
           const durPercent = maxDurability > 0 ? Math.max(0, Math.min(100, (currentDurability / maxDurability) * 100)) : 100;
 
-          // Color tier
-          let barColor = '#4cd964'; // Green
-          if (durPercent < 30) barColor = '#ff3b30'; // Red
-          else if (durPercent < 60) barColor = '#ffcc00'; // Yellow
+          let barColor = '#4cd964';
+          if (durPercent < 30) barColor = '#ff3b30';
+          else if (durPercent < 60) barColor = '#ffcc00';
 
           return (
-            <div
-              key={index}
-              className={`slot ${isSelected ? 'active' : ''}`}
-            >
+            <div key={index} className={`slot ${isSelected ? 'active' : ''}`}>
               <span className="key">{index + 1}</span>
               {id > 0 && (count > 0 || !game.survival) ? (
                 <>
@@ -85,7 +130,6 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
                   {game.survival && count > 0 && (
                     <span className="count">{count}</span>
                   )}
-                  {/* Tool Durability Bar */}
                   {isTool && currentDurability < maxDurability && (
                     <div className="durability-bar-container">
                       <div
