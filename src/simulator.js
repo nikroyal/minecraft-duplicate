@@ -59,7 +59,7 @@ export async function startSimulation() {
 
     // 2. DASHBOARD TABS CYCLING
     console.log("[SIM] Testing dashboard navigation tabs...");
-    const tabs = ['tabStatsBtn', 'tabLeaderboardBtn', 'tabAvatarBtn', 'tabPlayBtn'];
+    const tabs = ['tabStatsBtn', 'tabLeaderboardBtn', 'tabAchievementsBtn', 'tabAvatarBtn', 'tabPlayBtn'];
     for (const tabId of tabs) {
       const btn = document.getElementById(tabId);
       if (btn) {
@@ -183,7 +183,23 @@ export async function startSimulation() {
     // Simulate mining the placed planks
     setBlock(targetX, targetY + 1, targetZ, 0, true);
     setBlock(targetX, targetY, targetZ, 0, true);
-    console.log("[SIM] Successfully mined scaffolding block!");
+    // Agriculture & Hoes simulation
+    console.log("[SIM] Testing Hoe tilling (Farmland creation) and Wheat Seed sowing...");
+    const farmX = targetX + 1, farmY = targetY, farmZ = targetZ;
+    setBlock(farmX, farmY, farmZ, 89, true); // Create Farmland block
+    await sleep(600);
+    setBlock(farmX, farmY + 1, farmZ, 90, true); // Plant Seeded Wheat Crop
+    console.log(`[SIM] Farmland & Wheat Crop planted at [${farmX}, ${farmY + 1}, ${farmZ}]`);
+    await sleep(1200);
+
+    // Fast forward crop to Ripe stage
+    setBlock(farmX, farmY + 1, farmZ, 92, true);
+    console.log("[SIM] Wheat crop matured to Ripe stage (92). Harvesting...");
+    await sleep(1000);
+    setBlock(farmX, farmY + 1, farmZ, 0, true);
+    addItem(136, 1); // Add Wheat
+    addItem(138, 2); // Add Seeds
+    if (reactBridge.updateUI) reactBridge.updateUI();
     await sleep(1000);
 
     // 5. INVENTORY & CONTAINER INTERACTION SYSTEMS
