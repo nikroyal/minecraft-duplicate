@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { player, game, world, inventory, hotbar, reactBridge } from '../state.js';
 import { getBlock } from '../world.js';
 import { isSolid } from '../config.js';
@@ -125,13 +125,17 @@ export default function App() {
     return true;
   };
 
-  const filteredRecipes = RECIPES.filter(r =>
-    thingName(r.out).toLowerCase().includes(recipeFilter.toLowerCase())
-  );
+  const filteredRecipes = useMemo(() => {
+    const filter = recipeFilter.toLowerCase();
+    return RECIPES.filter(r => thingName(r.out).toLowerCase().includes(filter));
+  }, [recipeFilter]);
 
-  const filteredBlocks = Object.keys(BLOCKS)
-    .map(Number)
-    .filter(id => BLOCKS[id].name.toLowerCase().includes(blockFilter.toLowerCase()));
+  const filteredBlocks = useMemo(() => {
+    const filter = blockFilter.toLowerCase();
+    return Object.keys(BLOCKS)
+      .map(Number)
+      .filter(id => BLOCKS[id] && BLOCKS[id].name && BLOCKS[id].name.toLowerCase().includes(filter));
+  }, [blockFilter]);
 
   const showOverlay = !game.running && authStatus !== 'connecting';
   const showAuth = showOverlay && authStatus === 'logged_out';

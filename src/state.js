@@ -43,6 +43,9 @@ export const player = {
 export const inventory = {};
 export const hotbar = [15, 16, 7, 9, 5, 20, 3, 45]; // starter hotbar: cobble, stone brick, plank, glass, wood, torch, stone, ladder
 
+// Starter inventory seeding
+inventory[3] = 16; // Seed stone count for hotbar slot 7
+
 export const game = {
   running: false,
   survival: true,
@@ -75,12 +78,15 @@ export const webgl = {
 
 export const keys = {};
 
-// Auto-reset keys when window loses focus to prevent stuck keys
+// Auto-reset keys and touch controls when window loses focus to prevent stuck movement
 if (typeof window !== 'undefined') {
   window.addEventListener('blur', () => {
     for (const k in keys) {
       keys[k] = false;
     }
+    touch.move.x = 0;
+    touch.move.y = 0;
+    touch.jump = false;
   });
 }
 
@@ -96,3 +102,15 @@ export const achievements = {};
 
 export const avatarCallbacks = { update: null };
 export const reactBridge = { updateUI: null };
+
+export function resetGameState() {
+  world.chunks.clear();
+  world.edits = {};
+  world.chests = {};
+  world.furnaces = {};
+  for (const k in inventory) delete inventory[k];
+  for (const k in toolDurability) delete toolDurability[k];
+  for (const k in crops) delete crops[k];
+  for (const k in achievements) delete achievements[k];
+  inventory[3] = 16;
+}

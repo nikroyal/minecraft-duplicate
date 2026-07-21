@@ -832,7 +832,28 @@ export function tickWater(){
     const here=getBlock(x,y,z);
     if(here===WATER){
       const dist=waterFlowDist(x,y,z);
-      if(getBlock(x,y-1,z)===AIR){
+      
+      // Verify if flowing water (dist > 0) is still fed from above or adjacent lower-dist water
+      if (dist > 0) {
+        let isFed = false;
+        if (getBlock(x, y+1, z) === WATER) isFed = true;
+        else {
+          for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+            if (getBlock(x+dx, y, z+dz) === WATER && waterFlowDist(x+dx, y, z+dz) < dist) {
+              isFed = true; break;
+            }
+          }
+        }
+        if (!isFed) {
+          setBlock(x, y, z, AIR, false);
+          delete flowDist[wkey(x,y,z)];
+          changed.add(wkey(x,y,z));
+          disturbWater(x, y, z);
+          continue;
+        }
+      }
+
+      if(y > 0 && getBlock(x,y-1,z)===AIR){
         setWater(x,y-1,z, Math.max(0, dist-2)); changed.add(wkey(x,y-1,z)); queueWater(x,y-1,z);
       } else if(dist<MAX_FLOW){
         for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){

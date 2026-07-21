@@ -12,9 +12,12 @@ export const firebaseConfig = {
 };
 
 // Check if firebase is loaded and configured
-export const isFirebaseConfigured = firebaseConfig && 
-                                    firebaseConfig.apiKey && 
-                                    firebaseConfig.apiKey !== "YOUR_API_KEY";
+export const isFirebaseConfigured = Boolean(
+  firebaseConfig && 
+  firebaseConfig.apiKey && 
+  firebaseConfig.apiKey !== "YOUR_API_KEY" &&
+  firebaseConfig.apiKey !== "AIzaSyAHx3wJ5UtJEnG1ologtiSlIJ8wVq7fIXQ"
+);
 
 // ---- Block registry --------------------------------------------------------
 export const AIR = 0;
@@ -202,16 +205,35 @@ export const ITEMS = {
   140: { name: "Wood Hoe",     color: 0x9a7b4a, tool: "hoe", tier: 1 },
   141: { name: "Stone Hoe",    color: 0x8a8a8a, tool: "hoe", tier: 2 },
   142: { name: "Iron Hoe",     color: 0xd8d8d8, tool: "hoe", tier: 3 },
+  143: { name: "Diamond Shovel",color: 0x6fe6e0, tool: "shovel", tier: 4 },
+  144: { name: "Diamond Axe",   color: 0x6fe6e0, tool: "axe", tier: 4 },
+  145: { name: "Diamond Hoe",   color: 0x6fe6e0, tool: "hoe", tier: 4 },
 };
 
-export function isFood(id){ return ITEMS[id] && ITEMS[id].food!==undefined; }
-export function thingName(id){ return BLOCKS[id]?BLOCKS[id].name : (ITEMS[id]?ITEMS[id].name : "?"); }
-export function thingColor(id){
-  if(BLOCKS[id]) return BLOCKS[id].all!==undefined?BLOCKS[id].all:(BLOCKS[id].top!==undefined?BLOCKS[id].top:BLOCKS[id].side);
-  return ITEMS[id]?ITEMS[id].color:0x888888;
+// Automatically assign id property to all ITEMS entries for safe reference
+for (const id in ITEMS) {
+  if (ITEMS[id]) ITEMS[id].id = Number(id);
 }
-export function isPlaceable(id){ return !!BLOCKS[id]; }
-export function isTool(id){ return ITEMS[id] && ITEMS[id].tool; }
+
+export function isFood(id){ return Boolean(id > 0 && ITEMS[id] && typeof ITEMS[id].food === 'number' && ITEMS[id].food > 0); }
+export function thingName(id){ 
+  if(!id) return "Air";
+  return (BLOCKS[id] && BLOCKS[id].name) || (ITEMS[id] && ITEMS[id].name) || "?"; 
+}
+export function thingColor(id, face=0){
+  const b=BLOCKS[id];
+  if(b){
+    if(b.all!==undefined) return b.all;
+    if(face===0) return b.top!==undefined?b.top:0x888888;
+    if(face===1) return b.bottom!==undefined?b.bottom:(b.side!==undefined?b.side:b.top!==undefined?b.top:0x888888);
+    return b.side!==undefined?b.side:0x888888;
+  }
+  const it=ITEMS[id];
+  if(it) return it.color||0x888888;
+  return 0x888888;
+}
+export function isPlaceable(id){ return Boolean(BLOCKS[id] && id < 90); }
+export function isTool(id){ return Boolean(ITEMS[id] && ITEMS[id].tool); }
 
 // ---- Recipes ----------------------------------------------------------------
 export const RECIPES = [];
@@ -281,8 +303,8 @@ export const RECIPES = [];
 
   R({136:3}, 135, 1, "Bread", "3 Wheat → Bread");
 
-  const toolMats=[[7,"Wood",null],[15,"Stone",null],[102,"Iron",null],[104,"Diamond",null]];
-  const pick=[105,106,107,108], shov=[109,110,111,null], axe=[112,113,114,null], hoe=[140,141,142,null];
+  const toolMats=[[7,"Wood"],[15,"Stone"],[102,"Iron"],[104,"Diamond"]];
+  const pick=[105,106,107,108], shov=[109,110,111,143], axe=[112,113,114,144], hoe=[140,141,142,145];
   toolMats.forEach(([mat,label],ti)=>{
     if(pick[ti]) R({[mat]:3,100:2}, pick[ti], 1, `${label} Pickaxe`, `3 ${label} + 2 Sticks`);
     if(shov[ti]) R({[mat]:1,100:2}, shov[ti], 1, `${label} Shovel`, `1 ${label} + 2 Sticks`);
@@ -294,8 +316,7 @@ export const RECIPES = [];
   R({101:1},125,1,"Black Dye","Coal → Black Dye");
   R({29:1},126,1,"White Dye","Snow → White Dye");
   R({4:2},124,1,"Yellow Dye","2 Sand → Yellow Dye (ochre)");
-  R({10:1},121,1,"Red Dye","Brick → Red Dye");
-  R({8:1},122,1,"Blue Dye","(lapis-style) → Blue Dye");
+  R({119:1},121,1,"Red Dye","Brick → Red Dye");
   
   R({115:4},50,1,"White Wool","4 String → White Wool");
   const woolDye=[[121,51,"Red"],[122,52,"Blue"],[123,53,"Green"],[124,54,"Yellow"],[125,55,"Black"]];
@@ -304,8 +325,6 @@ export const RECIPES = [];
 
   R({6:2},115,2,"String","2 Leaves → 2 String");
 
-  R({133:1},134,1,"Cooked Meat","Raw Meat → Cooked (smelt/cook)");
-  R({136:3},135,1,"Bread","3 Wheat → Bread");
   R({130:1,103:4},137,1,"Golden Apple","Apple + 4 Gold → Golden Apple");
 
   for(const [pid,label] of FENCE_SOURCE){
@@ -329,10 +348,12 @@ export const RECIPES = [];
 })();
 
 export function resolveRecipe(bag){
+  const bKeys = Object.keys(bag).filter(id => bag[id] > 0);
   for(const r of RECIPES){
-    const rIds=Object.keys(r.in);
-    let ok=true;
-    for(const id of rIds){ if((bag[id]||0) < r.in[id]){ ok=false; break; } }
+    const rIds = Object.keys(r.in);
+    if(rIds.length !== bKeys.length) continue;
+    let ok = true;
+    for(const id of rIds){ if((bag[id]||0) < r.in[id]){ ok = false; break; } }
     if(ok) return r;
   }
   return null;
@@ -346,13 +367,13 @@ export function faceColor(id, face){
   const b = BLOCKS[id];
   if (!b) return 0xff00ff;
   if (b.all !== undefined) return b.all;
-  if (face===0) return b.top;
-  if (face===1) return b.bottom;
-  return b.side;
+  if (face===0) return b.top!==undefined?b.top:0x888888;
+  if (face===1) return b.bottom!==undefined?(b.bottom):(b.side!==undefined?b.side:b.top!==undefined?b.top:0x888888);
+  return b.side!==undefined?b.side:0x888888;
 }
 
-export function isSolid(id){ return id!==AIR && BLOCKS[id] && BLOCKS[id].solid; }
-export function isOpaque(id){ return id!==AIR && BLOCKS[id] && !BLOCKS[id].alpha; }
+export function isSolid(id){ return Boolean(id !== AIR && BLOCKS[id] && BLOCKS[id].solid); }
+export function isOpaque(id){ return Boolean(id !== AIR && BLOCKS[id] && !BLOCKS[id].alpha && !BLOCKS[id].cutout); }
 
 // ---- Texture Atlas Config ----
 export const TILE = 16;

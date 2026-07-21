@@ -23,18 +23,17 @@ function getAudioContext() {
   return audioCtx;
 }
 
-let noiseBuffer = null;
 function getNoiseBuffer(ctx) {
-  if (noiseBuffer && cachedSampleRate === ctx.sampleRate) return noiseBuffer;
+  if (ctx._cachedNoiseBuffer && cachedSampleRate === ctx.sampleRate) return ctx._cachedNoiseBuffer;
   cachedSampleRate = ctx.sampleRate;
-  const bufferSize = ctx.sampleRate * 2;
+  const bufferSize = Math.floor(ctx.sampleRate * 0.5); // 0.5s noise buffer
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < bufferSize; i++) {
     data[i] = Math.random() * 2 - 1;
   }
-  noiseBuffer = buffer;
-  return noiseBuffer;
+  ctx._cachedNoiseBuffer = buffer;
+  return buffer;
 }
 
 function safeDisconnect(...nodes) {
