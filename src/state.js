@@ -93,7 +93,12 @@ if (typeof window !== 'undefined') {
 export const touch = {
   move: { x: 0, y: 0 },
   jump: false,
-  isTouch: false
+  isTouch: false,
+  reset() {
+    this.move.x = 0;
+    this.move.y = 0;
+    this.jump = false;
+  }
 };
 
 export const toolDurability = {};
@@ -113,4 +118,24 @@ export function resetGameState() {
   for (const k in crops) delete crops[k];
   for (const k in achievements) delete achievements[k];
   inventory[3] = 16;
+  
+  // Full player & game entity reset
+  player.health = 20;
+  player.hunger = 20;
+  player.dead = false;
+  player.flying = false;
+  player.vel.set(0, 0, 0);
+  player.pos.set(8.5, 30, 8.5);
+  player.fallPeak = 30;
+  player.minedWoodCount = 0;
+  player.minedOresCount = 0;
+  player.diedTonight = false;
+  player.nightSurvivorAwarded = false;
+  player.distanceWalked = 0;
+  
+  game.mobs.length = 0;
+  game.particles.length = 0;
+  game.timeOfDay = 0.3;
+  game.running = false;
+  touch.reset();
 }

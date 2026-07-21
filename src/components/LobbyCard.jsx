@@ -391,7 +391,7 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
 
       {/* Reset Modal */}
       {resetStep !== null && (
-        <div className="modal" style={{ zIndex: 10 }}>
+        <div className="modal" style={{ zIndex: 50 }}>
           <div className="modal-card">
             <div className="modal-icon">⚠️</div>
             {resetStep === 0 && (

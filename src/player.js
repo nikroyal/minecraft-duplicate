@@ -32,14 +32,15 @@ export function chunkReadyAt(wx, wz){
 }
 
 export function collisionSolid(x, y, z){
-  if(y < 0) return true; // floor
+  if(y < 0) return false; // allow falling into void
   if(y >= HEIGHT) return false;
-  const cx = Math.floor(x / CHUNK);
-  const cz = Math.floor(z / CHUNK);
+  const fx = Math.floor(x), fz = Math.floor(z);
+  const cx = Math.floor(fx / CHUNK);
+  const cz = Math.floor(fz / CHUNK);
   const ch = getChunk(cx, cz);
-  if(!ch || !ch.generated) return true; // unloaded is solid
-  const lx = ((x % CHUNK) + CHUNK) % CHUNK;
-  const lz = ((z % CHUNK) + CHUNK) % CHUNK;
+  if(!ch || !ch.generated) return false; // unloaded air
+  const lx = ((fx % CHUNK) + CHUNK) % CHUNK;
+  const lz = ((fz % CHUNK) + CHUNK) % CHUNK;
   return isSolid(ch.get(lx, y, lz));
 }
 
@@ -47,7 +48,7 @@ export function collidesAt(px, py, pz){
   const hw = 0.6 / 2, h = 1.8; // player width 0.6, height 1.8
   const minX = Math.floor(px - hw + 1e-5);
   const maxX = Math.floor(px + hw - 1e-5);
-  const minY = Math.floor(py + 1e-5);
+  const minY = Math.floor(py);
   const maxY = Math.floor(py + h - 1e-5); // Fix 2-block ceiling AABB trap!
   const minZ = Math.floor(pz - hw + 1e-5);
   const maxZ = Math.floor(pz + hw - 1e-5);
@@ -291,14 +292,6 @@ export function respawnPlayer(){
   player.hungerTimer = 0; player.regenTimer = 0; player.starveTimer = 0; player.invuln = 1.5;
   player.vel.set(0, 0, 0);
   spawnPlayer();
-  
-  const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
-  let topY = 1; 
-  for(let y = HEIGHT - 1; y >= 0; y--){ 
-    if(isSolid(getBlock(px, y, pz))){ topY = y + 1; break; } 
-  }
-  player.pos.set(px + 0.5, topY, pz + 0.5);
-  player.fallPeak = player.pos.y;
   
   updateStatsHUD();
   hideDeathScreen();

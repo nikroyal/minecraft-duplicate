@@ -414,31 +414,25 @@ export const BLOCK_TILES = {
   39:{all:"chiseled_sandstone"}, 40:{all:"smooth_stone"},
   41:{top:"craft_top",side:"craft_side",bottom:"plank"},
   42:{top:"furnace_top",side:"furnace_side",bottom:"furnace_side"},
-  43:{top:"chest_top",side:"chest_side",bottom:"chest_side"},
-  44:{top:"plank",side:"bookshelf",bottom:"plank"},
-  45:{all:"ladder"}, 46:{all:"iron_block"}, 47:{all:"gold_block"},
-  48:{all:"diamond_block"}, 49:{all:"glass_pane"},
-  50:{all:"wool_white"}, 51:{all:"wool_red"}, 52:{all:"wool_blue"},
-  53:{all:"wool_green"}, 54:{all:"wool_yellow"}, 55:{all:"wool_black"},
-  89:{top:"dirt", side:"dirt", bottom:"dirt"},
-  90:{all:"leaves"}, 91:{all:"leaves"}, 92:{all:"leaves"}
 };
 
 export function tileFor(id, face){
-  const b=BLOCKS[id];
-  if(b && b.tintTile) return b.tintTile;
-  const parent = VARIANTS[id] ? VARIANTS[id].parent : id;
-  const t=BLOCK_TILES[parent]||{all:"stone"};
-  if(t.all) return t.all;
-  if(face===0) return t.top;
-  if(face===1) return t.bottom;
-  return t.side;
+  const b = BLOCKS[id];
+  if (!b) return "stone";
+  
+  if (b.all) return b.all;
+  
+  const t = BLOCKS[id];
+  if (!t) return "stone";
+  if (face === 0) return t.top || t.side || t.all || "stone";
+  if (face === 1) return t.bottom || t.side || t.top || t.all || "stone";
+  return t.side || t.top || t.all || "stone";
 }
 
 export function tileUV(name){
   const i=TILE_IDX[name]!==undefined?TILE_IDX[name]:(TILE_IDX.stone||0);
   const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
-  const inset=0.12/TILE;
+  const inset=0.01/TILE;
   const u0=col/ATLAS_COLS + inset, u1=(col+1)/ATLAS_COLS - inset;
   const v0=1-((row+1)/ATLAS_ROWS) + inset, v1=1-(row/ATLAS_ROWS) - inset;
   return {u0,u1,v0,v1};
@@ -446,7 +440,8 @@ export function tileUV(name){
 
 export function trng(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
 export function shade(hex,f){
-  const r=Math.min(255,((hex>>16)&255)*f)|0, g=Math.min(255,((hex>>8)&255)*f)|0, b=Math.min(255,(hex&255)*f)|0;
+  const factor = Math.max(0, Math.min(1.5, f));
+  const r=Math.min(255,((hex>>16)&255)*factor)|0, g=Math.min(255,((hex>>8)&255)*factor)|0, b=Math.min(255,(hex&255)*factor)|0;
   return `rgb(${r},${g},${b})`;
 }
 
@@ -462,7 +457,7 @@ export function keyOf(cx, cz){ return cx + "," + cz; }
 export function hash2(x, z, s){
   let h = (Math.imul(x,374761393) + Math.imul(z,668265263) + Math.imul(s,2246822519|0)) >>> 0;
   h = Math.imul(h ^ (h>>>13), 1274126177) >>> 0;
-  return ((h ^ (h>>>16)) >>> 0) / 4294967295;
+  return ((h ^ (h>>>16)) >>> 0) / 4294967296;
 }
 export function smooth(t){ return t*t*(3-2*t); }
 export function vnoise(x, z, s){
@@ -481,11 +476,11 @@ export function fbm(x, z){
 export function hash3(x,y,z,s){
   let h=(Math.imul(x,374761393) + Math.imul(y,668265263) + Math.imul(z,2246822519|0) + Math.imul(s,3266489917|0))>>>0;
   h=Math.imul(h^(h>>>13), 1274126177)>>>0;
-  return ((h^(h>>>16))>>>0)/4294967295;
+  return ((h^(h>>>16))>>>0)/4294967296;
 }
 export function vnoise3(x,y,z,s){
   const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);
-  const xf=x-xi,yf=y-yi,zf=z-zi;
+  const xf=Math.max(0, Math.min(1, x-xi)), yf=Math.max(0, Math.min(1, y-yi)), zf=Math.max(0, Math.min(1, z-zi));
   const u=smooth(xf),v=smooth(yf),w=smooth(zf);
   function L(a,b,t){return a+(b-a)*t;}
   const c000=hash3(xi,yi,zi,s),   c100=hash3(xi+1,yi,zi,s);
@@ -497,7 +492,8 @@ export function vnoise3(x,y,z,s){
   return L(y0,y1,w);
 }
 export function isCave(wx,wy,wz){
-  if(wy<3||wy>SEA+18) return false;
+  const maxH = surfaceHeight(wx, wz);
+  if(wy < 3 || wy > Math.min(maxH - 2, SEA + 24)) return false;
   const a=vnoise3(wx*0.09, wy*0.14, wz*0.09, SEED+11);
   const b=vnoise3(wx*0.09, wy*0.14, wz*0.09, SEED+22);
   return Math.abs(a-0.5)<0.09 && Math.abs(b-0.5)<0.12;

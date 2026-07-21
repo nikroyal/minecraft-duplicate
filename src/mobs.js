@@ -152,7 +152,6 @@ export function mobMoveAxis(m, axis, amt){
         break;
       }
     } else {
-      if(!mobCollides(m, m.pos.x, m.pos.y + step, m.pos.z)) {} // Safety check
       if(!mobCollides(m, m.pos.x, m.pos.y, m.pos.z + step)) m.pos.z += step;
       else { m.vel.z = 0; m.hitWall = true; break; }
     }
@@ -372,15 +371,16 @@ export function removeMob(i){
 
 export function attackMob(){
   const o = eyePos(), d = lookDir();
-  let best = null, bestT = 4.5;
+  let best = null, bestT = 4.0;
   for(const m of game.mobs){
     const cx = m.pos.x, cy = m.pos.y + m.def.h / 2, cz = m.pos.z;
     const toM = new THREE.Vector3(cx - o.x, cy - o.y, cz - o.z);
     const t = toM.dot(d);
     if(t < 0 || t > bestT) continue;
     const closest = new THREE.Vector3(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t);
-    const dist = Math.hypot(closest.x - cx, closest.y - cy, closest.z - cz);
-    if(dist < m.def.w + 0.4){ best = m; bestT = t; }
+    const distHoriz = Math.hypot(closest.x - cx, closest.z - cz);
+    const distVert = Math.abs(closest.y - cy);
+    if(distHoriz < m.def.w / 2 + 0.25 && distVert < m.def.h / 2 + 0.3){ best = m; bestT = t; }
   }
   if(!best) return false;
   
@@ -393,7 +393,8 @@ export function attackMob(){
     
     // Decrement tool durability if equipped
     const id = tool.id;
-    if(id && toolDurability[id] !== undefined){
+    if(id){
+      if(toolDurability[id] === undefined) toolDurability[id] = [30, 60, 150, 500][(tool.tier || 1) - 1] || 30;
       toolDurability[id] = Math.max(0, toolDurability[id] - 1);
     }
   }
@@ -406,9 +407,9 @@ export function attackMob(){
   });
   
   const kx = best.pos.x - player.pos.x, kz = best.pos.z - player.pos.z, kl = Math.hypot(kx, kz) || 1;
-  best.vel.x += (kx / kl) * 4;
-  best.vel.z += (kz / kl) * 4;
-  best.vel.y += 3.5;
+  best.vel.x = (kx / kl) * 5;
+  best.vel.z = (kz / kl) * 5;
+  best.vel.y = 3.5;
   
   if(best.hp <= 0){
     if(best.def.drop && game.survival){

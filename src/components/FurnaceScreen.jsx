@@ -43,17 +43,18 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
     const isFuel = FUELS[id] > 0;
     const isSmeltable = SMELT_MAP[id] !== undefined;
 
+    // Prefer input slot for ores, but if input is full or fuel slot is empty and item is fuel, allow loading fuel slot
     if (isSmeltable && (furnace.inputId === 0 || (furnace.inputId === id && furnace.inputCount < 64))) {
-      removeItem(id, 1);
       furnace.inputId = id;
       furnace.inputCount = (furnace.inputCount || 0) + 1;
+      removeItem(id, 1);
       playPlaceSound(id);
       scheduleSave();
       if (reactBridge.updateUI) reactBridge.updateUI();
     } else if (isFuel && (furnace.fuelId === 0 || (furnace.fuelId === id && furnace.fuelCount < 64))) {
-      removeItem(id, 1);
       furnace.fuelId = id;
       furnace.fuelCount = (furnace.fuelCount || 0) + 1;
+      removeItem(id, 1);
       playPlaceSound(id);
       scheduleSave();
       if (reactBridge.updateUI) reactBridge.updateUI();
