@@ -105,9 +105,9 @@ function updateDayNight(dt){
 // ---- Raycast helper ----
 function raycastVoxel(maxDist){
   const o = eyePos(), d = lookDir();
-  const dirX = Math.abs(d.x) < 1e-6 ? 1e-6 : d.x;
-  const dirY = Math.abs(d.y) < 1e-6 ? 1e-6 : d.y;
-  const dirZ = Math.abs(d.z) < 1e-6 ? 1e-6 : d.z;
+  const dirX = Math.abs(d.x) < 1e-6 ? (d.x < 0 ? -1e-6 : 1e-6) : d.x;
+  const dirY = Math.abs(d.y) < 1e-6 ? (d.y < 0 ? -1e-6 : 1e-6) : d.y;
+  const dirZ = Math.abs(d.z) < 1e-6 ? (d.z < 0 ? -1e-6 : 1e-6) : d.z;
   let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
   const stepX = Math.sign(dirX)||1, stepY = Math.sign(dirY)||1, stepZ = Math.sign(dirZ)||1;
   const tDX = Math.abs(1/dirX), tDY = Math.abs(1/dirY), tDZ = Math.abs(1/dirZ);

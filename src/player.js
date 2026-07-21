@@ -335,9 +335,10 @@ export function eyePos(){
 }
 
 export function lookDir(){
-  const d = new THREE.Vector3(0, 0, -1);
   const clampedPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.pitch));
-  d.applyAxisAngle(new THREE.Vector3(1, 0, 0), clampedPitch);
-  d.applyAxisAngle(new THREE.Vector3(0, 1, 0), player.yaw);
-  return d;
+  const cosPitch = Math.cos(clampedPitch);
+  const sinPitch = Math.sin(clampedPitch);
+  const sinYaw = Math.sin(player.yaw);
+  const cosYaw = Math.cos(player.yaw);
+  return new THREE.Vector3(-sinYaw * cosPitch, sinPitch, -cosYaw * cosPitch).normalize();
 }
