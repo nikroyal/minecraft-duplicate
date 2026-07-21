@@ -413,16 +413,29 @@ export const BLOCK_TILES = {
   39:{all:"chiseled_sandstone"}, 40:{all:"smooth_stone"},
   41:{top:"craft_top",side:"craft_side",bottom:"plank"},
   42:{top:"furnace_top",side:"furnace_side",bottom:"furnace_side"},
+  43:{top:"chest_top",side:"chest_side",bottom:"chest_side"},
+  44:{top:"plank",side:"bookshelf",bottom:"plank"},
+  45:{all:"ladder"},
+  46:{all:"iron_block"}, 47:{all:"gold_block"}, 48:{all:"diamond_block"},
+  49:{all:"glass_pane"},
+  50:{all:"wool_white"}, 51:{all:"wool_red"}, 52:{all:"wool_blue"},
+  53:{all:"wool_green"}, 54:{all:"wool_yellow"}, 55:{all:"wool_black"},
+  89:{top:"dirt",side:"dirt",bottom:"dirt"},
+  90:{all:"leaves"}, 91:{all:"leaves"}, 92:{all:"leaves"}
 };
 
 export function tileFor(id, face){
-  const b = BLOCKS[id];
-  if (!b) return "stone";
+  let t = BLOCK_TILES[id];
+  if (!t && VARIANTS[id]) {
+    t = BLOCK_TILES[VARIANTS[id].parent];
+  }
+  if (!t) {
+    const b = BLOCKS[id];
+    if (b && b.tintTile) return b.tintTile;
+    return "stone";
+  }
   
-  if (b.all) return b.all;
-  
-  const t = BLOCKS[id];
-  if (!t) return "stone";
+  if (t.all) return t.all;
   if (face === 0) return t.top || t.side || t.all || "stone";
   if (face === 1) return t.bottom || t.side || t.top || t.all || "stone";
   return t.side || t.top || t.all || "stone";
