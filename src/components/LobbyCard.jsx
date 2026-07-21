@@ -385,7 +385,7 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
           <button className="cloud-btn secondary" disabled={syncLoading} onClick={handleManualSync}>
             {syncLoading ? "Syncing..." : "Sync Now"}
           </button>
-          <button className="cloud-btn danger" onClick={() => logoutUser()}>Logout / Switch Account</button>
+          <button className="cloud-btn danger" onClick={() => { logoutUser().catch(() => location.reload()); }}>Logout / Switch Account</button>
         </div>
       </div>
 

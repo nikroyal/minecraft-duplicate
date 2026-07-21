@@ -15,8 +15,7 @@ export const firebaseConfig = {
 export const isFirebaseConfigured = Boolean(
   firebaseConfig && 
   firebaseConfig.apiKey && 
-  firebaseConfig.apiKey !== "YOUR_API_KEY" &&
-  firebaseConfig.apiKey !== "AIzaSyAHx3wJ5UtJEnG1ologtiSlIJ8wVq7fIXQ"
+  firebaseConfig.apiKey !== "YOUR_API_KEY"
 );
 
 // ---- Block registry --------------------------------------------------------

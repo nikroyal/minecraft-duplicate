@@ -38,11 +38,16 @@ export function initFirebase(onStatusChange, onSyncConflict) {
     if (!app) {
       app = initializeApp(firebaseConfig);
       
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager()
-        })
-      });
+      try {
+        db = initializeFirestore(app, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+          })
+        });
+      } catch (cacheErr) {
+        console.warn("Persistent cache failed, initializing default Firestore:", cacheErr);
+        db = initializeFirestore(app, {});
+      }
       
       auth = getAuth(app);
     }
@@ -143,10 +148,16 @@ export async function signupWithEmail(email, password) {
 }
 
 export async function logoutUser() {
-  if (!auth) return Promise.reject(new Error("Auth not initialized"));
-  await signOut(auth);
-  localStorage.removeItem(SAVE_KEY);
-  location.reload();
+  try {
+    if (auth) {
+      await signOut(auth);
+    }
+  } catch (err) {
+    console.warn("Sign out error:", err);
+  } finally {
+    localStorage.removeItem(SAVE_KEY);
+    location.reload();
+  }
 }
 
 function sanitizePayload(obj) {
