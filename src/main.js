@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks, world, reactBridge } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks, world, reactBridge, toolDurability, crops, achievements } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, BLOCKS, ITEMS, parentTiles, 
   tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe, thingColor
@@ -24,7 +24,8 @@ import {
   showDeathScreen, hideDeathScreen, buildHotbar, selectSlot, refreshCounts, 
   openCraft, closeCraft, craft, saveWorld, scheduleSave, loadWorld, getCraftOpen,
   openChest, openFurnace, isMenuOpen, tickFurnaces, uiState,
-  setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords
+  setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
+  unlockAchievement
 } from './ui.js';
 import { playPlaceSound, playMineSound } from './audio.js';
 
@@ -86,6 +87,16 @@ function updateDayNight(dt){
   if (webgl.moonMesh) {
     webgl.moonMesh.position.set(-sx*140, -sy*140, -60).add(webgl.camera.position);
     webgl.moonMesh.rotation.y = ang;
+  }
+
+  // Night Survivor achievement tracking
+  if (game.timeOfDay >= 0.75 && game.timeOfDay < 0.76) {
+    player.diedTonight = false;
+  }
+  if (game.timeOfDay >= 0.25 && game.timeOfDay < 0.26) {
+    if (player.diedTonight === false) {
+      unlockAchievement(10, "Night Survivor", "Survived a full night cycle without dying.");
+    }
   }
 
   updateClock();
@@ -183,19 +194,162 @@ function completeMine(x, y, z, id){
   mining.active = false; mining.progress = 0; hideCrack();
   disturbWater(x, y, z);
   playPlaceSound(id); // break audio
+
+  // Tool durability check
+  const heldId = hotbar[game.selected];
+  if (heldId > 0 && ITEMS[heldId] && ITEMS[heldId].tool) {
+    const maxDur = [30, 60, 150, 500][ITEMS[heldId].tier - 1] || 30;
+    if (toolDurability[heldId] === undefined) toolDurability[heldId] = maxDur;
+    toolDurability[heldId]--;
+    
+    if (toolDurability[heldId] <= 0) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "triangle";
+        const now = ctx.currentTime;
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(10, now + 0.35);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now); osc.stop(now + 0.4);
+      } catch(e){}
+      
+      removeItem(heldId, 1);
+      delete toolDurability[heldId];
+      toast("Your tool broke!");
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    } else {
+      scheduleSave();
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    }
+  }
+
+  // Crop harvesting logic
+  if (id === 90 || id === 91 || id === 92) {
+    const key = `${x},${y},${z}`;
+    delete crops[key];
+    if (id === 92) {
+      if (game.survival) {
+        addItem(136, 1); // Wheat
+        addItem(138, Math.floor(Math.random() * 3) + 1); // 1-3 seeds
+      }
+      unlockAchievement(8, "Bountiful Harvest", "Harvest fully grown ripe wheat.");
+    } else {
+      if (game.survival) {
+        addItem(138, 1); // return seed
+      }
+    }
+    updateAfterEdit(x, y, z);
+    return;
+  }
   
   if(id === 6){ // Leaves
     const r = Math.random();
     if(r < 0.10) addItem(130, 1);
     else if(r < 0.18) addItem(131, 1);
     else if(r < 0.30) addItem(100, 1);
-    else if(r < 0.34) addItem(136, 1);
+    else if(r < 0.40) addItem(138, 1); // Leaves drop seeds too!
     updateAfterEdit(x, y, z);
     return;
+  }
+
+  // Woodcutter achievement (log IDs: 5, 22, 23)
+  if (id === 5 || id === 22 || id === 23) {
+    player.minedWoodCount = (player.minedWoodCount || 0) + 1;
+    if (player.minedWoodCount >= 5) {
+      unlockAchievement(2, "Timber!", "Mine at least 5 wood log blocks.");
+    }
+  }
+
+  // Ore Miner achievement (ore IDs: 11, 12, 13, 14)
+  if (id === 11 || id === 12 || id === 13 || id === 14) {
+    player.minedOresCount = (player.minedOresCount || 0) + 1;
+    if (player.minedOresCount >= 5) {
+      unlockAchievement(3, "Subterranean Miner", "Mine at least 5 ore blocks.");
+    }
+  }
+
+  // Diamond Ore achievement (ID: 14)
+  if (id === 14) {
+    unlockAchievement(9, "Diamonds!", "Find and mine a rare Diamond Ore.");
   }
   
   if(game.survival) addItem(id, 1);
   updateAfterEdit(x, y, z);
+}
+
+function tickCrops(dt) {
+  game.cropTimer = (game.cropTimer || 0) + dt;
+  if (game.cropTimer < 3.0) return;
+  game.cropTimer = 0;
+
+  const cropKeys = Object.keys(crops);
+  if (cropKeys.length === 0) return;
+  
+  let changed = false;
+  cropKeys.forEach(key => {
+    const [cx, cy, cz] = key.split(',').map(Number);
+    const id = getBlock(cx, cy, cz);
+    
+    // Safety check: if the block is no longer a crop, remove it from map
+    if (id !== 90 && id !== 91 && id !== 92) {
+      delete crops[key];
+      return;
+    }
+    
+    // Farmland hydration check: check if the block directly below is Farmland (89)
+    const belowId = getBlock(cx, cy - 1, cz);
+    if (belowId !== 89) {
+      delete crops[key];
+      setBlock(cx, cy, cz, 0, true, scheduleSave);
+      updateAfterEdit(cx, cy, cz);
+      changed = true;
+      return;
+    }
+    
+    // Calculate hydration status (is water block within 4 blocks?)
+    let hydrated = false;
+    for (let dx = -4; dx <= 4; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dz = -4; dz <= 4; dz++) {
+          if (getBlock(cx + dx, cy - 1 + dy, cz + dz) === 8) { // Water
+            hydrated = true;
+            break;
+          }
+        }
+        if (hydrated) break;
+      }
+      if (hydrated) break;
+    }
+    
+    // Grow timer speed multiplier: 2x if hydrated
+    const speed = hydrated ? 2.0 : 1.0;
+    const crop = crops[key];
+    crop.timer = (crop.timer || 0) + speed;
+    
+    // Seeded (90) -> Growing (91) -> Ripe (92)
+    // Stage 1 -> 2: needs 15 growth points
+    // Stage 2 -> 3: needs 30 growth points
+    if (id === 90 && crop.timer >= 15) {
+      setBlock(cx, cy, cz, 91, true, scheduleSave);
+      updateAfterEdit(cx, cy, cz);
+      crop.timer = 0;
+      changed = true;
+    } else if (id === 91 && crop.timer >= 30) {
+      setBlock(cx, cy, cz, 92, true, scheduleSave);
+      updateAfterEdit(cx, cy, cz);
+      crop.timer = 0;
+      changed = true;
+    }
+  });
+  
+  if (changed) {
+    if (reactBridge.updateUI) reactBridge.updateUI();
+  }
 }
 
 function spawnDust(x, y, z, id){
@@ -235,6 +389,59 @@ export function placeBlock(){
     return;
   }
 
+  const heldId = hotbar[game.selected];
+  
+  // 1. Hoe Interaction (Tilling dirt/grass to farmland)
+  if (heldId > 0 && ITEMS[heldId] && ITEMS[heldId].tool === "hoe") {
+    if (hitBlockId === 1 || hitBlockId === 2) {
+      const [hx, hy, hz] = r.hit;
+      setBlock(hx, hy, hz, 89, true, scheduleSave);
+      playPlaceSound(2); // dirt sound
+      updateAfterEdit(hx, hy, hz);
+      
+      const maxDur = [30, 60, 150][ITEMS[heldId].tier - 1] || 30;
+      if (toolDurability[heldId] === undefined) toolDurability[heldId] = maxDur;
+      toolDurability[heldId]--;
+      
+      if (toolDurability[heldId] <= 0) {
+        removeItem(heldId, 1);
+        delete toolDurability[heldId];
+        toast("Your Hoe broke!");
+      } else {
+        scheduleSave();
+      }
+      
+      unlockAchievement(6, "Humble Farmer", "Till grass or dirt into farmland using a Hoe.");
+      if (reactBridge.updateUI) reactBridge.updateUI();
+      return;
+    }
+  }
+
+  // 2. Seeds Interaction (Planting wheat seeds on farmland)
+  if (heldId === 138) {
+    if (hitBlockId === 89) {
+      const [hx, hy, hz] = r.hit;
+      const plantY = hy + 1;
+      if (getBlock(hx, plantY, hz) === 0) {
+        setBlock(hx, plantY, hz, 90, true, scheduleSave);
+        playPlaceSound(1); // grass-like sound
+        updateAfterEdit(hx, plantY, hz);
+        
+        const key = `${hx},${plantY},${hz}`;
+        crops[key] = { stage: 1, timer: 0 };
+        
+        if (game.survival) {
+          removeItem(138, 1);
+        }
+        
+        unlockAchievement(7, "Green Thumb", "Sow wheat seeds on farmland.");
+        scheduleSave();
+        if (reactBridge.updateUI) reactBridge.updateUI();
+        return;
+      }
+    }
+  }
+
   const [x, y, z] = r.prev;
   const id = hotbar[game.selected];
   
@@ -262,6 +469,11 @@ export function placeBlock(){
   playPlaceSound(id);
   updateAfterEdit(x, y, z);
   disturbWater(x, y, z);
+
+  // Architect placement achievement (Chest block ID: 43)
+  if (id === 43) {
+    unlockAchievement(5, "Safe Storage", "Place a Chest to store your belongings.");
+  }
 }
 
 function updateAfterEdit(x, y, z){
@@ -286,6 +498,7 @@ function loop(now){
     updateSurvival(dt);
     updateMobs(dt);
     tickFurnaces(dt);
+    tickCrops(dt);
   }
   
   updateChunkLoading();

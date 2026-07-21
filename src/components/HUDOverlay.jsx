@@ -1,6 +1,6 @@
 import React from 'react';
-import { hotbar, inventory, player, game } from '../state.js';
-import { thingName } from '../config.js';
+import { hotbar, inventory, player, game, toolDurability } from '../state.js';
+import { thingName, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
 import Swatch3D from './Swatch3D.jsx';
 
@@ -18,35 +18,37 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
     return hearts;
   };
 
-  // Render hunger pips (10 pips total, 20 hunger max)
+  // Render hunger chicken legs (10 legs total, 20 units max)
   const renderHunger = () => {
-    const pips = [];
-    const hg = player.hunger;
+    const legs = [];
+    const hunger = player.hunger;
     for (let i = 0; i < 10; i++) {
-      const pVal = hg - i * 2;
-      if (pVal >= 2) pips.push(<span key={i} className="food full">🍗</span>);
-      else if (pVal === 1) pips.push(<span key={i} className="food half">🍖</span>);
-      else pips.push(<span key={i} className="food empty" style={{ opacity: 0.25 }}>🥩</span>);
+      const hVal = hunger - i * 2;
+      if (hVal >= 2) legs.push(<span key={i} className="hunger full">🍖</span>);
+      else if (hVal === 1) legs.push(<span key={i} className="hunger half">🍖</span>); // simplify visual
+      else legs.push(<span key={i} className="hunger empty" style={{ opacity: 0.25 }}>🍗</span>);
     }
-    return pips;
+    return legs;
   };
 
   return (
     <>
-      {/* Top Debugging HUD */}
-      <div id="hud">
-        <div><b>{fps}</b> fps</div>
-        <div>xyz <b>{coordsStr}</b></div>
-        <div id="modeLine">mode <b>{game.survival ? "survival" : "creative"}</b></div>
-        <div>time <b>{clockStr}</b></div>
-      </div>
-
-      {/* Aimed Block Target HUD */}
-      <div id="blockTargetHUD" className={`target-hud ${targetBlockName ? 'visible' : ''}`}>
+      {/* Target Aim Block Name */}
+      <div id="targetBlockName" className={`target-hud ${targetBlockName ? 'visible' : ''}`}>
         {targetBlockName}
       </div>
 
-      {/* Hearts & Hunger Stats */}
+      {/* Debug HUD Info overlay */}
+      <div id="hud">
+        FPS: {fps} <br />
+        POS: {coordsStr} <br />
+        TIME: {clockStr}
+      </div>
+
+      {/* Crosshair */}
+      <div id="crosshair" />
+
+      {/* Stats bar indicator */}
       {game.survival && (
         <div id="statBars">
           <div id="healthBar" className="stat-row">{renderHearts()}</div>
@@ -59,6 +61,11 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
         {hotbar.map((id, index) => {
           const count = invCount(id);
           const hasItem = id > 0 && count > 0;
+          const isToolItem = hasItem && ITEMS[id] && ITEMS[id].tool;
+          const maxDur = isToolItem ? ([30, 60, 150, 500][ITEMS[id].tier - 1] || 30) : 0;
+          const currentDur = isToolItem ? (toolDurability[id] !== undefined ? toolDurability[id] : maxDur) : 0;
+          const durPercent = isToolItem ? Math.max(0, Math.min(100, (currentDur / maxDur) * 100)) : 0;
+
           return (
             <div 
               key={index} 
@@ -66,6 +73,17 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
             >
               {hasItem && <Swatch3D id={id} />}
               {hasItem && <span className="count">{count}</span>}
+              {isToolItem && (
+                <div className="durability-bar-container">
+                  <div 
+                    className="durability-bar" 
+                    style={{ 
+                      width: `${durPercent}%`,
+                      backgroundColor: durPercent < 20 ? '#ff3b30' : durPercent < 55 ? '#ffcc00' : '#4cd964'
+                    }} 
+                  />
+                </div>
+              )}
               <span className="key">{index + 1}</span>
               {hasItem && <span className="name">{thingName(id)}</span>}
             </div>

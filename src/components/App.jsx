@@ -13,11 +13,10 @@ import LobbyCard from './LobbyCard.jsx';
 import HUDOverlay from './HUDOverlay.jsx';
 import ChestScreen from './ChestScreen.jsx';
 import FurnaceScreen from './FurnaceScreen.jsx';
-
 import { 
   uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
   closeCraft, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
-  lastAuthStatus, lastSyncConflict
+  lastAuthStatus, lastSyncConflict, activeAchievementNotification
 } from '../ui.js';
 
 export default function App() {
@@ -412,6 +411,18 @@ export default function App() {
                 Use Local Save (Overwrites cloud progress)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Achievement Unlock Popup */}
+      {activeAchievementNotification && (
+        <div className="achievement-popup">
+          <span className="badge">🏆</span>
+          <div style={{ textAlign: 'left' }}>
+            <h4>Achievement Unlocked!</h4>
+            <p style={{ margin: '2px 0 0 0', color: '#c8b896', fontSize: '9px' }}>
+              <strong>{activeAchievementNotification.name}</strong> - {activeAchievementNotification.desc}
+            </p>
           </div>
         </div>
       )}

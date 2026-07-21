@@ -85,6 +85,10 @@ export const BLOCKS = {
   53:{ name: "Green Wool",  all:0x40904a, solid:true, hardness:0.8 },
   54:{ name: "Yellow Wool", all:0xe0c040, solid:true, hardness:0.8 },
   55:{ name: "Black Wool",  all:0x2a2a2a, solid:true, hardness:0.8 },
+  89:{ name: "Farmland",    top:0x5c4033, side:0x6b4f34, bottom:0x6b4f34, solid:true, hardness:0.6 },
+  90:{ name: "Wheat Crop (Seeded)", all:0x7a6a4a, solid:false, alpha:true, cutout:true, hardness:0.1 },
+  91:{ name: "Wheat Crop (Growing)", all:0x6aa84f, solid:false, alpha:true, cutout:true, hardness:0.1 },
+  92:{ name: "Wheat Crop (Ripe)", all:0xd8c060, solid:false, alpha:true, cutout:true, hardness:0.1 },
 };
 
 // === Shape variants ===
@@ -194,6 +198,10 @@ export const ITEMS = {
   135: { name: "Bread",       color: 0xc8a050, food:5, heal:0 },
   136: { name: "Wheat",       color: 0xd8c060 },
   137: { name: "Golden Apple",color: 0xf2d24a, food:8, heal:6 },
+  138: { name: "Wheat Seeds", color: 0x8a7a50 },
+  140: { name: "Wood Hoe",     color: 0x9a7b4a, tool: "hoe", tier: 1 },
+  141: { name: "Stone Hoe",    color: 0x8a8a8a, tool: "hoe", tier: 2 },
+  142: { name: "Iron Hoe",     color: 0xd8d8d8, tool: "hoe", tier: 3 },
 };
 
 export function isFood(id){ return ITEMS[id] && ITEMS[id].food!==undefined; }
@@ -271,12 +279,15 @@ export const RECIPES = [];
   R({47:1},103,9,"Gold (uncompress)","Gold Block → 9 Ingots");
   R({48:1},104,9,"Diamond (uncompress)","Diamond Block → 9 Diamonds");
 
+  R({136:3}, 135, 1, "Bread", "3 Wheat → Bread");
+
   const toolMats=[[7,"Wood",null],[15,"Stone",null],[102,"Iron",null],[104,"Diamond",null]];
-  const pick=[105,106,107,108], shov=[109,110,111,null], axe=[112,113,114,null];
+  const pick=[105,106,107,108], shov=[109,110,111,null], axe=[112,113,114,null], hoe=[140,141,142,null];
   toolMats.forEach(([mat,label],ti)=>{
     if(pick[ti]) R({[mat]:3,100:2}, pick[ti], 1, `${label} Pickaxe`, `3 ${label} + 2 Sticks`);
     if(shov[ti]) R({[mat]:1,100:2}, shov[ti], 1, `${label} Shovel`, `1 ${label} + 2 Sticks`);
     if(axe[ti])  R({[mat]:3,100:3}, axe[ti], 1, `${label} Axe`, `3 ${label} + 3 Sticks`);
+    if(hoe[ti])  R({[mat]:2,100:2}, hoe[ti], 1, `${label} Hoe`, `2 ${label} + 2 Sticks`);
   });
 
   R({6:1},123,1,"Green Dye","Leaves → Green Dye");

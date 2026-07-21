@@ -1,4 +1,4 @@
-import { keys, touch, player, inventory, hotbar, game, webgl, SAVE_KEY, world, reactBridge } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, SAVE_KEY, world, reactBridge, toolDurability, crops, achievements } from './state.js';
 import { thingName, isPlaceable, craftableRecipes, BLOCKS } from './config.js';
 import { invCount, addItem, removeItem } from './player.js';
 import { initFirebase, saveWorldToCloud } from './firebase.js';
@@ -17,6 +17,47 @@ export function setChestOpen(v) { uiState.chestOpen = v; }
 export function setFurnaceOpen(v) { uiState.furnaceOpen = v; }
 export function setActiveChestCoords(v) { uiState.activeChestCoords = v; }
 export function setActiveFurnaceCoords(v) { uiState.activeFurnaceCoords = v; }
+
+export let activeAchievementNotification = null;
+export function unlockAchievement(id, name, desc) {
+  if (achievements[id]) return;
+  achievements[id] = true;
+  activeAchievementNotification = { id, name, desc };
+  
+  // Play higher success chime sound using Web Audio
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    // Minecraft style leveling up ding chime sequence
+    osc.type = "sine";
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(523.25, now); // C5
+    osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+    osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+    osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
+    
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    
+    osc.start(now);
+    osc.stop(now + 0.6);
+  } catch(e){}
+
+  if (reactBridge.updateUI) reactBridge.updateUI();
+  
+  setTimeout(() => {
+    if (activeAchievementNotification && activeAchievementNotification.id === id) {
+      activeAchievementNotification = null;
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    }
+  }, 5000);
+  
+  scheduleSave();
+}
 
 // Open/Close Actions
 export function getCraftOpen() { return uiState.craftOpen; }
@@ -170,8 +211,10 @@ export function saveWorld() {
     avatar: player.avatar,
     survival: game.survival,
     timeOfDay: game.timeOfDay,
-    minedBlocks,
     placedBlocks,
+    toolDurability,
+    crops,
+    achievements,
     username: window.__currentUserEmail || 'player',
     lastUpdated: new Date().toISOString()
   };
@@ -211,6 +254,15 @@ export function loadWorld() {
     }
     if (p.avatar) {
       Object.assign(player.avatar, p.avatar);
+    }
+    if (p.toolDurability) {
+      Object.assign(toolDurability, p.toolDurability);
+    }
+    if (p.crops) {
+      Object.assign(crops, p.crops);
+    }
+    if (p.achievements) {
+      Object.assign(achievements, p.achievements);
     }
     return true;
   } catch (e) {
@@ -280,6 +332,7 @@ export function tickFurnaces(dt) {
           if (f.inputCount <= 0) { f.inputId = 0; f.inputCount = 0; }
           f.outputId = smeltable;
           f.outputCount = (f.outputCount || 0) + 1;
+          unlockAchievement(4, "Expert Smelter", "Smelt ores or raw meats inside an active furnace.");
           scheduleSave();
         }
       } else {

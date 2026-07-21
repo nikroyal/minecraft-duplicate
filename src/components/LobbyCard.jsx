@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { player, game, world, inventory, SAVE_KEY, avatarCallbacks } from '../state.js';
+import { player, game, world, inventory, SAVE_KEY, avatarCallbacks, achievements } from '../state.js';
 import { Chunk, getChunk, generateChunk, getBlock } from '../world.js';
 import { isSolid, keyOf } from '../config.js';
 import { invCount } from '../player.js';
@@ -111,7 +111,8 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
       <div className="dashboard-tabs">
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play</button>
         <button id="tabStatsBtn" className={`dash-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>📊 My Stats</button>
-        <button id="tabLeaderboardBtn" className={`dash-tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>🏆 Leaderboard</button>
+        <button id="tabLeaderboardBtn" className={`dash-tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>🥇 Leaderboard</button>
+        <button id="tabAchievementsBtn" className={`dash-tab ${activeTab === 'achievements' ? 'active' : ''}`} onClick={() => setActiveTab('achievements')}>🏆 Achievements</button>
         <button id="tabAvatarBtn" className={`dash-tab ${activeTab === 'avatar' ? 'active' : ''}`} onClick={() => setActiveTab('avatar')}>👕 Avatar</button>
       </div>
 
@@ -201,6 +202,62 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'achievements' && (
+        <div className="dash-panel" id="dash-achievements" style={{ width: '100%' }}>
+          <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+            {[
+              { id: 1, name: "First Journey", desc: "Walk at least 100 blocks in the voxel world." },
+              { id: 2, name: "Timber!", desc: "Mine at least 5 wood log blocks." },
+              { id: 3, name: "Subterranean Miner", desc: "Mine at least 5 ore blocks (Coal, Iron, Gold, Diamond)." },
+              { id: 4, name: "Expert Smelter", desc: "Smelt ores or foods inside an active furnace." },
+              { id: 5, name: "Safe Storage", desc: "Craft and place a Chest block." },
+              { id: 6, name: "Humble Farmer", desc: "Till grass or dirt into farmland using a Hoe." },
+              { id: 7, name: "Green Thumb", desc: "Plant wheat seeds on farmland." },
+              { id: 8, name: "Bountiful Harvest", desc: "Harvest fully grown ripe wheat crops." },
+              { id: 9, name: "Diamonds!", desc: "Find and mine a rare Diamond Ore block." },
+              { id: 10, name: "Night Survivor", desc: "Survive a full night cycle without dying." }
+            ].map(a => {
+              const unlocked = achievements[a.id];
+              return (
+                <div key={a.id} className="recipe-row" style={{
+                  opacity: unlocked ? 1 : 0.45,
+                  cursor: 'default',
+                  background: unlocked ? 'rgba(214,178,120,0.06)' : 'rgba(0,0,0,0.15)',
+                  border: unlocked ? '1px solid var(--gold)' : '1px solid var(--slot-line)',
+                  borderRadius: '4px',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.15s ease'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '20px', filter: unlocked ? '' : 'grayscale(1)' }}>🏆</span>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: unlocked ? 'var(--gold-bright)' : '#aaa' }}>
+                        {a.name}
+                      </div>
+                      <div style={{ fontSize: '9px', color: '#9a8a76', marginTop: '2px' }}>{a.desc}</div>
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: '8px',
+                    fontWeight: 'bold',
+                    padding: '3px 8px',
+                    borderRadius: '3px',
+                    background: unlocked ? 'rgba(76,217,100,0.15)' : 'rgba(255,255,255,0.05)',
+                    color: unlocked ? '#4cd964' : '#9a8a76',
+                    border: unlocked ? '1px solid #4cd964' : '1px solid var(--slot-line)'
+                  }}>
+                    {unlocked ? "UNLOCKED" : "LOCKED"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

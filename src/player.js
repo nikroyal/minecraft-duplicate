@@ -6,7 +6,7 @@ import {
 import { getBlock, getChunk } from './world.js';
 import { 
   flashDamage, updateStatsHUD, showDeathScreen, hideDeathScreen, toast, refreshCounts,
-  isMenuOpen
+  isMenuOpen, unlockAchievement
 } from './ui.js';
 import { playHitSound, playFootstepSound } from './audio.js';
 
@@ -127,9 +127,19 @@ export function updatePlayer(dt){
   const wasOnGround = player.onGround;
   player.onGround = false;
   
+  const oldX = player.pos.x, oldZ = player.pos.z;
   moveAxis("x", player.vel.x*dt);
   moveAxis("z", player.vel.z*dt);
   moveAxis("y", player.vel.y*dt);
+
+  if (player.onGround && !player.flying) {
+    const dX = player.pos.x - oldX;
+    const dZ = player.pos.z - oldZ;
+    player.distWalked = (player.distWalked || 0) + Math.sqrt(dX * dX + dZ * dZ);
+    if (player.distWalked >= 100) {
+      unlockAchievement(1, "First Journey", "Walked over 100 blocks.");
+    }
+  }
 
   // Fall damage tracking
   if(!player.flying){
@@ -223,6 +233,7 @@ export function updateSurvival(dt){
 
 export function playerDie(cause){
   player.dead = true;
+  player.diedTonight = true;
   game.running = false;
   // Mining state is in main.js, we can trigger exitPointerLock
   if(document.pointerLockElement) document.exitPointerLock();

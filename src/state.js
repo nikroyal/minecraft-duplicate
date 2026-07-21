@@ -68,6 +68,10 @@ export const touch = {
   isTouch: false
 };
 
+export const toolDurability = {};
+export const crops = {};
+export const achievements = {};
+
 export const avatarCallbacks = { update: null };
 
 export const reactBridge = { updateUI: null };
