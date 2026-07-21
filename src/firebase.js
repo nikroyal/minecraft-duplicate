@@ -13,6 +13,7 @@ import {
   doc, 
   getDoc, 
   setDoc,
+  deleteDoc,
   collection,
   query,
   orderBy,
@@ -80,7 +81,29 @@ export function initFirebase(onStatusChange, onSyncConflict) {
   }
 }
 
+function areEditsEqual(localEdits = {}, cloudEdits = {}) {
+  const normLocal = {};
+  for (const k in localEdits) normLocal[String(k).replace(/_/g, ',')] = localEdits[k];
+  const normCloud = {};
+  for (const k in cloudEdits) normCloud[String(k).replace(/_/g, ',')] = cloudEdits[k];
+
+  const localKeys = Object.keys(normLocal);
+  const cloudKeys = Object.keys(normCloud);
+  if (localKeys.length !== cloudKeys.length) return false;
+
+  for (const k of localKeys) {
+    if (normLocal[k] !== normCloud[k]) return false;
+  }
+  return true;
+}
+
 async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
+  if (sessionStorage.getItem('sync_resolved')) {
+    sessionStorage.removeItem('sync_resolved');
+    onStatusChange({ state: 'synced', message: 'Cloud synced!' });
+    return;
+  }
+
   onStatusChange({ state: 'syncing', message: 'Syncing with cloud...' });
 
   try {
@@ -101,10 +124,9 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
         }
         
         if (localPayload) {
-          const localEditsStr = JSON.stringify(localPayload.edits || {});
-          const cloudEditsStr = JSON.stringify(cloudData.edits || {});
+          const isSame = areEditsEqual(localPayload.edits, cloudData.edits);
 
-          if (localEditsStr !== cloudEditsStr) {
+          if (!isSame) {
             onStatusChange({ state: 'conflict', message: 'Sync Conflict: Action Required.' });
             onSyncConflict(cloudData);
           } else {
@@ -112,10 +134,12 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
           }
         } else {
           localStorage.setItem(SAVE_KEY, JSON.stringify(cloudData));
+          sessionStorage.setItem('sync_resolved', 'true');
           location.reload();
         }
       } else {
         localStorage.setItem(SAVE_KEY, JSON.stringify(cloudData));
+        sessionStorage.setItem('sync_resolved', 'true');
         location.reload();
       }
     } else {
@@ -124,7 +148,8 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
         let localPayload = null;
         try { localPayload = JSON.parse(localRaw); } catch(e) {}
         if (localPayload) {
-          await setDoc(userDocRef, localPayload, { merge: true });
+          const cleanPayload = sanitizePayload(localPayload);
+          await setDoc(userDocRef, cleanPayload, { merge: true });
           onStatusChange({ state: 'synced', message: 'Uploaded! Cloud sync active.' });
         }
       } else {
@@ -133,7 +158,7 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
     }
   } catch (error) {
     console.error("Failed to sync on login:", error);
-    onStatusChange({ state: 'error', message: 'Sync failed. Playing offline.' });
+    onStatusChange({ state: 'error', message: 'Cloud sync error.' });
   }
 }
 
@@ -206,7 +231,8 @@ export async function manuallySyncLocalToCloud(onStatusChange) {
   }
 }
 
-export function resolveSyncConflict(keepCloud, cloudSavePending) {
+export async function resolveSyncConflict(keepCloud, cloudSavePending) {
+  sessionStorage.setItem('sync_resolved', 'true');
   if (keepCloud && cloudSavePending) {
     localStorage.setItem(SAVE_KEY, JSON.stringify(cloudSavePending));
     location.reload();
@@ -215,15 +241,29 @@ export function resolveSyncConflict(keepCloud, cloudSavePending) {
     if (localRaw) {
       try {
         const payload = JSON.parse(localRaw);
+        const cleanPayload = sanitizePayload(payload);
         const userDocRef = doc(db, 'users', currentUser.uid);
-        setDoc(userDocRef, payload, { merge: true })
-          .then(() => {
-            location.reload();
-          })
-          .catch(err => {
-            console.error("Failed to upload local save during conflict resolution:", err);
-          });
-      } catch(e){}
+        await setDoc(userDocRef, cleanPayload);
+      } catch (err) {
+        console.error("Failed to upload local save during conflict resolution:", err);
+      }
+    }
+    location.reload();
+  } else {
+    location.reload();
+  }
+}
+
+export async function resetWorldData() {
+  localStorage.removeItem(SAVE_KEY);
+  sessionStorage.setItem('sync_resolved', 'true');
+  if (db && currentUser) {
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await deleteDoc(userDocRef);
+      console.log("Cloud document deleted on world reset.");
+    } catch (e) {
+      console.warn("Failed to delete cloud document on reset:", e);
     }
   }
 }

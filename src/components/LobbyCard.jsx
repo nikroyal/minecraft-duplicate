@@ -3,7 +3,7 @@ import { player, game, world, inventory, SAVE_KEY, avatarCallbacks, achievements
 import { Chunk, getChunk, generateChunk, getBlock } from '../world.js';
 import { isSolid, keyOf } from '../config.js';
 import { invCount } from '../player.js';
-import { logoutUser, fetchLeaderboard, manuallySyncLocalToCloud } from '../firebase.js';
+import { logoutUser, fetchLeaderboard, manuallySyncLocalToCloud, resetWorldData } from '../firebase.js';
 import { updateLobbyAvatarPreview } from '../ui.js';
 import { initAudio } from '../audio.js';
 
@@ -77,8 +77,8 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
       .catch(() => setSyncLoading(false));
   };
 
-  const handleResetWorld = () => {
-    localStorage.removeItem(SAVE_KEY);
+  const handleResetWorld = async () => {
+    await resetWorldData();
     setResetStep(null);
     location.reload();
   };
