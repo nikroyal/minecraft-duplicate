@@ -4,7 +4,8 @@ import { thingName, BLOCKS, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
 import Swatch3D from './Swatch3D.jsx';
 
-export default function HUDOverlay() {
+export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsStr, clockStr }) {
+  const activeSelected = selectedSlot !== undefined ? selectedSlot : game.selected;
   const hp = Math.max(0, player.health);
   const hunger = Math.max(0, player.hunger);
 
@@ -56,7 +57,7 @@ export default function HUDOverlay() {
       <div id="hotbar" className="hotbar" style={{ display: 'flex' }}>
         {hotbar.map((id, index) => {
           const count = invCount(id);
-          const isSelected = game.selected === index;
+          const isSelected = activeSelected === index;
           
           // Tool Durability calculation
           const itemDef = ITEMS[id];

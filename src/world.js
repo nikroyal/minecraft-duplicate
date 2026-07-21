@@ -154,8 +154,12 @@ export function setBlock(wx,wy,wz,v, record, scheduleSaveCallback){
   if(!ch) return;
   const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
   
+  const prev = ch.get(lx, wy, lz);
+  if (prev === 8 && v !== 8) {
+    delete flowDist[wkey(wx, wy, wz)];
+  }
+
   if (v === 0) {
-    const prev = ch.get(lx, wy, lz);
     const key = wx + "," + wy + "," + wz;
     if (prev === 43 && world.chests && world.chests[key]) {
       world.chests[key].forEach(slot => {

@@ -65,13 +65,20 @@ export default function App() {
 
     reactBridge.updateUI = () => {
       forceUpdate();
-      setCoordsStr(`${Math.floor(player.pos.x)} ${Math.floor(player.pos.y)} ${Math.floor(player.pos.z)}`);
-      const rawTime = game.timeOfDay * 24;
+      const px = player?.pos ? Math.floor(player.pos.x) : 0;
+      const py = player?.pos ? Math.floor(player.pos.y) : 0;
+      const pz = player?.pos ? Math.floor(player.pos.z) : 0;
+      setCoordsStr(`${px} ${py} ${pz}`);
+
+      const timeVal = typeof game?.timeOfDay === 'number' && !isNaN(game.timeOfDay) ? game.timeOfDay : 0.3;
+      const rawTime = (timeVal * 24) % 24;
       const hh = Math.floor(rawTime).toString().padStart(2, '0');
       const mm = Math.floor((rawTime % 1) * 60).toString().padStart(2, '0');
       setClockStr(`${hh}:${mm}`);
+
       const target = window.__targetBlockId;
-      setTargetBlockName(target > 0 ? thingName(target).toUpperCase() : null);
+      const name = target > 0 ? thingName(target) : null;
+      setTargetBlockName(name ? String(name).toUpperCase() : null);
       setFps(game.fps || 60);
     };
 

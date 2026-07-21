@@ -149,11 +149,27 @@ export async function logoutUser() {
   location.reload();
 }
 
+function sanitizePayload(obj) {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizePayload);
+  const clean = {};
+  for (const k in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+      const safeKey = String(k).replace(/\./g, '_');
+      const val = obj[k];
+      clean[safeKey] = val === undefined ? null : sanitizePayload(val);
+    }
+  }
+  return clean;
+}
+
 export async function saveWorldToCloud(payload) {
   if (!db || !currentUser) return;
   try {
+    const cleanPayload = sanitizePayload(payload);
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userDocRef, payload, { merge: true });
+    await setDoc(userDocRef, cleanPayload, { merge: true });
     console.log("Cloud save updated successfully.");
   } catch (error) {
     console.error("Cloud save failed:", error);
@@ -169,8 +185,9 @@ export async function manuallySyncLocalToCloud(onStatusChange) {
   onStatusChange({ state: 'syncing', message: 'Syncing now...' });
   try {
     const payload = JSON.parse(localRaw);
+    const cleanPayload = sanitizePayload(payload);
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userDocRef, payload, { merge: true });
+    await setDoc(userDocRef, cleanPayload, { merge: true });
     onStatusChange({ state: 'synced', message: 'Synced!' });
   } catch (error) {
     console.error("Manual sync failed:", error);

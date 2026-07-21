@@ -841,12 +841,66 @@ kbd, .m-key {
 .achievement-popup .badge {
   font-size: 24px;
 }
-.achievement-popup h4 {
-  margin: 0;
-  font-size: 11px;
+.achievement-popup p {
+  margin: 2px 0 0 0;
+  font-size: 10px;
+  color: #dfcfb7;
+}
+
+/* Furnace Screen & HUD Banner Additions */
+.flame-box {
+  width: 24px;
+  height: 24px;
+  background: #1a140e;
+  border: 1px solid var(--slot-line);
+  position: relative;
+  overflow: hidden;
+  border-radius: 3px;
+}
+.flame-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(to top, #ff3300, #ffcc00);
+  transition: height 0.15s ease;
+}
+.furnace-arrow {
+  width: 32px;
+  height: 16px;
+  background: #1a140e;
+  border: 1px solid var(--slot-line);
+  position: relative;
+  overflow: hidden;
+  border-radius: 3px;
+}
+.furnace-arrow-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.15s ease;
+}
+.output-cell {
+  border: 2px solid var(--gold-bright) !important;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+.active-item-name, #activeItemName {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 8, 6, 0.85);
+  border: 1px solid var(--gold);
   color: var(--gold-bright);
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 .achievement-popup p {
   margin: 2px 0 0 0;
