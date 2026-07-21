@@ -331,10 +331,8 @@ export const RECIPES = [];
 export function resolveRecipe(bag){
   for(const r of RECIPES){
     const rIds=Object.keys(r.in);
-    const bIds=Object.keys(bag).filter(id=>bag[id]>0);
-    if(rIds.length!==bIds.length) continue;
     let ok=true;
-    for(const id of rIds){ if((bag[id]||0)!==r.in[id]){ ok=false; break; } }
+    for(const id of rIds){ if((bag[id]||0) < r.in[id]){ ok=false; break; } }
     if(ok) return r;
   }
   return null;
@@ -401,6 +399,8 @@ export const BLOCK_TILES = {
   48:{all:"diamond_block"}, 49:{all:"glass_pane"},
   50:{all:"wool_white"}, 51:{all:"wool_red"}, 52:{all:"wool_blue"},
   53:{all:"wool_green"}, 54:{all:"wool_yellow"}, 55:{all:"wool_black"},
+  89:{top:"dirt", side:"dirt", bottom:"dirt"},
+  90:{all:"leaves"}, 91:{all:"leaves"}, 92:{all:"leaves"}
 };
 
 export function tileFor(id, face){
@@ -415,15 +415,15 @@ export function tileFor(id, face){
 }
 
 export function tileUV(name){
-  const i=TILE_IDX[name]!==undefined?TILE_IDX[name]:TILE_IDX.stone;
+  const i=TILE_IDX[name]!==undefined?TILE_IDX[name]:(TILE_IDX.stone||0);
   const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
   const inset=0.12/TILE;
   const u0=col/ATLAS_COLS + inset, u1=(col+1)/ATLAS_COLS - inset;
-  const v1=1-(row/ATLAS_ROWS) - inset, v0=1-((row+1)/ATLAS_ROWS) + inset;
+  const v0=1-((row+1)/ATLAS_ROWS) + inset, v1=1-(row/ATLAS_ROWS) - inset;
   return {u0,u1,v0,v1};
 }
 
-export function trng(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967295; }; }
+export function trng(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
 export function shade(hex,f){
   const r=Math.min(255,((hex>>16)&255)*f)|0, g=Math.min(255,((hex>>8)&255)*f)|0, b=Math.min(255,(hex&255)*f)|0;
   return `rgb(${r},${g},${b})`;

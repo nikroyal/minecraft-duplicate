@@ -26,6 +26,7 @@ let app = null;
 let auth = null;
 let db = null;
 let currentUser = null;
+let authUnsubscribe = null;
 
 export function initFirebase(onStatusChange, onSyncConflict) {
   if (!isFirebaseConfigured) {
@@ -34,20 +35,23 @@ export function initFirebase(onStatusChange, onSyncConflict) {
   }
 
   try {
-    app = initializeApp(firebaseConfig);
-    
-    // Initialize Firestore with robust multi-tab offline persistence
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
-    });
-    
-    auth = getAuth(app);
+    if (!app) {
+      app = initializeApp(firebaseConfig);
+      
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
+      });
+      
+      auth = getAuth(app);
+    }
 
     onStatusChange({ state: 'connecting', message: 'Connecting to Firebase...' });
 
-    onAuthStateChanged(auth, (user) => {
+    if (authUnsubscribe) authUnsubscribe();
+
+    authUnsubscribe = onAuthStateChanged(auth, (user) => {
       currentUser = user;
       if (user) {
         onStatusChange({ 
@@ -56,7 +60,6 @@ export function initFirebase(onStatusChange, onSyncConflict) {
           message: `Signed in as: ${user.email}` 
         });
 
-        // Trigger sync
         handleSyncOnLogin(user.uid, onStatusChange, onSyncConflict);
       } else {
         onStatusChange({ 
@@ -85,31 +88,40 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
       const cloudData = docSnap.data();
 
       if (localRaw) {
-        const localPayload = JSON.parse(localRaw);
+        let localPayload = null;
+        try {
+          localPayload = JSON.parse(localRaw);
+        } catch(e) {
+          console.warn("Corrupted local save data, replacing with cloud data.", e);
+        }
         
-        // Simple comparison of structural changes to detect conflicts
-        const localEditsStr = JSON.stringify(localPayload.edits || {});
-        const cloudEditsStr = JSON.stringify(cloudData.edits || {});
+        if (localPayload) {
+          const localEditsStr = JSON.stringify(localPayload.edits || {});
+          const cloudEditsStr = JSON.stringify(cloudData.edits || {});
 
-        if (localEditsStr !== cloudEditsStr) {
-          // Sync Conflict: Show choices
-          onStatusChange({ state: 'conflict', message: 'Sync Conflict: Action Required.' });
-          onSyncConflict(cloudData);
+          if (localEditsStr !== cloudEditsStr) {
+            onStatusChange({ state: 'conflict', message: 'Sync Conflict: Action Required.' });
+            onSyncConflict(cloudData);
+          } else {
+            onStatusChange({ state: 'synced', message: 'Cloud synced!' });
+          }
         } else {
-          onStatusChange({ state: 'synced', message: 'Cloud synced!' });
+          localStorage.setItem(SAVE_KEY, JSON.stringify(cloudData));
+          location.reload();
         }
       } else {
-        // No local save, apply cloud save directly
         localStorage.setItem(SAVE_KEY, JSON.stringify(cloudData));
         location.reload();
       }
     } else {
-      // Cloud document doesn't exist yet, upload local save if we have one
       if (localRaw) {
         onStatusChange({ state: 'syncing', message: 'Uploading local save to cloud...' });
-        const localPayload = JSON.parse(localRaw);
-        await setDoc(userDocRef, localPayload);
-        onStatusChange({ state: 'synced', message: 'Uploaded! Cloud sync active.' });
+        let localPayload = null;
+        try { localPayload = JSON.parse(localRaw); } catch(e) {}
+        if (localPayload) {
+          await setDoc(userDocRef, localPayload, { merge: true });
+          onStatusChange({ state: 'synced', message: 'Uploaded! Cloud sync active.' });
+        }
       } else {
         onStatusChange({ state: 'synced', message: 'Cloud sync active. No save data yet.' });
       }
@@ -121,17 +133,17 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
 }
 
 export async function loginWithEmail(email, password) {
-  if (!auth) throw new Error("Auth not initialized");
+  if (!auth) return Promise.reject(new Error("Auth not initialized"));
   return signInWithEmailAndPassword(auth, email, password);
 }
 
 export async function signupWithEmail(email, password) {
-  if (!auth) throw new Error("Auth not initialized");
+  if (!auth) return Promise.reject(new Error("Auth not initialized"));
   return createUserWithEmailAndPassword(auth, email, password);
 }
 
 export async function logoutUser() {
-  if (!auth) throw new Error("Auth not initialized");
+  if (!auth) return Promise.reject(new Error("Auth not initialized"));
   await signOut(auth);
   localStorage.removeItem(SAVE_KEY);
   location.reload();
@@ -141,7 +153,7 @@ export async function saveWorldToCloud(payload) {
   if (!db || !currentUser) return;
   try {
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userDocRef, payload);
+    await setDoc(userDocRef, payload, { merge: true });
     console.log("Cloud save updated successfully.");
   } catch (error) {
     console.error("Cloud save failed:", error);
@@ -158,7 +170,7 @@ export async function manuallySyncLocalToCloud(onStatusChange) {
   try {
     const payload = JSON.parse(localRaw);
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userDocRef, payload);
+    await setDoc(userDocRef, payload, { merge: true });
     onStatusChange({ state: 'synced', message: 'Synced!' });
   } catch (error) {
     console.error("Manual sync failed:", error);
@@ -173,15 +185,17 @@ export function resolveSyncConflict(keepCloud, cloudSavePending) {
   } else if (!keepCloud && currentUser) {
     const localRaw = localStorage.getItem(SAVE_KEY);
     if (localRaw) {
-      const payload = JSON.parse(localRaw);
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      setDoc(userDocRef, payload)
-        .then(() => {
-          location.reload();
-        })
-        .catch(err => {
-          console.error("Failed to upload local save during conflict resolution:", err);
-        });
+      try {
+        const payload = JSON.parse(localRaw);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        setDoc(userDocRef, payload, { merge: true })
+          .then(() => {
+            location.reload();
+          })
+          .catch(err => {
+            console.error("Failed to upload local save during conflict resolution:", err);
+          });
+      } catch(e){}
     }
   }
 }

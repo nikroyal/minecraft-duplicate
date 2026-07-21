@@ -19,12 +19,21 @@ export class Chunk {
   }
   idx(x,y,z){ return (y*CHUNK + z)*CHUNK + x; }
   get(x,y,z){
-    if(y<0||y>=HEIGHT) return AIR;
+    if(x<0||x>=CHUNK||z<0||z>=CHUNK||y<0||y>=HEIGHT) return AIR;
     return this.data[this.idx(x,y,z)];
   }
-  set(x,y,z,v){ this.data[this.idx(x,y,z)] = v; }
-  getLight(x,y,z){ if(y<0) return 0; if(y>=HEIGHT) return MAX_LIGHT; return this.light[this.idx(x,y,z)]; }
-  setLight(x,y,z,v){ this.light[this.idx(x,y,z)] = v; }
+  set(x,y,z,v){
+    if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=0&&y<HEIGHT) this.data[this.idx(x,y,z)] = v;
+  }
+  getLight(x,y,z){
+    if(y<0) return 0;
+    if(y>=HEIGHT) return MAX_LIGHT;
+    if(x<0||x>=CHUNK||z<0||z>=CHUNK) return MAX_LIGHT;
+    return this.light[this.idx(x,y,z)];
+  }
+  setLight(x,y,z,v){
+    if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=0&&y<HEIGHT) this.light[this.idx(x,y,z)] = v;
+  }
 }
 
 function oreAt(wx,wy,wz){
@@ -617,7 +626,7 @@ export function buildAtlas(){
     wool_black(px){ painters._wool(px,0x2a2a2a,355); },
   };
 
-  const TILE_NAMES = Object.keys(painters);
+  const TILE_NAMES = Object.keys(painters).filter(k => !k.startsWith('_'));
   TILE_NAMES.forEach((name,i)=>{
     const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
     paintTile(ctx, col, row, painters[name]||painters.stone);

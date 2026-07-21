@@ -105,9 +105,12 @@ function updateDayNight(dt){
 // ---- Raycast helper ----
 function raycastVoxel(maxDist){
   const o = eyePos(), d = lookDir();
+  const dirX = Math.abs(d.x) < 1e-6 ? 1e-6 : d.x;
+  const dirY = Math.abs(d.y) < 1e-6 ? 1e-6 : d.y;
+  const dirZ = Math.abs(d.z) < 1e-6 ? 1e-6 : d.z;
   let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
-  const stepX = Math.sign(d.x)||1, stepY = Math.sign(d.y)||1, stepZ = Math.sign(d.z)||1;
-  const tDX = Math.abs(1/d.x), tDY = Math.abs(1/d.y), tDZ = Math.abs(1/d.z);
+  const stepX = Math.sign(dirX)||1, stepY = Math.sign(dirY)||1, stepZ = Math.sign(dirZ)||1;
+  const tDX = Math.abs(1/dirX), tDY = Math.abs(1/dirY), tDZ = Math.abs(1/dirZ);
   let tMX = ((stepX>0 ? (x+1-o.x) : (o.x-x)))*tDX;
   let tMY = ((stepY>0 ? (y+1-o.y) : (o.y-y)))*tDY;
   let tMZ = ((stepZ>0 ? (z+1-o.z) : (o.z-z)))*tDZ;
@@ -115,7 +118,7 @@ function raycastVoxel(maxDist){
   
   for(let i=0; i<128; i++){
     const b = getBlock(x, y, z);
-    if(b !== 0 && BLOCKS[b] && BLOCKS[b].solid){
+    if(b !== 0 && BLOCKS[b]){
       return { hit: [x,y,z], prev: [px,py,pz] };
     }
     px = x; py = y; pz = z;
@@ -381,10 +384,12 @@ export function placeBlock(){
   // Intercept right click container interaction
   const hitBlockId = getBlock(r.hit[0], r.hit[1], r.hit[2]);
   if(hitBlockId === 43){ // Chest
+    if(document.pointerLockElement) document.exitPointerLock();
     openChest(r.hit[0], r.hit[1], r.hit[2]);
     return;
   }
   if(hitBlockId === 42){ // Furnace
+    if(document.pointerLockElement) document.exitPointerLock();
     openFurnace(r.hit[0], r.hit[1], r.hit[2]);
     return;
   }

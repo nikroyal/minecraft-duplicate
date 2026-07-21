@@ -5,6 +5,8 @@ export const SAVE_KEY = "voxel_world_save";
 export const world = {
   chunks: new Map(),
   edits: {}, // persistent player edits: "wx,wy,wz" -> blockId
+  chests: {},
+  furnaces: {},
 };
 
 export const player = {
@@ -20,6 +22,16 @@ export const player = {
   invuln: 0,
   swingProgress: 0,
   cameraMode: 0,
+  hungerTimer: 0,
+  regenTimer: 0,
+  starveTimer: 0,
+  drownTimer: 0,
+  fallPeak: 30,
+  minedWoodCount: 0,
+  minedOresCount: 0,
+  diedTonight: false,
+  nightSurvivorAwarded: false,
+  distanceWalked: 0,
   avatar: {
     headType: "steve",
     shirtColor: "#008080",
@@ -29,7 +41,7 @@ export const player = {
 };
 
 export const inventory = {};
-export const hotbar = [15, 16, 7, 9, 5, 20, 8, 45]; // starter hotbar: cobble, stone brick, plank, glass, wood, torch, water, ladder
+export const hotbar = [15, 16, 7, 9, 5, 20, 3, 45]; // starter hotbar: cobble, stone brick, plank, glass, wood, torch, stone, ladder
 
 export const game = {
   running: false,
@@ -58,9 +70,19 @@ export const webgl = {
   crackTex: null,
   crackMat: null,
   crackMesh: null,
+  playerMesh: null,
 };
 
 export const keys = {};
+
+// Auto-reset keys when window loses focus to prevent stuck keys
+if (typeof window !== 'undefined') {
+  window.addEventListener('blur', () => {
+    for (const k in keys) {
+      keys[k] = false;
+    }
+  });
+}
 
 export const touch = {
   move: { x: 0, y: 0 },
@@ -73,5 +95,4 @@ export const crops = {};
 export const achievements = {};
 
 export const avatarCallbacks = { update: null };
-
 export const reactBridge = { updateUI: null };

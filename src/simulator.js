@@ -9,16 +9,16 @@ import {
 import { signupWithEmail, loginWithEmail } from './firebase.js';
 import { RECIPES } from './config.js';
 
-// Helper to set React input values and trigger state changes
+// Helper to set React input values and trigger state changes properly using native descriptor setter
 function setReactInputValue(inputEl, val) {
   if (!inputEl) return;
-  const lastValue = inputEl.value;
-  inputEl.value = val;
-  const event = new Event('input', { bubbles: true });
-  const tracker = inputEl._valueTracker;
-  if (tracker) {
-    tracker.setValue(lastValue);
+  const nativeValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  if (nativeValueSetter) {
+    nativeValueSetter.call(inputEl, val);
+  } else {
+    inputEl.value = val;
   }
+  const event = new Event('input', { bubbles: true });
   inputEl.dispatchEvent(event);
 }
 
@@ -31,6 +31,7 @@ export async function startSimulation() {
   console.log("%c==========================================", "color: #ff9900; font-weight: bold; font-size: 14px;");
   
   toast("Simulation started! Autopilot active.");
+  let timeTickingInterval = null;
 
   try {
     // 1. AUTHENTICATION PHASE
@@ -38,7 +39,6 @@ export async function startSimulation() {
     const emailInput = document.getElementById('authEmail');
     const passInput = document.getElementById('authPassword');
     const registerBtn = document.getElementById('authRegisterBtn');
-    const signInBtn = document.getElementById('authSignInBtn');
 
     if (emailInput && passInput) {
       const testEmail = `test_sim_${Math.floor(Math.random() * 100000)}@voxelgame.test`;
@@ -49,7 +49,7 @@ export async function startSimulation() {
       setReactInputValue(passInput, testPass);
       await sleep(1000);
       
-      registerBtn.click();
+      if (registerBtn) registerBtn.click();
     } else {
       console.log("[SIM] Already authenticated or inputs not found. Proceeding.");
     }
@@ -77,7 +77,6 @@ export async function startSimulation() {
       
       const headSelect = document.getElementById('avatarHead');
       const shirtColor = document.getElementById('avatarShirtColor');
-      const skinColor = document.getElementById('avatarSkinColor');
       
       if (headSelect) {
         console.log("[SIM] Customizing character head to 'Alex'...");
@@ -90,7 +89,6 @@ export async function startSimulation() {
       }
       await sleep(1500);
       
-      // Return to play screen
       document.getElementById('tabPlayBtn')?.click();
       await sleep(1000);
     }
@@ -109,17 +107,10 @@ export async function startSimulation() {
       if (reactBridge.updateUI) reactBridge.updateUI();
     }
 
-    // Speed up time for the 3-day simulation!
-    // Instead of 10 minutes (600s), set 1 game day cycle = 12 seconds
-    const ORIGINAL_DAY_LENGTH = 600;
-    // Set global time cycle multiplier
     console.log("[SIM] Compacting day/night lengths to 12s per full rotation (3 days = 36 seconds)...");
     
-    // We'll override game.timeOfDay calculation or set a high DT scale
-    // Let's speed up day cycle ticking dynamically in the background loop
-    const timeTickingInterval = setInterval(() => {
+    timeTickingInterval = setInterval(() => {
       if (game.running) {
-        // Fast-forward game timeOfDay
         game.timeOfDay = (game.timeOfDay + 0.01) % 1;
       }
     }, 120);
@@ -128,7 +119,8 @@ export async function startSimulation() {
     console.log("[SIM] Injecting resources for crafting and build demonstrations...");
     addItem(3, 64);   // Dirt
     addItem(5, 64);   // Planks
-    addItem(7, 32);   // Coal
+    addItem(7, 32);   // Planks
+    addItem(101, 32); // Coal
     addItem(12, 16);  // Iron Ore
     addItem(20, 16);  // Torch
     addItem(45, 5);   // Ladder
@@ -157,22 +149,21 @@ export async function startSimulation() {
     // Switch camera modes
     console.log("[SIM] Testing camera modes (F5 key)...");
     player.cameraMode = 1; // Third person back
-    updateHeldItemMesh();
+    if (webgl.renderer) updateHeldItemMesh();
     await sleep(1500);
     player.cameraMode = 2; // Third person front
-    updateHeldItemMesh();
+    if (webgl.renderer) updateHeldItemMesh();
     await sleep(1500);
     player.cameraMode = 0; // First person
-    updateHeldItemMesh();
+    if (webgl.renderer) updateHeldItemMesh();
     await sleep(1000);
 
     // Block Placement
     console.log("[SIM] Placing support scaffolding blocks...");
     const targetX = Math.floor(player.pos.x);
-    const targetY = Math.floor(player.pos.y) - 1;
+    const targetY = Math.max(1, Math.floor(player.pos.y) - 1);
     const targetZ = Math.floor(player.pos.z) + 2;
 
-    // Force place some blocks
     setBlock(targetX, targetY, targetZ, 5, true); // Oak Planks
     setBlock(targetX, targetY + 1, targetZ, 20, true); // Torch
     console.log(`[SIM] Placed block ID 5 at [${targetX}, ${targetY}, ${targetZ}]`);
@@ -180,9 +171,9 @@ export async function startSimulation() {
 
     // Block Mining
     console.log("[SIM] Testing mining tool calculations and particle effects...");
-    // Simulate mining the placed planks
     setBlock(targetX, targetY + 1, targetZ, 0, true);
     setBlock(targetX, targetY, targetZ, 0, true);
+
     // Agriculture & Hoes simulation
     console.log("[SIM] Testing Hoe tilling (Farmland creation) and Wheat Seed sowing...");
     const farmX = targetX + 1, farmY = targetY, farmZ = targetZ;
@@ -211,9 +202,7 @@ export async function startSimulation() {
     const stickRecipe = RECIPES.find(r => r.out === 100);
     if (stickRecipe) {
       console.log("[SIM] Crafting Oak Sticks from recipe book...");
-      // Add planks requirement
-      addItem(5, 4);
-      // Craft
+      addItem(7, 4); // Planks
       for (const id in stickRecipe.in) {
         removeItem(Number(id), stickRecipe.in[id]);
       }
@@ -232,16 +221,14 @@ export async function startSimulation() {
     openChest(chestX, chestY, chestZ);
     await sleep(1500);
 
-    // Move item to chest slot 0
-    console.log("[SIM] Storing coal fuel into chest slot 0...");
     world.chests = world.chests || {};
     const coords = `${chestX},${chestY},${chestZ}`;
     if (world.chests[coords]) {
-      world.chests[coords][0] = { id: 7, count: 5 }; // Put 5 coal
+      world.chests[coords][0] = { id: 101, count: 5 }; // Put 5 coal
     }
     if (reactBridge.updateUI) reactBridge.updateUI();
     await sleep(1500);
-    setChestOpen(false); // Close chest
+    setChestOpen(false);
     if (reactBridge.updateUI) reactBridge.updateUI();
     await sleep(1000);
 
@@ -253,19 +240,18 @@ export async function startSimulation() {
     openFurnace(furnX, furnY, furnZ);
     await sleep(1500);
 
-    // Set furnace input and fuel
     const furnCoords = `${furnX},${furnY},${furnZ}`;
     world.furnaces = world.furnaces || {};
     if (world.furnaces[furnCoords]) {
       console.log("[SIM] Loading iron ore (input) and coal (fuel) into furnace...");
       world.furnaces[furnCoords].inputId = 12; // Iron Ore
       world.furnaces[furnCoords].inputCount = 3;
-      world.furnaces[furnCoords].fuelId = 7; // Coal
+      world.furnaces[furnCoords].fuelId = 101; // Coal
       world.furnaces[furnCoords].fuelCount = 2;
     }
     if (reactBridge.updateUI) reactBridge.updateUI();
     await sleep(2500);
-    setFurnaceOpen(false); // Close furnace
+    setFurnaceOpen(false);
     if (reactBridge.updateUI) reactBridge.updateUI();
     await sleep(1000);
 
@@ -282,7 +268,6 @@ export async function startSimulation() {
     let daysObserved = 0;
     let lastTime = game.timeOfDay;
     
-    // Loop until we count 3 days
     for (let sec = 0; sec < 40; sec++) {
       await sleep(1000);
       const currentTime = game.timeOfDay;
@@ -294,8 +279,6 @@ export async function startSimulation() {
       if (daysObserved >= 3) break;
     }
 
-    clearInterval(timeTickingInterval);
-
     console.log("[SIM] Forcing cloud sync checkpoint save...");
     saveWorld();
     await sleep(1500);
@@ -306,7 +289,6 @@ export async function startSimulation() {
     if (reactBridge.updateUI) reactBridge.updateUI();
     await sleep(1500);
 
-    // Open Stats Tab to display final values
     document.getElementById('tabStatsBtn')?.click();
     await sleep(2000);
 
@@ -317,6 +299,12 @@ export async function startSimulation() {
 
   } catch (error) {
     console.error("%c🚨 SIMULATION ENCOUNTERED ERROR:", "color: #ff3333; font-weight: bold;", error);
-    toast("Simulation failed. Check console.");
+    toast(`Simulation error: ${error.message || 'Check console'}`);
+  } finally {
+    if (timeTickingInterval) clearInterval(timeTickingInterval);
+    // Reset any held keys to prevent sticky movement
+    for (const k in keys) {
+      keys[k] = false;
+    }
   }
 }

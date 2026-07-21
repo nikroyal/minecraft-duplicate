@@ -85,13 +85,19 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
 
   // Fetch leaderboard data when tab changes
   useEffect(() => {
+    let isMounted = true;
     if (activeTab === 'leaderboard') {
       setLoadingLeaderboard(true);
       fetchLeaderboard().then(list => {
-        setLeaderboardList(list);
-        setLoadingLeaderboard(false);
+        if (isMounted) {
+          setLeaderboardList(list);
+          setLoadingLeaderboard(false);
+        }
+      }).catch(() => {
+        if (isMounted) setLoadingLeaderboard(false);
       });
     }
+    return () => { isMounted = false; };
   }, [activeTab]);
 
   // Formatted stats
@@ -374,7 +380,7 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
       {/* Sync Status Footer */}
       <div className="cloud-panel" style={{ marginTop: '20px', width: '100%' }}>
         <div className="cloud-title">☁️ Cloud Sync Status</div>
-        <div id="cloudStatus" className="cloud-status" dangerouslySetInnerHTML={{ __html: syncStatus }} />
+        <div id="cloudStatus" className="cloud-status">{typeof syncStatus === 'string' ? syncStatus.replace(/<[^>]*>?/gm, '') : String(syncStatus || '')}</div>
         <div className="cloud-actions" style={{ marginTop: '8px' }}>
           <button className="cloud-btn secondary" disabled={syncLoading} onClick={handleManualSync}>
             {syncLoading ? "Syncing..." : "Sync Now"}

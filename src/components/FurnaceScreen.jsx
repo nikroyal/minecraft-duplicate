@@ -1,213 +1,188 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { inventory, world, reactBridge } from '../state.js';
 import { addItem, removeItem, invCount } from '../player.js';
 import { thingName } from '../config.js';
 import { playPlaceSound } from '../audio.js';
 import Swatch3D from './Swatch3D.jsx';
 
-function getFuelBurnTime(id) {
-  if (id === 11 || id === 101 || id === 120) return 80;
-  if (id === 5 || id === 22 || id === 23) return 15;
-  if (id === 7 || id === 31 || id === 32) return 15;
-  return 0;
-}
-
-function getSmeltResult(id) {
-  if (id === 12) return { out: 102, label: "Iron Ingot" };
-  if (id === 13) return { out: 103, label: "Gold Ingot" };
-  if (id === 14) return { out: 104, label: "Diamond" };
-  if (id === 4) return { out: 9, label: "Glass" };
-  if (id === 15) return { out: 3, label: "Stone" };
-  if (id === 133) return { out: 134, label: "Cooked Meat" };
-  if (id === 28) return { out: 36, label: "Terracotta" };
-  if (id === 23) return { out: 120, label: "Charcoal" };
-  if (id === 3) return { out: 40, label: "Smooth Stone" };
-  return null;
-}
+const FUELS = { 11: 80, 101: 80, 120: 80, 5: 15, 22: 15, 23: 15, 7: 15, 31: 15, 32: 15 };
+const SMELT_MAP = { 12: 102, 13: 103, 14: 104, 4: 9, 15: 3, 133: 134, 28: 36, 23: 120, 3: 40 };
 
 export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSave }) {
-  const f = world.furnaces[activeFurnaceCoords] || {
-    inputId: 0, inputCount: 0,
-    fuelId: 0, fuelCount: 0,
-    outputId: 0, outputCount: 0,
-    smeltProgress: 0, burnTime: 0, maxBurnTime: 0
-  };
+  world.furnaces = world.furnaces || {};
+  if (activeFurnaceCoords && !world.furnaces[activeFurnaceCoords]) {
+    world.furnaces[activeFurnaceCoords] = {
+      inputId: 0, inputCount: 0,
+      fuelId: 0, fuelCount: 0,
+      outputId: 0, outputCount: 0,
+      burnTime: 0, maxBurnTime: 0,
+      smeltProgress: 0
+    };
+  }
+
+  const furnace = (activeFurnaceCoords && world.furnaces[activeFurnaceCoords]) 
+    ? world.furnaces[activeFurnaceCoords]
+    : { inputId: 0, inputCount: 0, fuelId: 0, fuelCount: 0, outputId: 0, outputCount: 0, burnTime: 0, maxBurnTime: 0, smeltProgress: 0 };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code === "Escape" || e.code === "KeyE") {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const ids = Object.keys(inventory)
     .map(Number)
     .filter(id => invCount(id) > 0);
 
   const handleInventoryClick = (id) => {
-    const smeltable = getSmeltResult(id);
-    const fuel = getFuelBurnTime(id) > 0;
+    if (invCount(id) <= 0) return;
+    const isFuel = FUELS[id] > 0;
+    const isSmeltable = SMELT_MAP[id] !== undefined;
 
-    if (smeltable) {
-      // Add to Input
-      if (f.inputId === 0 || (f.inputId === id && f.inputCount < 64)) {
-        f.inputId = id;
-        f.inputCount = (f.inputCount || 0) + 1;
-        removeItem(id, 1);
-        playPlaceSound(id);
-        scheduleSave();
-        if (reactBridge.updateUI) reactBridge.updateUI();
-      }
-    } else if (fuel) {
-      // Add to Fuel
-      if (f.fuelId === 0 || (f.fuelId === id && f.fuelCount < 64)) {
-        f.fuelId = id;
-        f.fuelCount = (f.fuelCount || 0) + 1;
-        removeItem(id, 1);
-        playPlaceSound(id);
-        scheduleSave();
-        if (reactBridge.updateUI) reactBridge.updateUI();
-      }
+    if (isSmeltable && (furnace.inputId === 0 || (furnace.inputId === id && furnace.inputCount < 64))) {
+      removeItem(id, 1);
+      furnace.inputId = id;
+      furnace.inputCount = (furnace.inputCount || 0) + 1;
+      playPlaceSound(id);
+      scheduleSave();
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    } else if (isFuel && (furnace.fuelId === 0 || (furnace.fuelId === id && furnace.fuelCount < 64))) {
+      removeItem(id, 1);
+      furnace.fuelId = id;
+      furnace.fuelCount = (furnace.fuelCount || 0) + 1;
+      playPlaceSound(id);
+      scheduleSave();
+      if (reactBridge.updateUI) reactBridge.updateUI();
     }
   };
 
   const handleTakeInput = () => {
-    if (f.inputId > 0 && f.inputCount > 0) {
-      addItem(f.inputId, 1);
-      f.inputCount--;
-      if (f.inputCount <= 0) {
-        f.inputId = 0;
-        f.inputCount = 0;
+    if (furnace.inputId > 0 && furnace.inputCount > 0) {
+      const id = furnace.inputId;
+      addItem(id, 1);
+      furnace.inputCount--;
+      if (furnace.inputCount <= 0) {
+        furnace.inputId = 0;
+        furnace.inputCount = 0;
       }
-      playPlaceSound(f.inputId);
+      playPlaceSound(id);
       scheduleSave();
       if (reactBridge.updateUI) reactBridge.updateUI();
     }
   };
 
   const handleTakeFuel = () => {
-    if (f.fuelId > 0 && f.fuelCount > 0) {
-      addItem(f.fuelId, 1);
-      f.fuelCount--;
-      if (f.fuelCount <= 0) {
-        f.fuelId = 0;
-        f.fuelCount = 0;
+    if (furnace.fuelId > 0 && furnace.fuelCount > 0) {
+      const id = furnace.fuelId;
+      addItem(id, 1);
+      furnace.fuelCount--;
+      if (furnace.fuelCount <= 0) {
+        furnace.fuelId = 0;
+        furnace.fuelCount = 0;
       }
-      playPlaceSound(f.fuelId);
+      playPlaceSound(id);
       scheduleSave();
       if (reactBridge.updateUI) reactBridge.updateUI();
     }
   };
 
   const handleTakeOutput = () => {
-    if (f.outputId > 0 && f.outputCount > 0) {
-      addItem(f.outputId, f.outputCount);
-      const prevOut = f.outputId;
-      f.outputId = 0;
-      f.outputCount = 0;
-      playPlaceSound(prevOut);
+    if (furnace.outputId > 0 && furnace.outputCount > 0) {
+      const id = furnace.outputId;
+      const cnt = furnace.outputCount;
+      addItem(id, cnt);
+      furnace.outputId = 0;
+      furnace.outputCount = 0;
+      playPlaceSound(id);
       scheduleSave();
       if (reactBridge.updateUI) reactBridge.updateUI();
     }
   };
 
-  const progressPercent = Math.min(100, Math.floor((f.smeltProgress / 8.0) * 100));
-  const flamePercent = f.maxBurnTime > 0 ? Math.min(100, Math.floor((f.burnTime / f.maxBurnTime) * 100)) : 0;
+  const flamePercent = furnace.maxBurnTime > 0 ? (furnace.burnTime / furnace.maxBurnTime) * 100 : 0;
+  const progressPercent = (furnace.smeltProgress / 8.0) * 100;
 
   return (
-    <div id="furnaceScreen" className="modal-chest" style={{ display: 'flex' }}>
-      <div className="chest-card" style={{ maxWidth: '640px' }}>
+    <div id="furnaceScreen" className="modal-furnace" style={{ display: 'flex' }}>
+      <div className="furnace-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h2>Furnace Smelting</h2>
-          <button className="chest-close" onClick={onClose}>Close [X]</button>
+          <button className="furnace-close" onClick={onClose}>Close [X]</button>
         </div>
 
-        <div className="furnace-body">
-          {/* Inventory (left) */}
-          <div className="furnace-col" style={{ flex: '1.2' }}>
-            <h3 style={{ fontSize: '10px', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '10px' }}>Smeltables &amp; Fuels</h3>
+        <div className="furnace-layout">
+          {/* Inventory Selection */}
+          <div className="furnace-col">
+            <h3 style={{ fontSize: '10px', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '8px' }}>Select Ores / Fuels to Load</h3>
             <div className="chest-grid">
-              {ids.map(id => {
-                const smeltable = getSmeltResult(id);
-                const fuel = getFuelBurnTime(id) > 0;
-                return (
-                  <div 
-                    key={id} 
-                    className="inv-cell clickable"
-                    style={{ opacity: (smeltable || fuel) ? 1 : 0.4 }}
-                    onClick={() => handleInventoryClick(id)}
-                  >
+              {ids.length === 0 ? (
+                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px', gridColumn: 'span 4', textAlign: 'center', padding: '20px' }}>
+                  No items to load
+                </div>
+              ) : (
+                ids.map(id => (
+                  <div key={id} className="inv-cell clickable" onClick={() => handleInventoryClick(id)}>
                     <Swatch3D id={id} />
                     <span className="count">{invCount(id)}</span>
-                    <span className="tip">{thingName(id)} {smeltable ? "(Smeltable)" : (fuel ? "(Fuel)" : "")}</span>
+                    <span className="tip">{thingName(id)} (Click to load)</span>
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
           </div>
 
-          {/* Smelting Core (right) */}
-          <div className="furnace-col center-pane" style={{ flex: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--slot-line)', borderRadius: '6px', padding: '15px' }}>
-            {/* Input Slot */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '8px', color: 'var(--gold)', textTransform: 'uppercase' }}>Input</span>
-              <div 
-                className="inv-cell clickable" 
-                style={{ width: '44px', height: '44px', border: f.inputId === 0 ? '1px solid rgba(214,178,120,0.2)' : '', background: f.inputId === 0 ? 'rgba(0,0,0,0.3)' : '' }}
-                onClick={handleTakeInput}
-              >
-                {f.inputId > 0 && (
+          {/* Furnace Slots */}
+          <div className="furnace-col furnace-active-area">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase' }}>Input Ore</span>
+              <div className="inv-cell clickable" onClick={handleTakeInput} style={{ width: '56px', height: '56px' }}>
+                {furnace.inputId > 0 ? (
                   <>
-                    <Swatch3D id={f.inputId} />
-                    <span className="count">{f.inputCount}</span>
+                    <Swatch3D id={furnace.inputId} />
+                    <span className="count">{furnace.inputCount}</span>
                   </>
-                )}
+                ) : <span style={{ opacity: 0.3, fontSize: '10px' }}>Empty</span>}
+              </div>
+
+              {/* Flame indicator */}
+              <div className="flame-box" style={{ margin: '4px 0' }}>
+                <div className="flame-fill" style={{ height: `${flamePercent}%`, background: flamePercent > 0 ? '#ff5500' : 'transparent' }} />
+                🔥
+              </div>
+
+              <span style={{ fontSize: '9px', color: '#aaa', textTransform: 'uppercase' }}>Fuel</span>
+              <div className="inv-cell clickable" onClick={handleTakeFuel} style={{ width: '56px', height: '56px' }}>
+                {furnace.fuelId > 0 ? (
+                  <>
+                    <Swatch3D id={furnace.fuelId} />
+                    <span className="count">{furnace.fuelCount}</span>
+                  </>
+                ) : <span style={{ opacity: 0.3, fontSize: '10px' }}>Empty</span>}
               </div>
             </div>
 
-            {/* Fire flame */}
-            <div style={{ margin: '12px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div id="furnaceFlame" className={`furnace-flame ${f.burnTime > 0 ? 'active' : ''}`} style={{ height: `${16 * (flamePercent / 100)}px` }} />
-              <div style={{ fontSize: '7px', color: f.burnTime > 0 ? '#ff8030' : 'rgba(255,255,255,0.25)', fontWeight: 'bold', marginTop: '2px' }}>
-                {f.burnTime > 0 ? `${Math.ceil(f.burnTime)}s` : "OFF"}
+            {/* Progress Arrow */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="furnace-arrow">
+                <div className="furnace-arrow-fill" style={{ width: `${progressPercent}%` }} />
+                ➔
               </div>
             </div>
 
-            {/* Fuel Slot */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '8px', color: 'var(--gold)', textTransform: 'uppercase' }}>Fuel</span>
-              <div 
-                className="inv-cell clickable" 
-                style={{ width: '44px', height: '44px', border: f.fuelId === 0 ? '1px solid rgba(214,178,120,0.2)' : '', background: f.fuelId === 0 ? 'rgba(0,0,0,0.3)' : '' }}
-                onClick={handleTakeFuel}
-              >
-                {f.fuelId > 0 && (
+            {/* Output */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '9px', color: '#gold', textTransform: 'uppercase', fontWeight: 'bold' }}>Smelt Output</span>
+              <div className="inv-cell clickable output-cell" onClick={handleTakeOutput} style={{ width: '64px', height: '64px', border: '2px solid var(--gold)' }}>
+                {furnace.outputId > 0 ? (
                   <>
-                    <Swatch3D id={f.fuelId} />
-                    <span className="count">{f.fuelCount}</span>
+                    <Swatch3D id={furnace.outputId} />
+                    <span className="count" style={{ fontSize: '12px', fontWeight: 'bold' }}>{furnace.outputCount}</span>
                   </>
-                )}
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div style={{ width: '100px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--panel-line)', borderRadius: '3px', height: '10px', overflow: 'hidden', position: 'relative', marginBottom: '12px' }}>
-              <div 
-                id="furnaceSmeltProgress" 
-                style={{ height: '100%', background: 'linear-gradient(90deg, #6fe6e0, #40904a)', width: `${progressPercent}%`, transition: 'width 0.1s linear' }} 
-              />
-              <span style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', fontSize: '6px', color: '#fff', textAlign: 'center', lineHeight: '10px', fontWeight: 'bold' }}>
-                {progressPercent > 0 ? `${progressPercent}%` : ""}
-              </span>
-            </div>
-
-            {/* Output Slot */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '8px', color: 'var(--gold-bright)', textTransform: 'uppercase', fontWeight: 'bold' }}>Output</span>
-              <div 
-                className="inv-cell clickable" 
-                style={{ width: '52px', height: '52px', border: f.outputId === 0 ? '1px solid rgba(111,230,224,0.3)' : '2px solid var(--gold-bright)', background: f.outputId === 0 ? 'rgba(0,0,0,0.3)' : 'rgba(111,230,224,0.05)' }}
-                onClick={handleTakeOutput}
-              >
-                {f.outputId > 0 && (
-                  <>
-                    <Swatch3D id={f.outputId} />
-                    <span className="count" style={{ fontSize: '10px', bottom: '4px', right: '4px' }}>{f.outputCount}</span>
-                  </>
-                )}
+                ) : <span style={{ opacity: 0.3, fontSize: '10px' }}>Empty</span>}
               </div>
             </div>
           </div>

@@ -1,23 +1,32 @@
 let audioCtx = null;
+let cachedSampleRate = 0;
 
 export function initAudio() {
   if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      audioCtx = new AudioCtx();
+    }
+  } catch (e) {
+    console.warn("Web Audio API not supported", e);
+  }
 }
 
 function getAudioContext() {
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    initAudio();
   }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
   }
   return audioCtx;
 }
 
 let noiseBuffer = null;
 function getNoiseBuffer(ctx) {
-  if (noiseBuffer) return noiseBuffer;
+  if (noiseBuffer && cachedSampleRate === ctx.sampleRate) return noiseBuffer;
+  cachedSampleRate = ctx.sampleRate;
   const bufferSize = ctx.sampleRate * 2;
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -26,6 +35,14 @@ function getNoiseBuffer(ctx) {
   }
   noiseBuffer = buffer;
   return noiseBuffer;
+}
+
+function safeDisconnect(...nodes) {
+  nodes.forEach(node => {
+    if (node) {
+      try { node.disconnect(); } catch (e) {}
+    }
+  });
 }
 
 export function playMineSound(blockId) {
@@ -66,6 +83,8 @@ export function playMineSound(blockId) {
   oscGain.connect(ctx.destination);
   osc.start(now);
   osc.stop(now + 0.08);
+
+  setTimeout(() => safeDisconnect(noise, filter, gain, osc, oscGain), 120);
 }
 
 export function playPlaceSound(blockId) {
@@ -88,6 +107,8 @@ export function playPlaceSound(blockId) {
   
   osc.start(now);
   osc.stop(now + 0.15);
+
+  setTimeout(() => safeDisconnect(osc, gain), 200);
 }
 
 export function playFootstepSound() {
@@ -112,6 +133,8 @@ export function playFootstepSound() {
   
   noise.start(now);
   noise.stop(now + 0.05);
+
+  setTimeout(() => safeDisconnect(noise, filter, gain), 100);
 }
 
 export function playHitSound() {
@@ -139,10 +162,13 @@ export function playHitSound() {
   
   osc.start(now);
   osc.stop(now + 0.14);
+
+  setTimeout(() => safeDisconnect(osc, filter, gain), 200);
 }
 
 let activeHissSource = null;
 let activeHissGain = null;
+let activeHissFilter = null;
 
 export function playHissSound(duration = 1.5) {
   const ctx = getAudioContext();
@@ -155,29 +181,44 @@ export function playHissSound(duration = 1.5) {
   activeHissSource.buffer = getNoiseBuffer(ctx);
   activeHissSource.loop = true;
 
-  const filter = ctx.createBiquadFilter();
-  filter.type = "highpass";
-  filter.frequency.setValueAtTime(2000, now);
+  activeHissFilter = ctx.createBiquadFilter();
+  activeHissFilter.type = "highpass";
+  activeHissFilter.frequency.setValueAtTime(2000, now);
 
   activeHissGain = ctx.createGain();
   activeHissGain.gain.setValueAtTime(0.01, now);
   activeHissGain.gain.linearRampToValueAtTime(0.35, now + duration);
 
-  activeHissSource.connect(filter);
-  filter.connect(activeHissGain);
+  activeHissSource.connect(activeHissFilter);
+  activeHissFilter.connect(activeHissGain);
   activeHissGain.connect(ctx.destination);
 
   activeHissSource.start(now);
 }
 
 export function stopHissSound() {
-  if (activeHissSource) {
+  if (activeHissGain && audioCtx) {
     try {
-      activeHissSource.stop();
-    } catch (e) {}
-    activeHissSource = null;
+      const now = audioCtx.currentTime;
+      activeHissGain.gain.setValueAtTime(Math.max(0.001, activeHissGain.gain.value), now);
+      activeHissGain.gain.linearRampToValueAtTime(0.001, now + 0.05);
+    } catch(e) {}
   }
+
+  const src = activeHissSource;
+  const gain = activeHissGain;
+  const flt = activeHissFilter;
+
+  activeHissSource = null;
   activeHissGain = null;
+  activeHissFilter = null;
+
+  setTimeout(() => {
+    if (src) {
+      try { src.stop(); } catch (e) {}
+    }
+    safeDisconnect(src, gain, flt);
+  }, 60);
 }
 
 export function playExplodeSound() {
@@ -220,6 +261,8 @@ export function playExplodeSound() {
   
   noise.start(now);
   noise.stop(now + 1.2);
+
+  setTimeout(() => safeDisconnect(osc, oscGain, noise, filter, gain), 1300);
 }
 
 export function playPigSound() {
@@ -247,6 +290,8 @@ export function playPigSound() {
   
   osc.start(now);
   osc.stop(now + 0.15);
+
+  setTimeout(() => safeDisconnect(osc, gain, filter), 200);
 }
 
 export function playSheepSound() {
@@ -261,9 +306,6 @@ export function playSheepSound() {
   osc.frequency.setValueAtTime(140, now);
   osc.frequency.linearRampToValueAtTime(110, now + 0.4);
   
-  gain.gain.setValueAtTime(0.06, now);
-  
-  // Sheep vibrating LFO
   const lfo = ctx.createOscillator();
   lfo.frequency.value = 16; 
   const lfoGain = ctx.createGain();
@@ -287,6 +329,8 @@ export function playSheepSound() {
   osc.start(now);
   lfo.stop(now + 0.45);
   osc.stop(now + 0.45);
+
+  setTimeout(() => safeDisconnect(osc, gain, lfo, lfoGain, filter), 500);
 }
 
 export function playZombieSound() {
@@ -314,4 +358,6 @@ export function playZombieSound() {
   
   osc.start(now);
   osc.stop(now + 0.75);
+
+  setTimeout(() => safeDisconnect(osc, gain, filter), 800);
 }

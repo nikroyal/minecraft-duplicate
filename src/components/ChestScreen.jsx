@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { inventory, world, reactBridge } from '../state.js';
 import { addItem, removeItem, invCount } from '../player.js';
 import { thingName } from '../config.js';
@@ -6,20 +6,36 @@ import { playPlaceSound } from '../audio.js';
 import Swatch3D from './Swatch3D.jsx';
 
 export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }) {
-  const chest = world.chests[activeChestCoords] || [];
+  world.chests = world.chests || {};
+  if (activeChestCoords && !world.chests[activeChestCoords]) {
+    world.chests[activeChestCoords] = Array.from({ length: 27 }, () => ({ id: 0, count: 0 }));
+  }
   
+  const chest = (activeChestCoords && world.chests[activeChestCoords]) ? world.chests[activeChestCoords] : [];
+  
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code === "Escape" || e.code === "KeyE") {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Get active inventory IDs
   const ids = Object.keys(inventory)
     .map(Number)
     .filter(id => invCount(id) > 0);
 
   const handleStoreItem = (id) => {
+    if (invCount(id) <= 0) return;
     let slot = chest.find(s => s.id === id && s.count < 64);
     if (!slot) slot = chest.find(s => s.id === 0);
     if (slot) {
+      removeItem(id, 1); // Remove from player inventory FIRST
       slot.id = id;
       slot.count = (slot.count || 0) + 1;
-      removeItem(id, 1);
       playPlaceSound(id);
       scheduleSave();
       if (reactBridge.updateUI) reactBridge.updateUI();
@@ -30,7 +46,7 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
     const slot = chest[idx];
     if (slot && slot.id > 0 && slot.count > 0) {
       const id = slot.id;
-      addItem(id, 1);
+      addItem(id, 1); // Add to player inventory
       slot.count--;
       if (slot.count <= 0) {
         slot.id = 0;
@@ -90,11 +106,9 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
                     <>
                       <Swatch3D id={slot.id} />
                       <span className="count">{slot.count}</span>
-                      <span className="tip">{thingName(slot.id)} (Click to retrieve)</span>
+                      <span className="tip">{thingName(slot.id)} (Click to take)</span>
                     </>
-                  ) : (
-                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.15)', fontWeight: 700 }}>{idx + 1}</span>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>

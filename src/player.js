@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { keys, touch, player, inventory, hotbar, game, webgl } from './state.js';
 import { 
-  CHUNK, HEIGHT, SEA, isSolid, isFood, ITEMS, thingName, surfaceHeight 
+  CHUNK, HEIGHT, SEA, isSolid, isFood, ITEMS, BLOCKS, thingName, surfaceHeight 
 } from './config.js';
 import { getBlock, getChunk } from './world.js';
 import { 
@@ -18,32 +18,43 @@ const FLYSPEED = 10;
 
 export function spawnPlayer(){
   const h = surfaceHeight(8, 8);
-  player.pos.set(8.5, h+3, 8.5);
+  player.pos.set(8.5, h + 3, 8.5);
+  player.vel.set(0, 0, 0);
+  player.onGround = false;
+  player.fallPeak = h + 3;
 }
 
 export function chunkReadyAt(wx, wz){
-  const ch = getChunk(Math.floor(wx/CHUNK), Math.floor(wz/CHUNK));
+  const cx = Math.floor(wx / CHUNK);
+  const cz = Math.floor(wz / CHUNK);
+  const ch = getChunk(cx, cz);
   return ch && ch.generated;
 }
 
 export function collisionSolid(x, y, z){
   if(y < 0) return true; // floor
   if(y >= HEIGHT) return false;
-  const ch = getChunk(Math.floor(x/CHUNK), Math.floor(z/CHUNK));
+  const cx = Math.floor(x / CHUNK);
+  const cz = Math.floor(z / CHUNK);
+  const ch = getChunk(cx, cz);
   if(!ch || !ch.generated) return true; // unloaded is solid
-  const lx = ((x%CHUNK)+CHUNK)%CHUNK, lz = ((z%CHUNK)+CHUNK)%CHUNK;
+  const lx = ((x % CHUNK) + CHUNK) % CHUNK;
+  const lz = ((z % CHUNK) + CHUNK) % CHUNK;
   return isSolid(ch.get(lx, y, lz));
 }
 
 export function collidesAt(px, py, pz){
   const hw = 0.6 / 2, h = 1.8; // player width 0.6, height 1.8
-  const minX = Math.floor(px-hw), maxX = Math.floor(px+hw);
-  const minY = Math.floor(py),    maxY = Math.floor(py+h);
-  const minZ = Math.floor(pz-hw), maxZ = Math.floor(pz+hw);
+  const minX = Math.floor(px - hw + 1e-5);
+  const maxX = Math.floor(px + hw - 1e-5);
+  const minY = Math.floor(py + 1e-5);
+  const maxY = Math.floor(py + h - 1e-5); // Fix 2-block ceiling AABB trap!
+  const minZ = Math.floor(pz - hw + 1e-5);
+  const maxZ = Math.floor(pz + hw - 1e-5);
   
-  for(let x=minX; x<=maxX; x++)
-  for(let y=minY; y<=maxY; y++)
-  for(let z=minZ; z<=maxZ; z++){
+  for(let x = minX; x <= maxX; x++)
+  for(let y = minY; y <= maxY; y++)
+  for(let z = minZ; z <= maxZ; z++){
     if(collisionSolid(x, y, z)) return true;
   }
   return false;
@@ -51,19 +62,32 @@ export function collidesAt(px, py, pz){
 
 const MAX_STEP = 0.35;
 export function moveAxis(axis, amount){
+  if(!isFinite(amount) || Math.abs(amount) < 1e-6) return;
   const p = player.pos;
   let remaining = amount;
-  while(Math.abs(remaining) > 1e-6){
+  let maxTries = 100;
+  while(Math.abs(remaining) > 1e-6 && maxTries-- > 0){
     const step = Math.max(-MAX_STEP, Math.min(MAX_STEP, remaining));
     remaining -= step;
     if(axis === "x"){
-      if(!collidesAt(p.x+step, p.y, p.z)) p.x += step;
+      if(!collidesAt(p.x + step, p.y, p.z)) p.x += step;
       else { player.vel.x = 0; break; }
     } else if(axis === "y"){
-      if(!collidesAt(p.x, p.y+step, p.z)) p.y += step;
-      else { if(step < 0) player.onGround = true; player.vel.y = 0; break; }
+      if(!collidesAt(p.x, p.y + step, p.z)) {
+        p.y += step;
+      } else {
+        if(step < 0) {
+          // Verify collision face is below player feet before setting onGround
+          const footY = Math.floor(p.y);
+          if (collisionSolid(Math.floor(p.x), footY - 1, Math.floor(p.z))) {
+            player.onGround = true;
+          }
+        }
+        player.vel.y = 0;
+        break;
+      }
     } else {
-      if(!collidesAt(p.x, p.y, p.z+step)) p.z += step;
+      if(!collidesAt(p.x, p.y, p.z + step)) p.z += step;
       else { player.vel.z = 0; break; }
     }
   }
@@ -74,7 +98,7 @@ export function updatePlayer(dt){
   const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   let wish = new THREE.Vector3();
   
-  const blockInput = (!touch.isTouch && document.pointerLockElement !== webgl.renderer.domElement) || isMenuOpen();
+  const blockInput = (!touch.isTouch && document.pointerLockElement !== webgl.renderer?.domElement) || isMenuOpen();
   
   if(!blockInput){
     if(keys["KeyW"]) wish.add(forward);
@@ -93,11 +117,12 @@ export function updatePlayer(dt){
   const sprint = blockInput ? false : (keys["ShiftLeft"] || keys["ShiftRight"]);
 
   if(!chunkReadyAt(player.pos.x, player.pos.z) && !player.flying){
-    player.vel.set(0,0,0);
+    player.vel.set(0, 0, 0);
     return;
   }
 
   if(player.flying){
+    player.fallPeak = player.pos.y;
     const sp = FLYSPEED * (sprint ? 2 : 1);
     let vy = 0;
     if(!blockInput){
@@ -105,10 +130,10 @@ export function updatePlayer(dt){
       if(keys["ControlLeft"] || keys["KeyC"]) vy -= sp;
     }
     
-    moveAxis("x", wish.x*sp*dt);
-    moveAxis("z", wish.z*sp*dt);
-    moveAxis("y", vy*dt);
-    player.vel.set(0,0,0);
+    moveAxis("x", wish.x * sp * dt);
+    moveAxis("z", wish.z * sp * dt);
+    moveAxis("y", vy * dt);
+    player.vel.set(0, 0, 0);
     player.onGround = false;
     return;
   }
@@ -121,16 +146,17 @@ export function updatePlayer(dt){
   if(player.vel.y < -55) player.vel.y = -55;
 
   if(!blockInput && (keys["Space"] || touch.jump) && player.onGround){
-    player.vel.y = JUMP; player.onGround = false;
+    player.vel.y = JUMP;
+    player.onGround = false;
   }
 
   const wasOnGround = player.onGround;
   player.onGround = false;
   
   const oldX = player.pos.x, oldZ = player.pos.z;
-  moveAxis("x", player.vel.x*dt);
-  moveAxis("z", player.vel.z*dt);
-  moveAxis("y", player.vel.y*dt);
+  moveAxis("x", player.vel.x * dt);
+  moveAxis("z", player.vel.z * dt);
+  moveAxis("y", player.vel.y * dt);
 
   if (player.onGround && !player.flying) {
     const dX = player.pos.x - oldX;
@@ -141,12 +167,18 @@ export function updatePlayer(dt){
     }
   }
 
+  // Water check
+  const inWater = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z)) === 8;
+  if (inWater) {
+    player.fallPeak = player.pos.y; // Negate fall damage in water
+  }
+
   // Fall damage tracking
-  if(!player.flying){
+  if(!player.flying && !inWater){
     if(player.onGround){
       if(!wasOnGround && player.fallPeak !== undefined){
         const dropped = player.fallPeak - player.pos.y;
-        if(dropped > 3.5) hurtPlayer(Math.floor(dropped - 3.5), "fall");
+        if(dropped > 3.5) hurtPlayer(Math.ceil(dropped - 3.5), "fall");
       }
       player.fallPeak = player.pos.y;
     } else {
@@ -155,7 +187,8 @@ export function updatePlayer(dt){
   }
 
   // Footsteps audio triggers
-  if(player.onGround && (Math.abs(player.vel.x) + Math.abs(player.vel.z) > 0.1) && !player.flying){
+  const posDisplacement = Math.abs(player.pos.x - oldX) + Math.abs(player.pos.z - oldZ);
+  if(player.onGround && posDisplacement > 0.005 && !player.flying){
     player.stepTimer = (player.stepTimer || 0) + dt;
     const interval = sprint ? 0.3 : 0.45;
     if(player.stepTimer >= interval){
@@ -167,12 +200,17 @@ export function updatePlayer(dt){
   }
 
   // Void respawn
-  if(player.pos.y < -20){ hurtPlayer(4, "void"); spawnPlayer(); }
+  if(player.pos.y < -20){
+    hurtPlayer(4, "void");
+    player.vel.set(0, 0, 0);
+    spawnPlayer();
+  }
 }
 
 export function hurtPlayer(amount, cause){
   if(!game.survival || player.dead || player.invuln > 0 || amount <= 0) return;
-  player.health = Math.max(0, player.health - amount);
+  const roundedDmg = Math.max(1, Math.round(amount));
+  player.health = Math.max(0, player.health - roundedDmg);
   player.invuln = 0.5;
   playHitSound();
   flashDamage();
@@ -181,12 +219,12 @@ export function hurtPlayer(amount, cause){
 }
 
 export function healPlayer(amount){
-  player.health = Math.min(20, player.health + amount);
+  player.health = Math.min(20, player.health + Math.round(amount));
   updateStatsHUD();
 }
 
 export function feedPlayer(amount){
-  player.hunger = Math.min(20, player.hunger + amount);
+  player.hunger = Math.min(20, player.hunger + Math.round(amount));
   updateStatsHUD();
 }
 
@@ -194,16 +232,22 @@ export function eatSelected(){
   const id = hotbar[game.selected];
   if(!isFood(id)) { toast("that's not food"); return; }
   if(invCount(id) <= 0) return;
-  if(player.hunger >= 20 && !ITEMS[id].heal) { toast("not hungry"); return; }
+  if(player.hunger >= 20 && (!ITEMS[id] || !ITEMS[id].heal)) { toast("not hungry"); return; }
   removeItem(id, 1);
-  feedPlayer(ITEMS[id].food || 0);
-  if(ITEMS[id].heal) healPlayer(ITEMS[id].heal);
+  feedPlayer(ITEMS[id]?.food || 0);
+  if(ITEMS[id]?.heal) healPlayer(ITEMS[id].heal);
   toast(`ate ${thingName(id)}`);
 }
 
 export function updateSurvival(dt){
   if(!game.survival || player.dead) return;
   if(player.invuln > 0) player.invuln -= dt;
+
+  // Initialize timers safely if missing
+  player.hungerTimer = player.hungerTimer || 0;
+  player.regenTimer = player.regenTimer || 0;
+  player.starveTimer = player.starveTimer || 0;
+  player.drownTimer = player.drownTimer || 0;
 
   const sprinting = (keys["ShiftLeft"] || keys["ShiftRight"]) && (Math.abs(player.vel.x) + Math.abs(player.vel.z)) > 0.1;
   player.hungerTimer += dt * (sprinting ? 1.8 : 1);
@@ -224,9 +268,10 @@ export function updateSurvival(dt){
   } else player.starveTimer = 0;
 
   // Drowning
-  const head = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y+1.6), Math.floor(player.pos.z));
+  const headY = Math.floor(player.pos.y + player.eye);
+  const head = getBlock(Math.floor(player.pos.x), headY, Math.floor(player.pos.z));
   if(head === 8){ // Water block id
-    player.drownTimer = (player.drownTimer || 0) + dt;
+    player.drownTimer += dt;
     if(player.drownTimer >= 2){ player.drownTimer = 0; hurtPlayer(1, "drown"); }
   } else player.drownTimer = 0;
 }
@@ -235,7 +280,6 @@ export function playerDie(cause){
   player.dead = true;
   player.diedTonight = true;
   game.running = false;
-  // Mining state is in main.js, we can trigger exitPointerLock
   if(document.pointerLockElement) document.exitPointerLock();
   showDeathScreen(cause);
 }
@@ -245,12 +289,16 @@ export function respawnPlayer(){
   player.health = 20;
   player.hunger = 20;
   player.hungerTimer = 0; player.regenTimer = 0; player.starveTimer = 0; player.invuln = 1.5;
-  player.vel.set(0,0,0);
+  player.vel.set(0, 0, 0);
   spawnPlayer();
   
   const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
-  let topY = 1; for(let y = HEIGHT-1; y>=0; y--){ if(isSolid(getBlock(px, y, pz))){ topY = y + 1; break; } }
-  player.pos.set(px+0.5, topY+0.5, pz+0.5);
+  let topY = 1; 
+  for(let y = HEIGHT - 1; y >= 0; y--){ 
+    if(isSolid(getBlock(px, y, pz))){ topY = y + 1; break; } 
+  }
+  player.pos.set(px + 0.5, topY, pz + 0.5);
+  player.fallPeak = player.pos.y;
   
   updateStatsHUD();
   hideDeathScreen();
@@ -259,10 +307,12 @@ export function respawnPlayer(){
 
 export function invCount(id){ return inventory[id] || 0; }
 export function addItem(id, n=1){ 
+  if (n <= 0) return;
   inventory[id] = (inventory[id] || 0) + n; 
   refreshCounts(); 
 }
 export function removeItem(id, n=1){ 
+  if (n <= 0) return;
   inventory[id] = Math.max(0, (inventory[id] || 0) - n); 
   if(inventory[id] === 0) delete inventory[id]; 
   refreshCounts(); 
@@ -274,7 +324,7 @@ export function heldTool(){
 }
 export function heldItem(){
   const id = hotbar[game.selected];
-  return ITEMS[id] || null;
+  return ITEMS[id] || BLOCKS[id] || null;
 }
 
 export function unstick(){
@@ -283,15 +333,18 @@ export function unstick(){
   while(collidesAt(player.pos.x, player.pos.y, player.pos.z) && tries < HEIGHT){
     player.pos.y += 1; tries++;
   }
+  player.vel.set(0, 0, 0);
+  player.fallPeak = player.pos.y;
 }
 
 export function eyePos(){ 
-  return new THREE.Vector3(player.pos.x, player.pos.y+player.eye, player.pos.z); 
+  return new THREE.Vector3(player.pos.x, player.pos.y + player.eye, player.pos.z); 
 }
 
 export function lookDir(){
-  const d=new THREE.Vector3(0,0,-1);
-  d.applyAxisAngle(new THREE.Vector3(1,0,0), player.pitch);
-  d.applyAxisAngle(new THREE.Vector3(0,1,0), player.yaw);
+  const d = new THREE.Vector3(0, 0, -1);
+  const clampedPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.pitch));
+  d.applyAxisAngle(new THREE.Vector3(1, 0, 0), clampedPitch);
+  d.applyAxisAngle(new THREE.Vector3(0, 1, 0), player.yaw);
   return d;
 }

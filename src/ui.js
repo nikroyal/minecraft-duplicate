@@ -292,16 +292,16 @@ export function initUI(placeBlockCallback, miningStateRef) {
   initFirebase(onStatusChange, onSyncConflict);
 }
 
+const FUELS = { 11: 80, 101: 80, 120: 80, 5: 15, 22: 15, 23: 15, 7: 15, 31: 15, 32: 15 };
+const SMELT_MAP = { 12: 102, 13: 103, 14: 104, 4: 9, 15: 3, 133: 134, 28: 36, 23: 120, 3: 40 };
+
 // Smelting Background Loop Ticks
 export function tickFurnaces(dt) {
-  const fuels = { 11: 80, 101: 80, 120: 80, 5: 15, 22: 15, 23: 15, 7: 15, 31: 15, 32: 15 };
-  const smeltMap = { 12: 102, 13: 103, 14: 104, 4: 9, 15: 3, 133: 134, 28: 36, 23: 120, 3: 40 };
-
   const furnaces = world.furnaces || {};
   for (const coords in furnaces) {
     const f = furnaces[coords];
     const hasInput = f.inputId > 0 && f.inputCount > 0;
-    const smeltable = hasInput ? smeltMap[f.inputId] : null;
+    const smeltable = hasInput ? SMELT_MAP[f.inputId] : null;
 
     if (f.burnTime > 0) {
       f.burnTime -= dt;
@@ -309,7 +309,7 @@ export function tickFurnaces(dt) {
     }
 
     if (f.burnTime === 0 && hasInput && smeltable) {
-      const fuelVal = fuels[f.fuelId];
+      const fuelVal = FUELS[f.fuelId];
       if (fuelVal > 0 && f.fuelCount > 0) {
         const canOutput = f.outputCount === 0 || (f.outputId === smeltable && f.outputCount < 64);
         if (canOutput) {
