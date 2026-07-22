@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { keys, touch, player, inventory, hotbar, game, webgl } from './state.js';
 import { 
-  CHUNK, HEIGHT, SEA, isSolid, isFood, ITEMS, BLOCKS, thingName, surfaceHeight 
+  CHUNK, HEIGHT, SEA, isSolid, isFood, ITEMS, BLOCKS, thingName, surfaceHeight,
+  AIR, SHAPE_OF
 } from './config.js';
 import { getBlock, getChunk } from './world.js';
 import { 
