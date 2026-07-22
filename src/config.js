@@ -95,6 +95,59 @@ export const BLOCKS = {
   92:{ name: "Wheat Crop (Ripe)", all:0xd8c060, solid:false, alpha:true, cutout:true, hardness:0.1 },
 };
 
+// ---- Items registry ---------------------------------------------------------
+export const ITEMS = {
+  100: { name: "Stick",       color: 0x9a7b4a },
+  101: { name: "Coal",        color: 0x2a2a2a },
+  102: { name: "Iron Ingot",  color: 0xd8d8d8 },
+  103: { name: "Gold Ingot",  color: 0xf2d24a },
+  104: { name: "Diamond",     color: 0x6fe6e0 },
+  105: { name: "Wood Pickaxe",  color: 0x9a7b4a, tool:"pickaxe", tier:1 },
+  106: { name: "Stone Pickaxe", color: 0x8a8a8a, tool:"pickaxe", tier:2 },
+  107: { name: "Iron Pickaxe",  color: 0xd8d8d8, tool:"pickaxe", tier:3 },
+  108: { name: "Diamond Pickaxe", color: 0x6fe6e0, tool:"pickaxe", tier:4 },
+  109: { name: "Wood Shovel",   color: 0x9a7b4a, tool:"shovel", tier:1 },
+  110: { name: "Stone Shovel",  color: 0x8a8a8a, tool:"shovel", tier:2 },
+  111: { name: "Iron Shovel",   color: 0xd8d8d8, tool:"shovel", tier:3 },
+  112: { name: "Wood Axe",  color: 0x9a7b4a, tool:"axe", tier:1 },
+  113: { name: "Stone Axe", color: 0x8a8a8a, tool:"axe", tier:2 },
+  114: { name: "Iron Axe",  color: 0xd8d8d8, tool:"axe", tier:3 },
+  115: { name: "String",  color: 0xe0e0e0 },
+  116: { name: "Paper",   color: 0xf4f0e0 },
+  117: { name: "Book",    color: 0x8a3a3a },
+  118: { name: "Flint",   color: 0x3a3a3a },
+  119: { name: "Brick Item", color: 0x9c4a3a },
+  120: { name: "Charcoal", color: 0x3a3a3a },
+  121: { name: "Red Dye",    color: 0xb03030 },
+  122: { name: "Blue Dye",   color: 0x3050b0 },
+  123: { name: "Green Dye",  color: 0x40904a },
+  124: { name: "Yellow Dye", color: 0xe0c040 },
+  125: { name: "Black Dye",  color: 0x2a2a2a },
+  126: { name: "White Dye",  color: 0xf0f0f0 },
+  130: { name: "Apple",       color: 0xd83030, food:4, heal:0 },
+  131: { name: "Berries",     color: 0x9c2050, food:2, heal:0 },
+  132: { name: "Mushroom",    color: 0xc08050, food:2, heal:0 },
+  133: { name: "Raw Meat",    color: 0xc06858, food:2, heal:0 },
+  134: { name: "Cooked Meat", color: 0x9a5030, food:6, heal:1 },
+  135: { name: "Bread",       color: 0xc8a050, food:5, heal:0 },
+  136: { name: "Wheat",       color: 0xd8c060 },
+  137: { name: "Golden Apple",color: 0xf2d24a, food:8, heal:6 },
+  138: { name: "Wheat Seeds", color: 0x8a7a50 },
+  140: { name: "Wood Hoe",     color: 0x9a7b4a, tool: "hoe", tier: 1 },
+  141: { name: "Stone Hoe",    color: 0x8a8a8a, tool: "hoe", tier: 2 },
+  142: { name: "Iron Hoe",     color: 0xd8d8d8, tool: "hoe", tier: 3 },
+  143: { name: "Diamond Shovel",color: 0x6fe6e0, tool: "shovel", tier: 4 },
+  144: { name: "Diamond Axe",   color: 0x6fe6e0, tool: "axe", tier: 4 },
+  145: { name: "Diamond Hoe",   color: 0x6fe6e0, tool: "hoe", tier: 4 },
+  146: { name: "Bow",           color: 0x9a7b4a, tool: "bow" },
+  147: { name: "Arrow",         color: 0xd8d8d8 },
+  148: { name: "Gunpowder",     color: 0x4a4a4a },
+};
+
+for (const id in ITEMS) {
+  if (ITEMS[id]) ITEMS[id].id = Number(id);
+}
+
 // === Shape variants ===
 export const VARIANTS = {};
 export const SHAPE_OF = {};
@@ -165,61 +218,7 @@ for(const [color,label,dye] of GLASS_COLORS){
 
 export const MAX_LIGHT = 15;
 
-// ---- Items registry ---------------------------------------------------------
-export const ITEMS = {
-  100: { name: "Stick",       color: 0x9a7b4a },
-  101: { name: "Coal",        color: 0x2a2a2a },
-  102: { name: "Iron Ingot",  color: 0xd8d8d8 },
-  103: { name: "Gold Ingot",  color: 0xf2d24a },
-  104: { name: "Diamond",     color: 0x6fe6e0 },
-  105: { name: "Wood Pickaxe",  color: 0x9a7b4a, tool:"pickaxe", tier:1 },
-  106: { name: "Stone Pickaxe", color: 0x8a8a8a, tool:"pickaxe", tier:2 },
-  107: { name: "Iron Pickaxe",  color: 0xd8d8d8, tool:"pickaxe", tier:3 },
-  108: { name: "Diamond Pickaxe", color: 0x6fe6e0, tool:"pickaxe", tier:4 },
-  109: { name: "Wood Shovel",   color: 0x9a7b4a, tool:"shovel", tier:1 },
-  110: { name: "Stone Shovel",  color: 0x8a8a8a, tool:"shovel", tier:2 },
-  111: { name: "Iron Shovel",   color: 0xd8d8d8, tool:"shovel", tier:3 },
-  112: { name: "Wood Axe",  color: 0x9a7b4a, tool:"axe", tier:1 },
-  113: { name: "Stone Axe", color: 0x8a8a8a, tool:"axe", tier:2 },
-  114: { name: "Iron Axe",  color: 0xd8d8d8, tool:"axe", tier:3 },
-  115: { name: "String",  color: 0xe0e0e0 },
-  116: { name: "Paper",   color: 0xf4f0e0 },
-  117: { name: "Book",    color: 0x8a3a3a },
-  118: { name: "Flint",   color: 0x3a3a3a },
-  119: { name: "Brick Item", color: 0x9c4a3a },
-  120: { name: "Charcoal", color: 0x3a3a3a },
-  121: { name: "Red Dye",    color: 0xb03030 },
-  122: { name: "Blue Dye",   color: 0x3050b0 },
-  123: { name: "Green Dye",  color: 0x40904a },
-  124: { name: "Yellow Dye", color: 0xe0c040 },
-  125: { name: "Black Dye",  color: 0x2a2a2a },
-  126: { name: "White Dye",  color: 0xf0f0f0 },
-  130: { name: "Apple",       color: 0xd83030, food:4, heal:0 },
-  131: { name: "Berries",     color: 0x9c2050, food:2, heal:0 },
-  132: { name: "Mushroom",    color: 0xc08050, food:2, heal:0 },
-  133: { name: "Raw Meat",    color: 0xc06858, food:2, heal:0 },
-  134: { name: "Cooked Meat", color: 0x9a5030, food:6, heal:1 },
-  135: { name: "Bread",       color: 0xc8a050, food:5, heal:0 },
-  136: { name: "Wheat",       color: 0xd8c060 },
-  137: { name: "Golden Apple",color: 0xf2d24a, food:8, heal:6 },
-  138: { name: "Wheat Seeds", color: 0x8a7a50 },
-  140: { name: "Wood Hoe",     color: 0x9a7b4a, tool: "hoe", tier: 1 },
-  141: { name: "Stone Hoe",    color: 0x8a8a8a, tool: "hoe", tier: 2 },
-  142: { name: "Iron Hoe",     color: 0xd8d8d8, tool: "hoe", tier: 3 },
-  143: { name: "Diamond Shovel",color: 0x6fe6e0, tool: "shovel", tier: 4 },
-  144: { name: "Diamond Axe",   color: 0x6fe6e0, tool: "axe", tier: 4 },
-  145: { name: "Diamond Hoe",   color: 0x6fe6e0, tool: "hoe", tier: 4 },
-  146: { name: "Bow",           color: 0x9a7b4a, tool: "bow" },
-  147: { name: "Arrow",         color: 0xd8d8d8 },
-  148: { name: "Gunpowder",     color: 0x4a4a4a },
-};
-
-// Automatically assign id property to all ITEMS entries for safe reference
-for (const id in ITEMS) {
-  if (ITEMS[id]) ITEMS[id].id = Number(id);
-}
-
-export function isFood(id){ return Boolean(id > 0 && ITEMS[id] && typeof ITEMS[id].food === 'number' && ITEMS[id].food > 0); }
+export function isFood(id){ return Boolean(id > 0 && ITEMS && ITEMS[id] && typeof ITEMS[id].food === 'number' && ITEMS[id].food > 0); }
 export function thingName(id){ 
   if(!id) return "Air";
   return (BLOCKS[id] && BLOCKS[id].name) || (ITEMS[id] && ITEMS[id].name) || "?"; 
