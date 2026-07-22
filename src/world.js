@@ -835,24 +835,26 @@ export function buildWaterGreedyMesh(ch) {
           const base = pos.length / 3;
           const px = ox + x + (nx > 0 ? 1 : 0);
           if (nx > 0) {
-            // East (+X) Face CCW: bottom-right -> bottom-left -> top-left -> top-right
+            // +X East: V0→V1→V2→V3 = (z,y0)→(z,y+h)→(z+w,y+h)→(z+w,y0)
+            // edge1=+Y, edge2=+Z  →  normal = Y×Z = +X ✓
             pos.push(
-              px, y,     oz + z,
-              px, y,     oz + z + w,
-              px, y + h, oz + z + w,
-              px, y + h, oz + z
-            );
-          } else {
-            // West (-X) Face CCW: bottom-right -> bottom-left -> top-left -> top-right
-            pos.push(
-              px, y,     oz + z + w,
               px, y,     oz + z,
               px, y + h, oz + z,
-              px, y + h, oz + z + w
+              px, y + h, oz + z + w,
+              px, y,     oz + z + w
+            );
+          } else {
+            // -X West: V0→V1→V2→V3 = (z+w,y0)→(z+w,y+h)→(z,y+h)→(z,y0)
+            // edge1=+Y, edge2=-Z  →  normal = Y×(-Z) = -X ✓
+            pos.push(
+              px, y,     oz + z + w,
+              px, y + h, oz + z + w,
+              px, y + h, oz + z,
+              px, y,     oz + z
             );
           }
           norm.push(nx, 0, 0,  nx, 0, 0,  nx, 0, 0,  nx, 0, 0);
-          uv.push(0, 0,  w, 0,  w, h,  0, h);
+          uv.push(0, 0,  0, h,  w, h,  w, 0);
           faceType.push(1, 1, 1, 1);
           idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
@@ -907,24 +909,26 @@ export function buildWaterGreedyMesh(ch) {
           const base = pos.length / 3;
           const pz = oz + z + (nz > 0 ? 1 : 0);
           if (nz > 0) {
-            // North (+Z) Face CCW: bottom-right -> bottom-left -> top-left -> top-right
+            // +Z North: V0→V1→V2→V3 = (x+w,y0)→(x+w,y+h)→(x,y+h)→(x,y0)
+            // edge1=+Y, edge2=-X  →  normal = Y×(-X) = +Z ✓
             pos.push(
-              ox + x + w, y,     pz,
-              ox + x,     y,     pz,
-              ox + x,     y + h, pz,
-              ox + x + w, y + h, pz
-            );
-          } else {
-            // South (-Z) Face CCW: bottom-right -> bottom-left -> top-left -> top-right
-            pos.push(
-              ox + x,     y,     pz,
               ox + x + w, y,     pz,
               ox + x + w, y + h, pz,
-              ox + x,     y + h, pz
+              ox + x,     y + h, pz,
+              ox + x,     y,     pz
+            );
+          } else {
+            // -Z South: V0→V1→V2→V3 = (x,y0)→(x,y+h)→(x+w,y+h)→(x+w,y0)
+            // edge1=+Y, edge2=+X  →  normal = Y×X = -Z ✓
+            pos.push(
+              ox + x,     y,     pz,
+              ox + x,     y + h, pz,
+              ox + x + w, y + h, pz,
+              ox + x + w, y,     pz
             );
           }
           norm.push(0, 0, nz,  0, 0, nz,  0, 0, nz,  0, 0, nz);
-          uv.push(w, 0,  0, 0,  0, h,  w, h);
+          uv.push(w, 0,  w, h,  0, h,  0, 0);
           faceType.push(1, 1, 1, 1);
           idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
