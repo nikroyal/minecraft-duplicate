@@ -162,8 +162,12 @@ export function getBlock(wx,wy,wz){
 
 export function setBlock(wx,wy,wz,v, record, scheduleSaveCallback){
   const cx=Math.floor(wx/CHUNK), cz=Math.floor(wz/CHUNK);
-  const ch=getChunk(cx,cz);
-  if(!ch) return;
+  let ch=getChunk(cx,cz);
+  if(!ch) {
+    ch = new Chunk(cx, cz);
+    generateChunk(ch);
+    world.chunks.set(keyOf(cx,cz), ch);
+  }
   const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
   
   const prev = ch.get(lx, wy, lz);

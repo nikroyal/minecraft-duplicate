@@ -434,31 +434,34 @@ export function removeMob(i){
   game.mobs.splice(i, 1);
 }
 
-export function attackMob(){
-  const o = eyePos(), d = lookDir();
-  let best = null, bestT = 4.0;
-  for(const m of game.mobs){
-    const cx = m.pos.x, cy = m.pos.y + m.def.h / 2, cz = m.pos.z;
-    const toM = new THREE.Vector3(cx - o.x, cy - o.y, cz - o.z);
-    const t = toM.dot(d);
-    if(t < 0 || t > bestT) continue;
-    const closest = new THREE.Vector3(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t);
-    const distHoriz = Math.hypot(closest.x - cx, closest.z - cz);
-    const distVert = Math.abs(closest.y - cy);
-    if(distHoriz < m.def.w / 2 + 0.25 && distVert < m.def.h / 2 + 0.3){ best = m; bestT = t; }
+export function attackMob(targetMob, customDamage){
+  let best = targetMob;
+  if(!best){
+    const o = eyePos(), d = lookDir();
+    let bestT = 4.0;
+    for(const m of game.mobs){
+      const cx = m.pos.x, cy = m.pos.y + m.def.h / 2, cz = m.pos.z;
+      const toM = new THREE.Vector3(cx - o.x, cy - o.y, cz - o.z);
+      const t = toM.dot(d);
+      if(t < 0 || t > bestT) continue;
+      const closest = new THREE.Vector3(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t);
+      const distHoriz = Math.hypot(closest.x - cx, closest.z - cz);
+      const distVert = Math.abs(closest.y - cy);
+      if(distHoriz < m.def.w / 2 + 0.25 && distVert < m.def.h / 2 + 0.3){ best = m; bestT = t; }
+    }
   }
   if(!best) return false;
   
   const tool = heldTool();
-  let dmg = 1;
+  let dmg = customDamage !== undefined ? customDamage : 1;
   let isCrit = false;
   
   // Critical Hit check (player falling and not on ground)
-  if (player.vel.y < -0.5 && !player.onGround && !player.flying) {
+  if (!customDamage && player.vel.y < -0.5 && !player.onGround && !player.flying) {
     isCrit = true;
   }
 
-  if(tool){
+  if(!customDamage && tool){
     if(tool.tool === "sword") dmg = 3 + (tool.tier || 1) * 2;
     else if(tool.tool === "axe") dmg = 2 + (tool.tier || 1);
     else dmg = 1 + (tool.tier || 1);
