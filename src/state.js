@@ -82,6 +82,7 @@ export const webgl = {
   crackMat: null,
   crackMesh: null,
   playerMesh: null,
+  waterMat: null,
 };
 
 export const keys = {};

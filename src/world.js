@@ -15,7 +15,7 @@ export class Chunk {
     this.cx=cx; this.cz=cz;
     this.data = new Uint8Array(CHUNK*HEIGHT*CHUNK);
     this.light = new Uint8Array(CHUNK*HEIGHT*CHUNK); // 0..15 light level per block
-    this.opaqueMesh=null; this.cutoutMesh=null; this.alphaMesh=null;
+    this.opaqueMesh=null; this.cutoutMesh=null; this.waterMesh=null; this.alphaMesh=null;
     this.dirty=true; this.generated=false; this.lit=false;
   }
   idx(x,y,z){ return (y*CHUNK + z)*CHUNK + x; }
@@ -382,7 +382,7 @@ export function buildChunkMesh(ch){
   for(let z=0;z<CHUNK;z++)
   for(let x=0;x<CHUNK;x++){
     const id = ch.get(x,y,z);
-    if(id===AIR) continue;
+    if(id===AIR || id===8) continue; // Water is handled by dedicated greedy meshing pass
     const bl = BLOCKS[id];
     const alpha = bl.alpha;
     const g = bl.cutout ? groups.cutout : (alpha ? groups.alpha : groups.opaque);
@@ -487,6 +487,247 @@ export function buildChunkMesh(ch){
   return groups;
 }
 
+// ---- Dedicated Water Renderer & Shader --------------------------------------
+export function createWaterMaterial() {
+  const vertexShader = `
+    uniform float uTime;
+    varying vec3 vWorldPosition;
+    varying vec3 vNormal;
+    varying vec2 vUv;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vUv = uv;
+      vec3 pos = position;
+      
+      // Gentle wave micro-displacement for top exposed water faces (normal.y > 0.5)
+      if (normal.y > 0.5) {
+        float wave = sin(pos.x * 2.2 + uTime * 2.0) * cos(pos.z * 2.2 + uTime * 1.6) * 0.02;
+        wave += sin((pos.x + pos.z) * 1.4 + uTime * 1.2) * 0.01;
+        pos.y += wave;
+      }
+
+      vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
+      vWorldPosition = worldPosition.xyz;
+      
+      vec4 mvPosition = viewMatrix * worldPosition;
+      vViewPosition = -mvPosition.xyz;
+      
+      vNormal = normalize(mat3(modelMatrix) * normal);
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `;
+
+  const fragmentShader = `
+    uniform float uTime;
+    uniform vec3 uWaterColor;
+    uniform vec3 uDeepWaterColor;
+    uniform vec3 uSkyColor;
+    uniform vec3 uSunDir;
+    uniform vec3 uCameraPos;
+
+    varying vec3 vWorldPosition;
+    varying vec3 vNormal;
+    varying vec2 vUv;
+    varying vec3 vViewPosition;
+
+    // Procedural moving wave normal ripples
+    vec3 getWaveNormal(vec3 worldPos, float time) {
+      vec2 p = worldPos.xz * 2.2;
+      float n1 = sin(p.x * 1.4 + p.y * 1.8 + time * 2.4);
+      float n2 = cos(p.x * 2.8 - p.y * 1.2 + time * 1.8);
+      float n3 = sin(p.x * 0.9 + p.y * 3.4 + time * 3.1);
+      
+      vec2 bump = vec2(
+        (n1 * 0.08 + n2 * 0.05) * abs(vNormal.y),
+        (n2 * 0.06 + n3 * 0.05) * abs(vNormal.y)
+      );
+      return normalize(vec3(vNormal.x + bump.x, vNormal.y, vNormal.z + bump.y));
+    }
+
+    void main() {
+      vec3 V = normalize(uCameraPos - vWorldPosition);
+      vec3 N = getWaveNormal(vWorldPosition, uTime);
+
+      // Fresnel effect approximation
+      float dotNV = max(dot(N, V), 0.0);
+      float fresnel = pow(1.0 - dotNV, 3.5);
+
+      // Depth color gradient simulation (darker blue for lower world Y or deeper view)
+      float depthFactor = clamp((48.0 - vWorldPosition.y) * 0.025, 0.0, 0.55);
+      vec3 baseWaterColor = mix(uWaterColor, uDeepWaterColor, depthFactor);
+
+      // Sky reflection blend via Fresnel
+      float skyMix = fresnel * 0.45;
+      vec3 waterColor = mix(baseWaterColor, uSkyColor, skyMix);
+
+      // Blinn-Phong specular sun highlight
+      vec3 H = normalize(uSunDir + V);
+      float spec = pow(max(dot(N, H), 0.0), 96.0);
+      vec3 specColor = vec3(1.0, 0.94, 0.78) * spec * (0.4 + fresnel * 0.6);
+
+      vec3 finalColor = waterColor + specColor;
+
+      // Opacity: 0.68 looking down, up to 0.88 at grazing angles
+      float opacity = mix(0.68, 0.88, fresnel);
+
+      gl_FragColor = vec4(finalColor, opacity);
+    }
+  `;
+
+  return new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms: {
+      uTime: { value: 0 },
+      uWaterColor: { value: new THREE.Color(0x2d6ebe) }, // RGB (45, 110, 190)
+      uDeepWaterColor: { value: new THREE.Color(0x10284d) },
+      uSkyColor: { value: new THREE.Color(0x8fc3e8) },
+      uSunDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
+      uCameraPos: { value: new THREE.Vector3() },
+    },
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: true,
+  });
+}
+
+// Dedicated Greedy Water Mesher
+export function buildWaterGreedyMesh(ch) {
+  const ox = ch.cx * CHUNK, oz = ch.cz * CHUNK;
+  const pos = [], norm = [], uv = [], idx = [];
+
+  // Top exposed water faces (+Y)
+  for (let y = 0; y < HEIGHT; y++) {
+    const mask = new Array(CHUNK * CHUNK).fill(false);
+    let hasMask = false;
+
+    for (let z = 0; z < CHUNK; z++) {
+      for (let x = 0; x < CHUNK; x++) {
+        if (ch.get(x, y, z) === 8) {
+          const topId = getBlock(ox + x, y + 1, oz + z);
+          if (topId !== 8 && !isOpaque(topId)) {
+            mask[z * CHUNK + x] = true;
+            hasMask = true;
+          }
+        }
+      }
+    }
+    if (!hasMask) continue;
+
+    for (let z = 0; z < CHUNK; z++) {
+      for (let x = 0; x < CHUNK; x++) {
+        if (!mask[z * CHUNK + x]) continue;
+
+        let w = 1;
+        while (x + w < CHUNK && mask[z * CHUNK + (x + w)]) w++;
+
+        let h = 1;
+        let canExtend = true;
+        while (z + h < CHUNK && canExtend) {
+          for (let k = 0; k < w; k++) {
+            if (!mask[(z + h) * CHUNK + (x + k)]) {
+              canExtend = false;
+              break;
+            }
+          }
+          if (canExtend) h++;
+        }
+
+        for (let hz = 0; hz < h; hz++) {
+          for (let wx = 0; wx < w; wx++) {
+            mask[(z + hz) * CHUNK + (x + wx)] = false;
+          }
+        }
+
+        const base = pos.length / 3;
+        const yTop = y + 1.0;
+        pos.push(
+          ox + x,     yTop, oz + z,
+          ox + x + w, yTop, oz + z,
+          ox + x + w, yTop, oz + z + h,
+          ox + x,     yTop, oz + z + h
+        );
+        norm.push(
+          0, 1, 0,
+          0, 1, 0,
+          0, 1, 0,
+          0, 1, 0
+        );
+        uv.push(
+          0, 0,
+          w, 0,
+          w, h,
+          0, h
+        );
+        idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+    }
+  }
+
+  // Exposed Side Faces
+  const SIDE_FACES = [
+    { n: [1, 0, 0],  offset: [1, 0, 0] }, // East (+X)
+    { n: [-1, 0, 0], offset: [0, 0, 0] }, // West (-X)
+    { n: [0, 0, 1],  offset: [0, 0, 1] }, // North (+Z)
+    { n: [0, 0, -1], offset: [0, 0, 0] }, // South (-Z)
+  ];
+
+  for (const sf of SIDE_FACES) {
+    const [nx, ny, nz] = sf.n;
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let z = 0; z < CHUNK; z++) {
+        for (let x = 0; x < CHUNK; x++) {
+          if (ch.get(x, y, z) === 8) {
+            const neighId = getBlock(ox + x + nx, y + ny, oz + z + nz);
+            if (neighId !== 8 && !isOpaque(neighId)) {
+              const base = pos.length / 3;
+              const px = ox + x + sf.offset[0];
+              const py = y + sf.offset[1];
+              const pz = oz + z + sf.offset[2];
+              
+              if (nx !== 0) {
+                pos.push(
+                  px, py,     pz,
+                  px, py + 1, pz,
+                  px, py + 1, pz + 1,
+                  px, py,     pz + 1
+                );
+              } else {
+                pos.push(
+                  px,     py,     pz,
+                  px + 1, py,     pz,
+                  px + 1, py + 1, pz,
+                  px,     py + 1, pz
+                );
+              }
+              norm.push(nx, ny, nz, nx, ny, nz, nx, ny, nz, nx, ny, nz);
+              uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+              idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { pos, norm, uv, idx };
+}
+
+export function makeWaterMesh(g) {
+  if (!g || g.idx.length === 0) return null;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(g.pos, 3));
+  geo.setAttribute("normal",   new THREE.Float32BufferAttribute(g.norm, 3));
+  geo.setAttribute("uv",       new THREE.Float32BufferAttribute(g.uv, 2));
+  geo.setIndex(g.idx);
+
+  const mat = webgl.waterMat || createWaterMaterial();
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.frustumCulled = true;
+  return mesh;
+}
+
 export function makeMesh(g, mode){
   if(g.idx.length===0) return null;
   const geo=new THREE.BufferGeometry();
@@ -508,17 +749,32 @@ export function makeMesh(g, mode){
   return mesh;
 }
 
-export function disposeMesh(m){ if(m){ webgl.scene.remove(m); m.geometry.dispose(); m.material.dispose(); } }
+export function disposeMesh(m){ 
+  if(m){ 
+    webgl.scene.remove(m); 
+    m.geometry.dispose(); 
+    if(m.material && m.material !== webgl.waterMat) m.material.dispose(); 
+  } 
+}
 
 export function updateChunkMesh(ch){
   const g = buildChunkMesh(ch);
-  disposeMesh(ch.opaqueMesh); disposeMesh(ch.cutoutMesh); disposeMesh(ch.alphaMesh);
-  ch.opaqueMesh=makeMesh(g.opaque,"opaque");
-  ch.cutoutMesh=makeMesh(g.cutout,"cutout");
-  ch.alphaMesh =makeMesh(g.alpha,"alpha");
+  const wG = buildWaterGreedyMesh(ch);
+
+  disposeMesh(ch.opaqueMesh); 
+  disposeMesh(ch.cutoutMesh); 
+  disposeMesh(ch.waterMesh);
+  disposeMesh(ch.alphaMesh);
+
+  ch.opaqueMesh = makeMesh(g.opaque, "opaque");
+  ch.cutoutMesh = makeMesh(g.cutout, "cutout");
+  ch.waterMesh  = makeWaterMesh(wG);
+  ch.alphaMesh  = makeMesh(g.alpha, "alpha");
+
   if(ch.opaqueMesh) { ch.opaqueMesh.renderOrder = 0; webgl.scene.add(ch.opaqueMesh); }
   if(ch.cutoutMesh) { ch.cutoutMesh.renderOrder = 1; webgl.scene.add(ch.cutoutMesh); }
-  if(ch.alphaMesh)  { ch.alphaMesh.renderOrder = 2; webgl.scene.add(ch.alphaMesh); }
+  if(ch.waterMesh)  { ch.waterMesh.renderOrder  = 10; webgl.scene.add(ch.waterMesh); }
+  if(ch.alphaMesh)  { ch.alphaMesh.renderOrder  = 20; webgl.scene.add(ch.alphaMesh); }
   ch.dirty=false;
 }
 
@@ -543,7 +799,7 @@ export function updateChunkLoading(){
   });
   for(const [k,ch] of world.chunks){
     if(!needed.has(k)){
-      disposeMesh(ch.opaqueMesh); disposeMesh(ch.cutoutMesh); disposeMesh(ch.alphaMesh);
+      disposeMesh(ch.opaqueMesh); disposeMesh(ch.cutoutMesh); disposeMesh(ch.waterMesh); disposeMesh(ch.alphaMesh);
       world.chunks.delete(k);
     }
   }

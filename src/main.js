@@ -9,7 +9,8 @@ import {
   computeChunkLight, relightAround, updateChunkMesh, disposeMesh, 
   updateChunkLoading, processGenBudget, buildAtlas, buildCrackTexture, 
   showCrack, hideCrack, spawnBreakBurst, updateParticles, initParticles,
-  disturbWater, tickWater, wkey, setWater, WATER_TICK, queueWater, genQueue
+  disturbWater, tickWater, wkey, setWater, WATER_TICK, queueWater, genQueue,
+  createWaterMaterial
 } from './world.js';
 import { 
   spawnPlayer, collidesAt, moveAxis, updatePlayer, hurtPlayer, healPlayer, 
@@ -834,6 +835,14 @@ function loop(now){
   game.waterTimer += dt;
   if(game.waterTimer >= WATER_TICK){ game.waterTimer = 0; tickWater(); }
 
+  // Update Water Shader Uniforms
+  if (webgl.waterMat && webgl.waterMat.uniforms) {
+    webgl.waterMat.uniforms.uTime.value = now * 0.001;
+    if (webgl.camera) webgl.waterMat.uniforms.uCameraPos.value.copy(webgl.camera.position);
+    if (webgl.dirLight) webgl.waterMat.uniforms.uSunDir.value.copy(webgl.dirLight.position).normalize();
+    if (webgl.scene && webgl.scene.fog) webgl.waterMat.uniforms.uSkyColor.value.copy(webgl.scene.fog.color);
+  }
+
   // Dynamic Sprinting FOV Stretch interpolation
   if (webgl.camera) {
     const targetFov = player.sprinting ? 84 : 72;
@@ -1035,6 +1044,7 @@ export function bootGame() {
   webgl.renderer.setClearColor(0x8fc3e8);
 
   webgl.atlasTex = buildAtlas();
+  webgl.waterMat = createWaterMaterial();
   webgl.scene = new THREE.Scene();
   webgl.scene.fog = new THREE.Fog(0x8fc3e8, RENDER_DIST*16*0.55, RENDER_DIST*16*0.95);
 
