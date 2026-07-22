@@ -1631,91 +1631,15 @@ export function updateHeldItemMesh() {
     }
   }
   
-  const id = hotbar[game.selected];
-  if (id === 0 || invCount(id) <= 0) {
-    const geo = new THREE.BoxGeometry(0.06, 0.06, 0.22);
-    const mat = new THREE.MeshLambertMaterial({color: 0xdfcfb7});
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(0, 0, 0);
-    webgl.heldGroup.add(m);
-  } else {
-    const col = thingColor(id);
-    const placeable = isPlaceable(id);
-    
-    if (placeable && webgl.atlasTex) {
-      const geo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-      const faceMap = [4, 5, 0, 1, 2, 3]; // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
-      const uvAttr = geo.attributes.uv;
-      for (let f = 0; f < 6; f++) {
-        const faceIdx = faceMap[f];
-        const tile = tileFor(id, faceIdx);
-        const uv = tileUV(tile);
-        const baseIdx = f * 4;
-        uvAttr.setXY(baseIdx + 0, uv.u0, uv.v1);
-        uvAttr.setXY(baseIdx + 1, uv.u1, uv.v1);
-        uvAttr.setXY(baseIdx + 2, uv.u0, uv.v0);
-        uvAttr.setXY(baseIdx + 3, uv.u1, uv.v0);
-      }
-      uvAttr.needsUpdate = true;
-      const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(0, 0, 0);
-      webgl.heldGroup.add(m);
-    } else {
-      const geo = new THREE.BoxGeometry(0.03, 0.03, 0.28);
-      const mat = new THREE.MeshLambertMaterial({color: col});
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(0, 0, 0);
-      webgl.heldGroup.add(m);
-    }
-  }
+  // Always render a constant player hand in first-person view
+  const geo = new THREE.BoxGeometry(0.06, 0.06, 0.22);
+  const mat = new THREE.MeshLambertMaterial({ color: 0xdfcfb7 });
+  const handMesh = new THREE.Mesh(geo, mat);
+  handMesh.position.set(0, 0, 0);
+  webgl.heldGroup.add(handMesh);
   
   webgl.heldGroup.position.set(0.24, -0.2, -0.35);
   webgl.heldGroup.rotation.set(0, 0, 0);
-
-  // Synchronize third-person avatar held tool
-  if (webgl.playerMesh && webgl.playerMesh.rightArm) {
-    const arm = webgl.playerMesh.rightArm;
-    while (arm.children.length > 0) {
-      const c = arm.children[0];
-      arm.remove(c);
-      if (c.geometry) c.geometry.dispose();
-      if (c.material) c.material.dispose();
-    }
-    
-    const id = hotbar[game.selected];
-    if (id !== 0 && invCount(id) > 0) {
-      const col = thingColor(id);
-      const placeable = isPlaceable(id);
-      
-      if (placeable && webgl.atlasTex) {
-        const geo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-        const faceMap = [4, 5, 0, 1, 2, 3];
-        const uvAttr = geo.attributes.uv;
-        for (let f = 0; f < 6; f++) {
-          const faceIdx = faceMap[f];
-          const tile = tileFor(id, faceIdx);
-          const uv = tileUV(tile);
-          const baseIdx = f * 4;
-          uvAttr.setXY(baseIdx + 0, uv.u0, uv.v1);
-          uvAttr.setXY(baseIdx + 1, uv.u1, uv.v1);
-          uvAttr.setXY(baseIdx + 2, uv.u0, uv.v0);
-          uvAttr.setXY(baseIdx + 3, uv.u1, uv.v0);
-        }
-        uvAttr.needsUpdate = true;
-        const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(0, -0.25, 0.15);
-        arm.add(mesh);
-      } else {
-        const geo = new THREE.BoxGeometry(0.04, 0.04, 0.4);
-        const mat = new THREE.MeshLambertMaterial({color: col});
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(0, -0.25, 0.15);
-        arm.add(mesh);
-      }
-    }
-  }
 }
 
 export function createPlayerMesh() {
