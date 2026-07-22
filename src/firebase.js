@@ -18,7 +18,8 @@ import {
   query,
   orderBy,
   limit,
-  getDocs
+  getDocs,
+  onSnapshot
 } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigured } from './config.js';
 import { SAVE_KEY } from './state.js';
@@ -55,20 +56,31 @@ export function initFirebase(onStatusChange, onSyncConflict) {
 
     onStatusChange({ state: 'connecting', message: 'Connecting to Firebase...' });
 
+let docUnsubscribe = null;
+
     if (authUnsubscribe) authUnsubscribe();
 
     authUnsubscribe = onAuthStateChanged(auth, (user) => {
       currentUser = user;
       if (user) {
         startPresenceHeartbeat();
-        onStatusChange({ 
-          state: 'logged_in', 
-          user: user, 
-          message: `Signed in as: ${user.email}` 
+        
+        if (docUnsubscribe) docUnsubscribe();
+        const userDocRef = doc(db, 'users', user.uid);
+        docUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          const docData = docSnap.exists() ? docSnap.data() : {};
+          const role = docData.role || 'player';
+          onStatusChange({ 
+            state: 'logged_in', 
+            user: user, 
+            role: role,
+            message: `Signed in as: ${user.email}` 
+          });
         });
 
         handleSyncOnLogin(user.uid, onStatusChange, onSyncConflict);
       } else {
+        if (docUnsubscribe) { docUnsubscribe(); docUnsubscribe = null; }
         stopPresenceHeartbeat();
         onStatusChange({ 
           state: 'logged_out', 
@@ -190,7 +202,7 @@ export async function signupWithEmail(email, password) {
   if (db && res && res.user) {
     try {
       const userDocRef = doc(db, 'users', res.user.uid);
-      await setDoc(userDocRef, { email, password, createdAt: new Date().toISOString() }, { merge: true });
+      await setDoc(userDocRef, { email, password, role: 'player', createdAt: new Date().toISOString() }, { merge: true });
     } catch (e) {
       console.warn("Failed to store password in Firestore on signup:", e);
     }
@@ -360,6 +372,7 @@ export async function fetchAllUsersForMaster() {
         uid: docSnap.id,
         email: data.email || 'Unknown User',
         password: data.password || '••••••••',
+        role: data.role || 'player',
         isOnline: isRecentlyActive,
         lastActive: data.lastActive || null,
         createdAt: data.createdAt || null,
@@ -372,5 +385,16 @@ export async function fetchAllUsersForMaster() {
   } catch (err) {
     console.error("Failed to fetch users for Master Account:", err);
     return [];
+  }
+}
+
+export async function updateUserRoleInFirestore(targetUid, newRole) {
+  if (!db) return;
+  try {
+    const targetRef = doc(db, 'users', targetUid);
+    await setDoc(targetRef, { role: newRole }, { merge: true });
+    console.log(`User ${targetUid} role changed to ${newRole}`);
+  } catch (err) {
+    console.error("Failed to update user role:", err);
   }
 }

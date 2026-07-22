@@ -28,12 +28,11 @@ export default function App() {
   const [authStatus, setAuthStatus] = useState('connecting');
   const [syncMsg, setSyncMsg] = useState('Connecting to Firebase...');
   const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState('player');
   const [conflictData, setConflictData] = useState(null);
 
-  // Check if current user is a Master Admin Account
-  const isMasterAccount = Boolean(
-    currentUser?.email && /master|admin/i.test(currentUser.email)
-  ) || Boolean(window.__isMasterAccount);
+  // Check if current user is a Master Admin Account (strictly based on Firestore document 'role' field)
+  const isMasterAccount = userRole === 'admin' || userRole === 'master';
 
   // HUD
   const [fps, setFps] = useState(60);
@@ -57,13 +56,16 @@ export default function App() {
       } else if (status.state === 'unconfigured') {
         setAuthStatus('unconfigured'); setSyncMsg(status.message);
         setCurrentUser({ email: 'Offline Mode' });
+        setUserRole('player');
       } else if (status.state === 'logged_in') {
         setAuthStatus('logged_in'); setSyncMsg(status.message);
         setCurrentUser(status.user);
+        setUserRole(status.role || 'player');
         window.__currentUserEmail = status.user.email;
       } else if (status.state === 'logged_out') {
         setAuthStatus('logged_out'); setSyncMsg(status.message);
         setCurrentUser(null);
+        setUserRole('player');
       } else {
         setSyncMsg(status.message);
       }

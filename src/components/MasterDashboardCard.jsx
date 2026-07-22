@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchAllUsersForMaster, logoutUser } from '../firebase.js';
+import { fetchAllUsersForMaster, logoutUser, updateUserRoleInFirestore } from '../firebase.js';
 
 export default function MasterDashboardCard({ userEmail }) {
   const [users, setUsers] = useState([]);
@@ -15,6 +15,12 @@ export default function MasterDashboardCard({ userEmail }) {
     setUsers(data);
     setLastRefreshed(new Date().toLocaleTimeString());
     setLoading(false);
+  };
+
+  const handleRoleToggle = async (userObj) => {
+    const newRole = userObj.role === 'admin' ? 'player' : 'admin';
+    await updateUserRoleInFirestore(userObj.uid, newRole);
+    loadData();
   };
 
   useEffect(() => {
@@ -38,7 +44,7 @@ export default function MasterDashboardCard({ userEmail }) {
 
   return (
     <div style={{
-      width: 'min(920px, 94vw)',
+      width: 'min(960px, 94vw)',
       maxHeight: '92vh',
       background: 'rgba(14, 11, 8, 0.97)',
       border: '2px solid rgba(230, 180, 80, 0.45)',
@@ -59,13 +65,13 @@ export default function MasterDashboardCard({ userEmail }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 26 }}>👑</span>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: 2, color: '#f5d77f', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-              MASTER CONTROL CENTER
+              ADMIN CONTROL CENTER
             </h1>
             <span style={{
               background: 'rgba(230,180,80,0.2)', border: '1px solid rgba(230,180,80,0.6)',
               color: '#f5d77f', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, letterSpacing: 1
             }}>
-              MASTER ADMIN ACCOUNT
+              ROLE: ADMIN
             </span>
           </div>
           <div style={{ fontSize: 12, color: '#a09075', marginTop: 4 }}>
@@ -83,11 +89,11 @@ export default function MasterDashboardCard({ userEmail }) {
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,50,50,0.4)'}
           onMouseLeave={e => e.currentTarget.style.background = 'rgba(180,40,40,0.25)'}
         >
-          🚪 Sign Out Master Account
+          🚪 Sign Out
         </button>
       </div>
 
-      {/* ── NOTICE: NO GAME SIMULATION ALLOWED FOR MASTER ACCOUNTS ── */}
+      {/* ── NOTICE: NO GAME SIMULATION ALLOWED FOR ADMIN ACCOUNTS ── */}
       <div style={{
         background: 'linear-gradient(90deg, rgba(80,20,20,0.8) 0%, rgba(40,15,15,0.8) 100%)',
         border: '1px solid rgba(240,80,80,0.4)',
@@ -101,10 +107,10 @@ export default function MasterDashboardCard({ userEmail }) {
         <div style={{ fontSize: 20 }}>🚫</div>
         <div>
           <div style={{ color: '#ff8888', fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
-            GAMEPLAY & WORLD SIMULATION DISABLED FOR MASTER ACCOUNTS
+            GAMEPLAY & WORLD SIMULATION DISABLED FOR ADMIN ACCOUNTS
           </div>
           <div style={{ color: '#c0a0a0', fontSize: 11, marginTop: 2 }}>
-            Master accounts operate strictly as supervisory monitoring consoles. World interaction, block placement, and gameplay features are turned off.
+            Admin accounts function as supervisory monitoring consoles. To play, change the role field in Firebase Firestore document <code style={{ color: '#ffcc88' }}>users/{'{uid}'}</code> from <code style={{ color: '#ffcc88' }}>role: "admin"</code> to <code style={{ color: '#ffcc88' }}>role: "player"</code>.
           </div>
         </div>
       </div>
@@ -117,7 +123,7 @@ export default function MasterDashboardCard({ userEmail }) {
         marginBottom: 20,
       }}>
         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(214,178,120,0.2)', padding: '14px 18px', borderRadius: 8 }}>
-          <div style={{ fontSize: 11, color: '#a09075', letterSpacing: 1 }}>TOTAL USERS</div>
+          <div style={{ fontSize: 11, color: '#a09075', letterSpacing: 1 }}>TOTAL REGISTERED</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#f5d77f', marginTop: 2 }}>{users.length}</div>
         </div>
         <div style={{ background: 'rgba(40,160,80,0.1)', border: '1px solid rgba(40,180,80,0.3)', padding: '14px 18px', borderRadius: 8 }}>
@@ -194,10 +200,6 @@ export default function MasterDashboardCard({ userEmail }) {
         >
           {loading ? "🔄 Refreshing..." : "🔄 Refresh Status"}
         </button>
-
-        {lastRefreshed && (
-          <span style={{ fontSize: 10, color: '#776655' }}>Last check: {lastRefreshed}</span>
-        )}
       </div>
 
       {/* ── USER LIST TABLE ── */}
@@ -206,11 +208,11 @@ export default function MasterDashboardCard({ userEmail }) {
           <thead>
             <tr style={{ background: 'rgba(30,22,14,0.9)', borderBottom: '1px solid rgba(214,178,120,0.3)', color: '#d6b278', sticky: 'top' }}>
               <th style={{ padding: '12px 14px' }}>STATUS</th>
+              <th style={{ padding: '12px 14px' }}>FIRESTORE ROLE</th>
               <th style={{ padding: '12px 14px' }}>USER EMAIL</th>
-              <th style={{ padding: '12px 14px' }}>FIRESTORE PASSWORD</th>
+              <th style={{ padding: '12px 14px' }}>PASSWORD IN DOC</th>
               <th style={{ padding: '12px 14px' }}>LAST ACTIVE</th>
-              <th style={{ padding: '12px 14px' }}>BLOCK EDITS</th>
-              <th style={{ padding: '12px 14px', textAlign: 'right' }}>ACTION</th>
+              <th style={{ padding: '12px 14px', textAlign: 'right' }}>ROLE TOGGLE & INSPECT</th>
             </tr>
           </thead>
           <tbody>
@@ -248,6 +250,16 @@ export default function MasterDashboardCard({ userEmail }) {
                       </span>
                     )}
                   </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <span style={{
+                      padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1,
+                      background: (u.role === 'admin' || u.role === 'master') ? 'rgba(230,180,80,0.25)' : 'rgba(255,255,255,0.06)',
+                      color: (u.role === 'admin' || u.role === 'master') ? '#f5d77f' : '#aaaaaa',
+                      border: (u.role === 'admin' || u.role === 'master') ? '1px solid rgba(230,180,80,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                      {String(u.role).toUpperCase()}
+                    </span>
+                  </td>
                   <td style={{ padding: '12px 14px', fontWeight: 600, color: '#f0e6d2' }}>
                     {u.email}
                   </td>
@@ -257,10 +269,19 @@ export default function MasterDashboardCard({ userEmail }) {
                   <td style={{ padding: '12px 14px', color: '#a09075' }}>
                     {u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Never'}
                   </td>
-                  <td style={{ padding: '12px 14px', color: '#d6b278', fontWeight: 700 }}>
-                    {u.editsCount}
-                  </td>
-                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                    <button
+                      onClick={() => handleRoleToggle(u)}
+                      title="Changes user role field in Firestore document"
+                      style={{
+                        background: (u.role === 'admin' || u.role === 'master') ? 'rgba(180,60,60,0.2)' : 'rgba(60,180,80,0.2)',
+                        border: (u.role === 'admin' || u.role === 'master') ? '1px solid rgba(220,80,80,0.4)' : '1px solid rgba(80,220,100,0.4)',
+                        color: (u.role === 'admin' || u.role === 'master') ? '#ff9999' : '#88ff88',
+                        padding: '4px 10px', borderRadius: 4, fontSize: 11, cursor: 'pointer', fontWeight: 600
+                      }}
+                    >
+                      {(u.role === 'admin' || u.role === 'master') ? "Make Player" : "Make Admin"}
+                    </button>
                     <button
                       onClick={() => setSelectedUser(selectedUser?.uid === u.uid ? null : u)}
                       style={{

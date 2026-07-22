@@ -87,33 +87,6 @@ export default function AuthCard({ authStatus }) {
             {loading ? "Registering..." : "Register"}
           </button>
         </div>
-
-        <button
-          onClick={() => {
-            setEmail('master.admin@voxel.io');
-            setPassword('master123');
-            setTimeout(() => {
-              loginWithEmail('master.admin@voxel.io', 'master123').catch(() => {
-                signupWithEmail('master.admin@voxel.io', 'master123').catch(() => {});
-              });
-            }, 50);
-          }}
-          style={{
-            width: '100%',
-            marginTop: 10,
-            background: 'rgba(230,180,80,0.15)',
-            border: '1px solid rgba(230,180,80,0.4)',
-            color: '#f5d77f',
-            padding: '8px',
-            borderRadius: 6,
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: 'pointer',
-            letterSpacing: 1,
-          }}
-        >
-          👑 Login as Master Admin Account
-        </button>
         {error && (
           <div id="cloudAuthError" style={{ color: '#ff9a86', fontSize: '10px', marginTop: '8px', lineHeight: 1.3, textAlign: 'center' }}>
             {error}
