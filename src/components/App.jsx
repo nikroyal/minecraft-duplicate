@@ -212,23 +212,85 @@ export default function App() {
           style={{
             position: 'fixed', inset: 0, zIndex: 50,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)',
             cursor: 'pointer',
             userSelect: 'none',
           }}
         >
-          <div style={{
-            background: 'rgba(20,15,10,0.95)',
-            border: '2px solid rgba(214,178,120,0.4)',
-            borderRadius: 12,
-            padding: '32px 48px',
-            textAlign: 'center',
-            boxShadow: '0 20px 80px rgba(0,0,0,0.8)',
-          }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>⏸</div>
-            <div style={{ color: '#f2d9a0', fontSize: 22, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>PAUSED</div>
-            <div style={{ color: '#a89060', fontSize: 13, letterSpacing: 1 }}>Click anywhere to resume</div>
-            <div style={{ color: '#786040', fontSize: 11, marginTop: 6 }}>Press E to open inventory • Escape to pause</div>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'rgba(20,15,10,0.97)',
+              border: '2px solid rgba(214,178,120,0.45)',
+              borderRadius: 14,
+              padding: '36px 52px',
+              textAlign: 'center',
+              boxShadow: '0 25px 90px rgba(0,0,0,0.9), 0 0 30px rgba(214,178,120,0.1)',
+              maxWidth: 420,
+              width: '90vw',
+            }}
+          >
+            <div style={{ fontSize: 36, marginBottom: 6 }}>⏸</div>
+            <div style={{ color: '#f5d77f', fontSize: 24, fontWeight: 800, letterSpacing: 3, marginBottom: 6 }}>
+              GAME PAUSED
+            </div>
+            <div style={{ color: '#a89060', fontSize: 12, letterSpacing: 1, marginBottom: 20 }}>
+              Session paused • Click button or canvas to resume
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => {
+                  game.paused = false;
+                  try {
+                    const promise = document.getElementById('game')?.requestPointerLock();
+                    if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+                  } catch(e){}
+                  forceUpdate();
+                }}
+                style={{
+                  background: 'rgba(214,178,120,0.2)',
+                  border: '1px solid rgba(214,178,120,0.6)',
+                  color: '#f5d77f',
+                  padding: '12px 24px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  letterSpacing: 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                ▶ RESUME GAME
+              </button>
+
+              <button
+                onClick={() => {
+                  game.running = false;
+                  game.paused = false;
+                  if (document.pointerLockElement) document.exitPointerLock();
+                  forceUpdate();
+                }}
+                style={{
+                  background: 'rgba(180,50,50,0.25)',
+                  border: '1px solid rgba(220,70,70,0.5)',
+                  color: '#ff9999',
+                  padding: '12px 24px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  letterSpacing: 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                🏠 EXIT TO HOME SCREEN
+              </button>
+            </div>
+
+            <div style={{ color: '#786040', fontSize: 10, marginTop: 18, lineHeight: 1.5 }}>
+              💡 Press <span style={{ color: '#d6b278', border: '1px solid #786040', padding: '1px 5px', borderRadius: 3 }}>Esc</span> twice to exit to Home Screen • Press <span style={{ color: '#d6b278', border: '1px solid #786040', padding: '1px 5px', borderRadius: 3 }}>E</span> for Handbook
+            </div>
           </div>
         </div>
       )}
@@ -243,257 +305,264 @@ export default function App() {
             coordsStr={coordsStr}
             clockStr={clockStr}
           />
+        </>
+      )}
 
+      {/* CHEST MODAL */}
+      {uiState.chestOpen && (
+        <ChestScreen
+          coordsStr={uiState.activeChestCoords}
+          onClose={handleCloseChest}
+        />
+      )}
 
-          {/* ── Crafting Screen (new grid-based) ── */}
-          {uiState.craftOpen && (
+      {/* FURNACE MODAL */}
+      {uiState.furnaceOpen && (
+        <FurnaceScreen
+          coordsStr={uiState.activeFurnaceCoords}
+          onClose={handleCloseFurnace}
+        />
+      )}
+
+      {/* CRAFTING & HANDBOOK MODAL */}
+      {uiState.craftOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)',
+        }}>
+          <div style={{
+            display: 'flex', gap: 14,
+            width: 'min(1100px, 96vw)',
+            height: 'min(640px, 90vh)',
+          }}>
+            {/* Main Crafting Window */}
+            <CraftingScreen onClose={closeCraft} />
+
+            {/* Side Reference Panel */}
             <div style={{
-              position: 'fixed', inset: 0, zIndex: 35,
-              display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center',
-              background: 'rgba(6,4,3,0.85)', backdropFilter: 'blur(6px)',
-              padding: '20px 12px',
-              gap: 18,
-              overflowY: 'auto',
+              width: 380,
+              background: 'rgba(20,15,10,0.97)',
+              border: '1px solid rgba(214,178,120,0.35)',
+              borderRadius: 10,
+              boxShadow: '0 20px 80px rgba(0,0,0,0.8)',
+              display: 'flex', flexDirection: 'column',
+              maxHeight: 'calc(90vh - 0px)',
+              overflow: 'hidden',
             }}>
-              {/* Left: Crafting Grid (standalone, full component) */}
-              <div style={{ flex: '0 0 auto' }}>
-                <CraftingScreen onClose={closeCraft} />
+              {/* Tabs header */}
+              <div style={{
+                display: 'flex', borderBottom: '1px solid rgba(214,178,120,0.2)',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '6px 10px 0',
+                gap: 2,
+              }}>
+                {['blocks','recipes','manual'].map(tab => (
+                  <button key={tab}
+                    onClick={() => setCraftTab(tab)}
+                    style={{
+                      fontFamily: 'inherit', fontSize: 10, letterSpacing: 1,
+                      color: craftTab === tab ? '#1a1410' : '#d6b278',
+                      background: craftTab === tab ? '#f2d9a0' : 'transparent',
+                      border: 'none', borderRadius: '4px 4px 0 0',
+                      padding: '6px 12px', cursor: 'pointer',
+                      fontWeight: craftTab === tab ? 700 : 400,
+                    }}>
+                    {tab === 'blocks' ? '📚 Blocks' : tab === 'recipes' ? '📜 Recipes' : '📖 Manual'}
+                  </button>
+                ))}
               </div>
 
-              {/* Right: Reference Panel */}
-              <div style={{
-                flex: '1 1 340px', maxWidth: 380, minWidth: 280,
-                background: 'rgba(20,15,10,0.97)',
-                border: '1px solid rgba(214,178,120,0.3)',
-                borderRadius: 10,
-                boxShadow: '0 20px 80px rgba(0,0,0,0.7)',
-                display: 'flex', flexDirection: 'column',
-                maxHeight: 'calc(90vh - 0px)',
-                overflow: 'hidden',
-              }}>
-                {/* Tabs header */}
-                <div style={{
-                  display: 'flex', borderBottom: '1px solid rgba(214,178,120,0.2)',
-                  background: 'rgba(0,0,0,0.3)',
-                  padding: '6px 10px 0',
-                  gap: 2,
-                }}>
-                  {['blocks','recipes','manual'].map(tab => (
-                    <button key={tab}
-                      onClick={() => setCraftTab(tab)}
-                      style={{
-                        fontFamily: 'inherit', fontSize: 10, letterSpacing: 1,
-                        color: craftTab === tab ? '#1a1410' : '#d6b278',
-                        background: craftTab === tab ? '#f2d9a0' : 'transparent',
-                        border: 'none', borderRadius: '4px 4px 0 0',
-                        padding: '6px 12px', cursor: 'pointer',
-                        fontWeight: craftTab === tab ? 700 : 400,
-                      }}>
-                      {tab === 'blocks' ? '📚 Blocks' : tab === 'recipes' ? '📜 Recipes' : '📖 Manual'}
-                    </button>
-                  ))}
-                </div>
+              {/* Tab content */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
-                {/* Tab content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+                {/* ── Encyclopedia tab ── */}
+                {craftTab === 'blocks' && (
+                  <div>
+                    <input type="text" value={blockFilter} onChange={e => setBlockFilter(e.target.value)}
+                      placeholder="Search blocks…" className="recipe-search"
+                      style={{ background: 'var(--ink)', width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
+                    <div className="block-list">
+                      {filteredBlocks.map(id => (
+                        <div key={id} className="block-row">
+                          <div className="b-swatch-container"><Swatch3D id={id} /></div>
+                          <div style={{ flex: 1, paddingLeft: '10px', fontSize: '10px' }}>
+                            <div style={{ fontWeight: 'bold', color: '#fff' }}>{BLOCKS[id].name}</div>
+                            <div style={{ color: 'var(--gold)', fontSize: '8px' }}>
+                              {BLOCKS[id].solid ? 'Solid' : 'Non-Solid'} · Hard: {BLOCKS[id].hardness} · ID: {id}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                  {/* ── Encyclopedia tab ── */}
-                  {craftTab === 'blocks' && (
-                    <div>
-                      <input type="text" value={blockFilter} onChange={e => setBlockFilter(e.target.value)}
-                        placeholder="Search blocks…" className="recipe-search"
-                        style={{ background: 'var(--ink)', width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
-                      <div className="block-list">
-                        {filteredBlocks.map(id => (
-                          <div key={id} className="block-row">
-                            <div className="b-swatch-container"><Swatch3D id={id} /></div>
-                            <div style={{ flex: 1, paddingLeft: '10px', fontSize: '10px' }}>
-                              <div style={{ fontWeight: 'bold', color: '#fff' }}>{BLOCKS[id].name}</div>
-                              <div style={{ color: 'var(--gold)', fontSize: '8px' }}>
-                                {BLOCKS[id].solid ? 'Solid' : 'Non-Solid'} · Hard: {BLOCKS[id].hardness} · ID: {id}
+                {/* ── Recipes reference tab ── */}
+                {craftTab === 'recipes' && (() => {
+                  const smeltingRecipes = [
+                    { inId: 12, outId: 102, desc: 'Iron Ore → Iron Ingot' },
+                    { inId: 13, outId: 103, desc: 'Gold Ore → Gold Ingot' },
+                    { inId: 14, outId: 104, desc: 'Diamond Ore → Diamond' },
+                    { inId: 4,  outId: 9,   desc: 'Sand → Glass' },
+                    { inId: 15, outId: 3,   desc: 'Cobblestone → Stone' },
+                    { inId: 3,  outId: 40,  desc: 'Stone → Smooth Stone' },
+                    { inId: 23, outId: 120, desc: 'Spruce Wood → Charcoal' },
+                    { inId: 28, outId: 36,  desc: 'Clay → Terracotta' },
+                    { inId: 133,outId: 134, desc: 'Raw Meat → Cooked Meat' },
+                  ];
+                  const rFilter = recipesTabFilter.toLowerCase();
+                  const filtCraft = RECIPES.filter(r => thingName(r.out).toLowerCase().includes(rFilter) || (r.label||'').toLowerCase().includes(rFilter));
+                  const filtSmelt = smeltingRecipes.filter(s => s.desc.toLowerCase().includes(rFilter) || thingName(s.outId).toLowerCase().includes(rFilter));
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <input type="text" value={recipesTabFilter} onChange={e => setRecipesTabFilter(e.target.value)}
+                        placeholder="Search recipes & smelting…" className="recipe-search"
+                        style={{ background: 'var(--ink)', width: '100%', boxSizing: 'border-box' }} />
+
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#d6b278', letterSpacing: 1, textTransform: 'uppercase' }}>🔨 Crafting ({filtCraft.length})</div>
+                      <div className="recipe-list" style={{ gap: 4 }}>
+                        {filtCraft.map((recipe, i) => (
+                          <div key={i} className="recipe-row" style={{ opacity: 1, cursor: 'default', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--slot-line)', borderRadius: 4, padding: '5px 8px', display: 'flex', alignItems: 'center', minHeight: 38 }}>
+                            <div style={{ width: 26, height: 26, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Swatch3D id={recipe.out} /></div>
+                            <div style={{ flex: 1, paddingLeft: 8 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{thingName(recipe.out)}{recipe.qty > 1 ? ` ×${recipe.qty}` : ''}</div>
+                              <div style={{ fontSize: 8, color: 'var(--gold-dim)' }}>
+                                {Object.entries(recipe.in).map(([inId, qty]) => `${thingName(Number(inId))} ×${qty}`).join(', ')}
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
 
-                  {/* ── Recipes reference tab ── */}
-                  {craftTab === 'recipes' && (() => {
-                    const smeltingRecipes = [
-                      { inId: 12, outId: 102, desc: 'Iron Ore → Iron Ingot' },
-                      { inId: 13, outId: 103, desc: 'Gold Ore → Gold Ingot' },
-                      { inId: 14, outId: 104, desc: 'Diamond Ore → Diamond' },
-                      { inId: 4,  outId: 9,   desc: 'Sand → Glass' },
-                      { inId: 15, outId: 3,   desc: 'Cobblestone → Stone' },
-                      { inId: 3,  outId: 40,  desc: 'Stone → Smooth Stone' },
-                      { inId: 23, outId: 120, desc: 'Spruce Wood → Charcoal' },
-                      { inId: 28, outId: 36,  desc: 'Clay → Terracotta' },
-                      { inId: 133,outId: 134, desc: 'Raw Meat → Cooked Meat' },
-                    ];
-                    const rFilter = recipesTabFilter.toLowerCase();
-                    const filtCraft = RECIPES.filter(r => thingName(r.out).toLowerCase().includes(rFilter) || (r.label||'').toLowerCase().includes(rFilter));
-                    const filtSmelt = smeltingRecipes.filter(s => s.desc.toLowerCase().includes(rFilter) || thingName(s.outId).toLowerCase().includes(rFilter));
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <input type="text" value={recipesTabFilter} onChange={e => setRecipesTabFilter(e.target.value)}
-                          placeholder="Search recipes & smelting…" className="recipe-search"
-                          style={{ background: 'var(--ink)', width: '100%', boxSizing: 'border-box' }} />
-
-                        <div style={{ fontSize: 10, fontWeight: 700, color: '#d6b278', letterSpacing: 1, textTransform: 'uppercase' }}>🔨 Crafting ({filtCraft.length})</div>
-                        <div className="recipe-list" style={{ gap: 4 }}>
-                          {filtCraft.map((recipe, i) => (
-                            <div key={i} className="recipe-row" style={{ opacity: 1, cursor: 'default', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--slot-line)', borderRadius: 4, padding: '5px 8px', display: 'flex', alignItems: 'center', minHeight: 38 }}>
-                              <div style={{ width: 26, height: 26, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Swatch3D id={recipe.out} /></div>
-                              <div style={{ flex: 1, paddingLeft: 8 }}>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{thingName(recipe.out)}{recipe.qty > 1 ? ` ×${recipe.qty}` : ''}</div>
-                                <div style={{ fontSize: 8, color: 'var(--gold)', marginTop: 1 }}>{Object.keys(recipe.in).map(reqId => `${recipe.in[reqId]}× ${thingName(Number(reqId))}`).join(', ')}</div>
-                              </div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#d6b278', letterSpacing: 1, textTransform: 'uppercase', marginTop: 8 }}>🔥 Smelting ({filtSmelt.length})</div>
+                      <div className="recipe-list" style={{ gap: 4 }}>
+                        {filtSmelt.map((smelt, i) => (
+                          <div key={i} className="recipe-row" style={{ opacity: 1, cursor: 'default', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--slot-line)', borderRadius: 4, padding: '5px 8px', display: 'flex', alignItems: 'center', minHeight: 38 }}>
+                            <div style={{ width: 26, height: 26, display: 'grid', placeItems: 'center', flexShrink: 0 }}><Swatch3D id={smelt.outId} /></div>
+                            <div style={{ flex: 1, paddingLeft: 8 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{thingName(smelt.outId)}</div>
+                              <div style={{ fontSize: 8, color: 'var(--gold-dim)' }}>Input: {thingName(smelt.inId)} + Fuel (Coal/Logs)</div>
                             </div>
-                          ))}
-                          {filtCraft.length === 0 && <div style={{ fontSize: 9, color: '#888', padding: 8 }}>No crafting recipes match.</div>}
-                        </div>
-
-                        <div style={{ fontSize: 10, fontWeight: 700, color: '#d6b278', letterSpacing: 1, textTransform: 'uppercase', marginTop: 6 }}>🔥 Smelting ({filtSmelt.length})</div>
-                        <div className="recipe-list" style={{ gap: 4 }}>
-                          {filtSmelt.map((s, idx) => (
-                            <div key={idx} className="recipe-row" style={{ opacity: 1, cursor: 'default', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--slot-line)', borderRadius: 4, padding: '5px 8px', display: 'flex', alignItems: 'center', minHeight: 38 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                                <Swatch3D id={s.inId} />
-                                <span style={{ color: 'var(--gold)', fontSize: 10, fontWeight: 'bold' }}>→</span>
-                                <Swatch3D id={s.outId} />
-                              </div>
-                              <div style={{ flex: 1, paddingLeft: 8 }}>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{thingName(s.outId)}</div>
-                                <div style={{ fontSize: 8, color: '#9a8a76' }}>{s.desc}</div>
-                              </div>
-                            </div>
-                          ))}
-                          {filtSmelt.length === 0 && <div style={{ fontSize: 9, color: '#888', padding: 8 }}>No smelting recipes match.</div>}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    );
-                  })()}
-
-                  {/* ── Manual tab ── */}
-                  {craftTab === 'manual' && (
-                    <div className="manual-body" style={{ padding: 0 }}>
-                      <h3>🎮 Welcome to Voxel</h3>
-                      <p>Mine resources, craft tools &amp; weapons, build structures, farm crops, cook in furnaces, manage health and hunger, and survive hostile mobs through the night in an infinitely expandable voxel world.</p>
-                      
-                      <h3>⌨️ Controls &amp; Shortcuts</h3>
-                      <ul>
-                        <li><span className="m-key">W A S D</span> Move &nbsp;|&nbsp; <span className="m-key">Space</span> Jump &nbsp;|&nbsp; <span className="m-key">Ctrl / Shift</span> Sprint</li>
-                        <li><span className="m-key">Left-click</span> Mine block / attack mob (hold to break)</li>
-                        <li><span className="m-key">Right-click</span> Place block / interact (Chest, Furnace, Bed, TNT, Hoe, Seeds)</li>
-                        <li><span className="m-key">1–8</span> Select Hotbar Slot &nbsp;|&nbsp; <span className="m-key">Scroll Wheel</span> Cycle Hotbar</li>
-                        <li><span className="m-key">E</span> Open / Close Handbook (Inventory &amp; Crafting)</li>
-                        <li><span className="m-key">Q</span> Drop 1 held item (or eat food when holding food)</li>
-                        <li><span className="m-key">F</span> Toggle Creative Flying</li>
-                        <li><span className="m-key">F3</span> Toggle 3D Physics Debug Overlay &amp; Telemetry</li>
-                        <li><span className="m-key">F5 / H</span> Cycle Camera View (First-Person, Third-Person Back, Third-Person Front)</li>
-                        <li><span className="m-key">Esc</span> Pause / Open Main Menu / Release Pointer Lock</li>
-                      </ul>
-
-                      <h3>🏃 Movement &amp; Jump Mechanics</h3>
-                      <ul>
-                        <li><strong>Ground &amp; Step-Up:</strong> Smoothly step up 0.5-block slabs, carpets, trapdoors, and 1-block steps while walking grounded.</li>
-                        <li><strong>Jump Buffering:</strong> Pressing <span className="m-key">Space</span> up to 150ms before touching the ground automatically triggers an instant jump upon landing.</li>
-                        <li><strong>Coyote Timer:</strong> Allows jumping up to 120ms after walking off ledges or block edges.</li>
-                        <li><strong>Fluid Swimming:</strong> Hold <span className="m-key">Space</span> to swim up. Leaping out of water at the surface gives a boost to land on adjacent terrain.</li>
-                        <li><strong>Underwater Interaction:</strong> Full support for underwater mining and placing blocks into water voxels.</li>
-                      </ul>
-
-                      <h3>❤️ Health, Hunger &amp; Survival</h3>
-                      <ul>
-                        <li><strong>Health (20 HP / 10 Hearts):</strong> Damage taken from fall (3.5+ blocks), drowning, void, zombies, creepers, or starvation.</li>
-                        <li><strong>Hunger (20 / 10 Drumsticks):</strong> Drains over time (faster while sprinting). At 16+ HP regens over time. At 0 hunger, starvation damage occurs.</li>
-                        <li><strong>Eating Food:</strong> Select food in hotbar and press <span className="m-key">Q</span> (or right-click) to restore hunger &amp; health.</li>
-                      </ul>
-
-                      <h3>⛏️ Tools &amp; Durability Tiers</h3>
-                      <ul>
-                        <li><strong>Pickaxe:</strong> Required for Stone, Cobblestone, Coal/Iron/Gold/Diamond Ores, Bricks, Sandstone, Obsidian.</li>
-                        <li><strong>Axe:</strong> Efficiently chops Logs, Planks, Wood, Crafting Tables, Chests, Bookshelves.</li>
-                        <li><strong>Shovel:</strong> Fast digging for Dirt, Grass, Sand, Gravel, Snow, Clay.</li>
-                        <li><strong>Hoe:</strong> Right-click Grass or Dirt to till into Farmland for planting crops.</li>
-                        <li><strong>Tool Tiers:</strong> Wood (30 durability) &rarr; Stone (60) &rarr; Iron (150) &rarr; Diamond (500). Higher tiers mine faster and unlock higher-grade ores.</li>
-                      </ul>
-
-                      <h3>🔥 Smelting &amp; Cooking (Furnace)</h3>
-                      <ul>
-                        <li>Right-click a placed <strong>Furnace</strong> to open the smelting interface.</li>
-                        <li><strong>Top Input Slot:</strong> Raw Iron Ore, Gold Ore, Sand (smelts into Glass), Clay (smelts into Terracotta).</li>
-                        <li><strong>Bottom Fuel Slot:</strong> Coal, Charcoal, Wood Logs, or Planks.</li>
-                        <li>smelting progress bar runs automatically and outputs refined ingots/materials.</li>
-                      </ul>
-
-                      <h3>🌾 Farming &amp; Agriculture</h3>
-                      <ul>
-                        <li>Right-click Grass/Dirt with a <strong>Hoe</strong> to create Farmland (ID 89).</li>
-                        <li>Right-click Farmland with <strong>Wheat Seeds</strong> (ID 138) to plant crops.</li>
-                        <li>Watch crops grow through growth stages &rarr; Harvest ripe wheat &rarr; Craft 3 Wheat into 1 Bread!</li>
-                      </ul>
-
-                      <h3>🏹 Combat, Weapons &amp; TNT</h3>
-                      <ul>
-                        <li><strong>Swords:</strong> High melee damage for fighting zombies &amp; creepers.</li>
-                        <li><strong>Bow &amp; Arrows:</strong> Craft Bow (146) and Arrows (147). Right-click to fire high-velocity physics arrows!</li>
-                        <li><strong>TNT Explosions:</strong> Place TNT (56) and right-click to ignite. Primed TNT pulses and flashes white for 3s before triggering a 4-block radius terrain explosion.</li>
-                      </ul>
-
-                      <h3>🛌 Bed &amp; Passing the Night</h3>
-                      <ul>
-                        <li>Right-click a placed <strong>Bed</strong> (57) at night to pass the night instantly to dawn, restore HP/hunger, and update your respawn point.</li>
-                      </ul>
-
-                      <h3>🌊 Modern Shader Water</h3>
-                      <ul>
-                        <li>Features procedural animated wave scrolling, dual-layer normal map ripples, Schlick Fresnel reflections, specular sun glints, and depth-based color transitions from vibrant turquoise shallow water to deep blue oceans.</li>
-                      </ul>
-
-                      <h3>🛠️ Debug &amp; Telemetry (F3)</h3>
-                      <ul>
-                        <li>Press <span className="m-key">F3</span> to toggle 3D AABB wireframe player boxes, collision contact highlights, ground normal indicators, and live telemetry for position, velocity, and camera sync.</li>
-                      </ul>
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
+
+                {/* ── Comprehensive Official Game Manual ── */}
+                {craftTab === 'manual' && (
+                  <div className="manual-body" style={{ padding: 0 }}>
+                    <h3>🎮 Welcome to Voxel</h3>
+                    <p>Mine resources, craft tools &amp; weapons, build structures, farm crops, cook in furnaces, manage health and hunger, and survive hostile mobs through the night in an infinitely expandable voxel world.</p>
+                    
+                    <h3>⌨️ Key Bindings &amp; Navigation</h3>
+                    <ul>
+                      <li><span className="m-key">W A S D</span> Move &nbsp;|&nbsp; <span className="m-key">Space</span> Jump &nbsp;|&nbsp; <span className="m-key">Ctrl / Shift</span> Sprint</li>
+                      <li><span className="m-key">Left-click</span> Mine block / attack mob (hold left-click to break)</li>
+                      <li><span className="m-key">Right-click</span> Place block / interact with Chest, Furnace, Bed, TNT, Hoe, Seeds</li>
+                      <li><span className="m-key">1–8</span> Select Hotbar Slot &nbsp;|&nbsp; <span className="m-key">Scroll Wheel</span> Cycle Hotbar</li>
+                      <li><span className="m-key">E</span> Open / Close Handbook (Inventory &amp; Crafting)</li>
+                      <li><span className="m-key">Q</span> Drop 1 held item (or eat food when holding food)</li>
+                      <li><span className="m-key">F</span> Toggle Creative Flying</li>
+                      <li><span className="m-key">F3</span> Toggle 3D Physics Debug Overlay &amp; Telemetry</li>
+                      <li><span className="m-key">F5 / H</span> Cycle Camera View (First-Person, Third-Person Back, Third-Person Front)</li>
+                      <li><span className="m-key">Esc (Press 1x)</span> Pause session &amp; show pause menu</li>
+                      <li><span className="m-key">Esc (Press 2x)</span> Exit game session &amp; return to Home Screen / Main Menu</li>
+                    </ul>
+
+                    <h3>🧲 Long-Range Item Pickup (30-Block Magnet)</h3>
+                    <ul>
+                      <li><strong>Instant Long-Range Magnet:</strong> Mined blocks and experience orbs feature a 30-block magnetic pickup range. Mined items fly directly to your inventory from across large caves or cliffs.</li>
+                      <li><strong>Surface Placement:</strong> Dropped items land cleanly on top of block surfaces without getting stuck inside terrain geometry.</li>
+                    </ul>
+
+                    <h3>🪣 Bucket &amp; Fluid Interactions</h3>
+                    <ul>
+                      <li><strong>Empty Bucket (144):</strong> Right-click a water source block (8) to scoop it up into a Water Bucket (145).</li>
+                      <li><strong>Water Bucket (145):</strong> Right-click air or flowing water to place a water source block (8), returning an Empty Bucket.</li>
+                    </ul>
+
+                    <h3>🧰 Editable Hotbar &amp; Inventory Management</h3>
+                    <ul>
+                      <li>Click any item in your inventory to pick it up, then click a Hotbar slot (1–8) or Crafting Grid slot to place/swap it.</li>
+                      <li>Hold an item and press number keys <span className="m-key">1–8</span> to assign it directly to that Hotbar slot.</li>
+                    </ul>
+
+                    <h3>🏃 Movement &amp; Parkour Physics</h3>
+                    <ul>
+                      <li><strong>Ground Step-Up:</strong> Step up 0.5-block slabs, carpets, trapdoors, and 1-block steps while walking grounded.</li>
+                      <li><strong>Jump Buffering:</strong> Pressing <span className="m-key">Space</span> up to 150ms before touching the ground triggers an instant jump upon landing.</li>
+                      <li><strong>Coyote Timer:</strong> Allows jumping up to 120ms after walking off ledges or block edges.</li>
+                      <li><strong>Fluid Swimming:</strong> Hold <span className="m-key">Space</span> to swim up. Leaping out of water at the surface gives a boost to land on terrain.</li>
+                    </ul>
+
+                    <h3>❤️ Health, Hunger &amp; Survival</h3>
+                    <ul>
+                      <li><strong>Health (20 HP / 10 Hearts):</strong> Damage taken from fall (3.5+ blocks), drowning, void, zombies, creepers, or starvation.</li>
+                      <li><strong>Hunger (20 / 10 Drumsticks):</strong> Drains over time (faster while sprinting). At 16+ HP regens over time. At 0 hunger, starvation damage occurs.</li>
+                      <li><strong>Eating Food:</strong> Select food in hotbar and press <span className="m-key">Q</span> (or right-click) to restore hunger &amp; health.</li>
+                    </ul>
+
+                    <h3>⛏️ Tools &amp; Durability Tiers</h3>
+                    <ul>
+                      <li><strong>Pickaxe:</strong> Required for Stone, Cobblestone, Coal/Iron/Gold/Diamond Ores, Bricks, Sandstone, Obsidian.</li>
+                      <li><strong>Axe:</strong> Efficiently chops Logs, Planks, Wood, Crafting Tables, Chests, Bookshelves.</li>
+                      <li><strong>Shovel:</strong> Fast digging for Dirt, Grass, Sand, Gravel, Snow, Clay.</li>
+                      <li><strong>Hoe:</strong> Right-click Grass or Dirt to till into Farmland for planting crops.</li>
+                      <li><strong>Tool Tiers:</strong> Wood (30 durability) &rarr; Stone (60) &rarr; Iron (150) &rarr; Diamond (500). Higher tiers mine faster and unlock higher-grade ores.</li>
+                    </ul>
+
+                    <h3>🔥 Smelting &amp; Cooking (Furnace)</h3>
+                    <ul>
+                      <li>Right-click a placed <strong>Furnace (42)</strong> to open the smelting interface.</li>
+                      <li><strong>Top Input Slot:</strong> Raw Iron Ore, Gold Ore, Sand (smelts into Glass), Clay (smelts into Terracotta), Raw Meat.</li>
+                      <li><strong>Bottom Fuel Slot:</strong> Coal, Charcoal, Wood Logs, or Planks.</li>
+                      <li>Automated smelting progress bar refines inputs into pure ingots, glass, terracotta, or cooked meals.</li>
+                    </ul>
+
+                    <h3>📦 Chest Storage &amp; Cloud Sync</h3>
+                    <ul>
+                      <li>Right-click a placed <strong>Chest (43)</strong> to store up to 27 item slots.</li>
+                      <li>World edits and chest inventories automatically save locally and sync with Firebase Firestore cloud storage.</li>
+                    </ul>
+
+                    <h3>🌾 Farming &amp; Agriculture</h3>
+                    <ul>
+                      <li>Right-click Grass/Dirt with a <strong>Hoe</strong> to create Farmland (89).</li>
+                      <li>Right-click Farmland with <strong>Wheat Seeds</strong> (138) to plant crops.</li>
+                      <li>Harvest ripe wheat &rarr; Craft 3 Wheat into 1 Bread!</li>
+                    </ul>
+
+                    <h3>🏹 Combat, Weapons &amp; TNT</h3>
+                    <ul>
+                      <li><strong>Swords:</strong> High melee damage for fighting zombies &amp; creepers.</li>
+                      <li><strong>Bow &amp; Arrows:</strong> Craft Bow (146) and Arrows (147). Right-click to fire high-velocity physics arrows!</li>
+                      <li><strong>TNT Explosions:</strong> Place TNT (56) and right-click to ignite. Primed TNT pulses for 3s before triggering a 4-block radius terrain explosion.</li>
+                    </ul>
+
+                    <h3>🛌 Bed &amp; Passing the Night</h3>
+                    <ul>
+                      <li>Right-click a placed <strong>Bed (57)</strong> at night to pass the night instantly to dawn, restore HP/hunger, and update your respawn point.</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {/* Chest Screen */}
-          {/* Chest Screen */}
-          {uiState.chestOpen && (
-            <ChestScreen
-              activeChestCoords={uiState.activeChestCoords}
-              onClose={handleCloseChest}
-              scheduleSave={scheduleSave}
-            />
-          )}
-
-          {/* Furnace Screen */}
-          {uiState.furnaceOpen && (
-            <FurnaceScreen
-              activeFurnaceCoords={uiState.activeFurnaceCoords}
-              onClose={handleCloseFurnace}
-              scheduleSave={scheduleSave}
-            />
-          )}
-
-          {/* Death Screen */}
-          {player.dead && (
-            <div className="death" style={{ display: 'flex' }}>
-              <div className="death-card">
-                <h1>You Died</h1>
-                <p id="deathCause">{deathCause}</p>
-                <button id="respawnBtn" onClick={() => { respawnPlayer(); forceUpdate(); }}>Respawn</button>
-              </div>
-            </div>
-          )}
-        </>
+      {/* Death Screen */}
+      {player.dead && (
+        <div className="death" style={{ display: 'flex' }}>
+          <div className="death-card">
+            <h1>You Died</h1>
+            <p id="deathCause">{deathCause}</p>
+            <button id="respawnBtn" onClick={() => { respawnPlayer(); forceUpdate(); }}>Respawn</button>
+          </div>
+        </div>
       )}
 
       {/* Cloud Conflict Modal */}

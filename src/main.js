@@ -1491,12 +1491,23 @@ export function bootGame() {
       return;
     }
 
-    // Escape while in-game: pause (browser will also exit pointer lock)
+    // Escape key handling:
+    // First press: open pause screen. Second press while paused: exit to Home Screen.
     if(e.code === "Escape") {
-      e.preventDefault(); // Don't let browser handle Escape further
-      // game.paused will be set by pointerlockchange handler
-      // Just ensure keys are cleared
+      e.preventDefault();
       Object.keys(keys).forEach(k => keys[k] = false);
+      if (game.paused) {
+        // Second Escape press while paused: return to Home Screen / Main Menu
+        game.running = false;
+        game.paused = false;
+        if (document.pointerLockElement) document.exitPointerLock();
+        if (reactBridge.updateUI) reactBridge.updateUI();
+      } else {
+        // First Escape press: pause game
+        game.paused = true;
+        if (document.pointerLockElement) document.exitPointerLock();
+        if (reactBridge.updateUI) reactBridge.updateUI();
+      }
       return;
     }
 
