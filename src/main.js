@@ -16,7 +16,7 @@ import {
   spawnPlayer, collidesAt, moveAxis, updatePlayer, hurtPlayer, healPlayer, 
   feedPlayer, eatSelected, updateSurvival, playerDie, respawnPlayer, 
   invCount, addItem, removeItem, heldTool, heldItem, unstick, eyePos, lookDir,
-  getIntersectingColliders
+  getIntersectingColliders, getSupportingSurface
 } from './player.js';
 import { 
   MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob 
@@ -1071,13 +1071,13 @@ function loop(now){
       webgl.debugGroup = new THREE.Group();
       webgl.scene.add(webgl.debugGroup);
       
-      // Player AABB Wireframe Box
+      // Player AABB Wireframe Box (RED 0xff3333)
       const pBoxGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6);
       const pBoxMat = new THREE.MeshBasicMaterial({ color: 0xff3333, wireframe: true });
       webgl.debugPlayerBox = new THREE.Mesh(pBoxGeo, pBoxMat);
       webgl.debugGroup.add(webgl.debugPlayerBox);
 
-      // Contact Boxes Group
+      // Contact & Collision Objects Group
       webgl.debugContactsGroup = new THREE.Group();
       webgl.debugGroup.add(webgl.debugContactsGroup);
     }
@@ -1086,7 +1086,7 @@ function loop(now){
     // Update Player Box Position
     webgl.debugPlayerBox.position.set(player.pos.x, player.pos.y + 0.9, player.pos.z);
 
-    // Update Contact Boxes
+    // Clear Previous Debug Objects
     while (webgl.debugContactsGroup.children.length > 0) {
       const c = webgl.debugContactsGroup.children[0];
       webgl.debugContactsGroup.remove(c);
@@ -1094,18 +1094,73 @@ function loop(now){
       if (c.material) c.material.dispose();
     }
 
-    const colliders = getIntersectingColliders(player.pos.x, player.pos.y, player.pos.z);
+    // Render Nearby Terrain Collision Mesh (GREEN 0x33ff33) & Water Mesh (BLUE 0x3388ff)
+    const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
+    const searchRad = 2;
+    for (let dx = -searchRad; dx <= searchRad; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dz = -searchRad; dz <= searchRad; dz++) {
+          const vx = Math.floor(px) + dx;
+          const vy = Math.floor(py) + dy;
+          const vz = Math.floor(pz) + dz;
+          const bid = getBlock(vx, vy, vz);
+          if (bid === 8) {
+            // Water Mesh Wireframe (BLUE)
+            const wGeo = new THREE.BoxGeometry(1.001, 1.001, 1.001);
+            const wMat = new THREE.MeshBasicMaterial({ color: 0x3388ff, wireframe: true });
+            const wMesh = new THREE.Mesh(wGeo, wMat);
+            wMesh.position.set(vx + 0.5, vy + 0.5, vz + 0.5);
+            webgl.debugContactsGroup.add(wMesh);
+          } else if (bid > 0 && isSolid(bid)) {
+            // Terrain Collision Mesh Wireframes (GREEN)
+            const aabbs = getBlockAABBs(vx, vy, vz);
+            for (const b of aabbs) {
+              const bw = b.maxX - b.minX;
+              const bh = b.maxY - b.minY;
+              const bd = b.maxZ - b.minZ;
+              const cGeo = new THREE.BoxGeometry(bw, bh, bd);
+              const cMat = new THREE.MeshBasicMaterial({ color: 0x33ff33, wireframe: true });
+              const cMesh = new THREE.Mesh(cGeo, cMat);
+              cMesh.position.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2);
+              webgl.debugContactsGroup.add(cMesh);
+            }
+          }
+        }
+      }
+    }
+
+    // Render Supporting Surface (GOLD/YELLOW 0xffea00)
+    const support = getSupportingSurface(px, py, pz);
+    if (support) {
+      const sBox = support.aabb;
+      const bw = sBox.maxX - sBox.minX;
+      const bd = sBox.maxZ - sBox.minZ;
+      const sGeo = new THREE.PlaneGeometry(bw, bd);
+      const sMat = new THREE.MeshBasicMaterial({ color: 0xffea00, side: THREE.DoubleSide });
+      const sMesh = new THREE.Mesh(sGeo, sMat);
+      sMesh.rotation.x = Math.PI / 2;
+      sMesh.position.set((sBox.minX + sBox.maxX) / 2, sBox.maxY + 0.005, (sBox.minZ + sBox.maxZ) / 2);
+      webgl.debugContactsGroup.add(sMesh);
+    }
+
+    // Render Contact Points (ORANGE 0xff6600 Spheres)
+    const colliders = getIntersectingColliders(px, py, pz);
     for (const col of colliders) {
-      const geo = new THREE.BoxGeometry(1.002, 1.002, 1.002);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, wireframe: true });
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(col.x + 0.5, col.y + 0.5, col.z + 0.5);
-      webgl.debugContactsGroup.add(m);
+      for (const b of col.aabbs) {
+        const contactGeo = new THREE.SphereGeometry(0.04, 8, 8);
+        const contactMat = new THREE.MeshBasicMaterial({ color: 0xff6600 });
+        const cPoint = new THREE.Mesh(contactGeo, contactMat);
+        const cx = Math.max(b.minX, Math.min(b.maxX, px));
+        const cy = Math.max(b.minY, Math.min(b.maxY, py));
+        const cz = Math.max(b.minZ, Math.min(b.maxZ, pz));
+        cPoint.position.set(cx, cy, cz);
+        webgl.debugContactsGroup.add(cPoint);
+      }
     }
 
     // Telemetry data
-    const feetB = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z));
-    const headB = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + player.eye), Math.floor(player.pos.z));
+    const feetB = getBlock(Math.floor(px), Math.floor(py), Math.floor(pz));
+    const headB = getBlock(Math.floor(px), Math.floor(py + player.eye), Math.floor(pz));
     const inWater = (feetB === 8 || headB === 8);
     const cameraSync = (Math.abs(webgl.camera.position.x - player.pos.x) < 0.05 && Math.abs(webgl.camera.position.z - player.pos.z) < 0.05) ? "SYNC OK" : "DRIFT WARNING";
 
@@ -1117,6 +1172,8 @@ function loop(now){
       posZ: player.pos.z.toFixed(2),
       inWater,
       flying: player.flying,
+      supportCollider: support ? `${support.name} [${support.x}, ${support.y}, ${support.z}] (topY: ${support.topY.toFixed(2)})` : "None (In Air)",
+      supportChunk: support ? `Chunk (${support.cx}, ${support.cz})` : "N/A",
       collidersCount: colliders.length,
       collidersList: colliders.map(c => `${c.name} [${c.x},${c.y},${c.z}]`).join(", ") || "None",
       cameraSync,

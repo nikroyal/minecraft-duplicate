@@ -224,13 +224,15 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           <div style={{ color: '#4cd964', fontWeight: 'bold', marginBottom: '4px', borderBottom: '1px solid #333' }}>
             ⚡ PHYSICS DEBUG (F3)
           </div>
-          <div><strong>Grounded:</strong> <span style={{ color: window.__physicsTelemetry.grounded ? '#4cd964' : '#ff3b30' }}>{window.__physicsTelemetry.grounded ? 'TRUE (ON GROUND)' : 'FALSE (AIRBORNE)'}</span></div>
-          <div><strong>Vertical Vel (Y):</strong> {window.__physicsTelemetry.velY} m/s</div>
+          <div><strong>Grounded State:</strong> <span style={{ color: window.__physicsTelemetry.grounded ? '#4cd964' : '#ff3b30' }}>{window.__physicsTelemetry.grounded ? 'TRUE (GROUNDED)' : 'FALSE (AIRBORNE)'}</span></div>
+          <div><strong>Vertical Velocity:</strong> {window.__physicsTelemetry.velY} m/s</div>
+          <div><strong>Supporting Collider ID:</strong> <span style={{ color: '#ffea00' }}>{window.__physicsTelemetry.supportCollider}</span></div>
+          <div><strong>Supporting Chunk Coords:</strong> <span style={{ color: '#4cd964' }}>{window.__physicsTelemetry.supportChunk}</span></div>
           <div><strong>Position:</strong> ({window.__physicsTelemetry.posX}, {window.__physicsTelemetry.posY}, {window.__physicsTelemetry.posZ})</div>
           <div><strong>In Water:</strong> {window.__physicsTelemetry.inWater ? 'YES' : 'NO'} | <strong>Flying:</strong> {window.__physicsTelemetry.flying ? 'YES' : 'NO'}</div>
           <div><strong>Camera Sync:</strong> <span style={{ color: '#4cd964' }}>{window.__physicsTelemetry.cameraSync}</span></div>
-          <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#ffcc00' }}>
-            <strong>Colliders ({window.__physicsTelemetry.collidersCount}):</strong> {window.__physicsTelemetry.collidersList}
+          <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#33ff33' }}>
+            <strong>Active Colliders ({window.__physicsTelemetry.collidersCount}):</strong> {window.__physicsTelemetry.collidersList}
           </div>
         </div>
       )}

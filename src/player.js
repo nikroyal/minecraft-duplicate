@@ -38,73 +38,137 @@ export function chunkReadyAt(wx, wz){
   return ch && ch.generated;
 }
 
-export function collisionSolid(x, y, z){
-  if(y < 0) return false; // allow falling into void
-  if(y >= HEIGHT) return false;
-  const fx = Math.floor(x), fz = Math.floor(z);
-  const cx = Math.floor(fx / CHUNK);
-  const cz = Math.floor(fz / CHUNK);
-  const ch = getChunk(cx, cz);
-  if(!ch || !ch.generated) return false; // unloaded air
-  const lx = ((fx % CHUNK) + CHUNK) % CHUNK;
-  const lz = ((fz % CHUNK) + CHUNK) % CHUNK;
-  return isSolid(ch.get(lx, y, lz));
+export function collisionSolid(x, y, z) {
+  if (y < 0 || y >= HEIGHT) return false;
+  const aabbs = getBlockAABBs(Math.floor(x), Math.floor(y), Math.floor(z));
+  return aabbs.length > 0;
 }
 
-export function collidesAt(px, py, pz){
-  const hw = 0.6 / 2, h = 1.8; // player width 0.6, height 1.8
-  const minX = Math.floor(px - hw + 1e-4);
-  const maxX = Math.floor(px + hw - 1e-4);
-  const minY = Math.floor(py + 1e-4);
-  const maxY = Math.floor(py + h - 1e-4);
-  const minZ = Math.floor(pz - hw + 1e-4);
-  const maxZ = Math.floor(pz + hw - 1e-4);
-  
-  for(let x = minX; x <= maxX; x++)
-  for(let y = minY; y <= maxY; y++)
-  for(let z = minZ; z <= maxZ; z++){
-    if(collisionSolid(x, y, z)) return true;
+export function getBlockAABBs(x, y, z) {
+  const id = getBlock(x, y, z);
+  if (id === AIR || id === 8 || !BLOCKS[id] || !BLOCKS[id].solid) {
+    return []; // Air, Water (ID 8), Torches, Ladders produce NO collision boxes!
   }
-  return false;
+
+  const shape = BLOCKS[id].shape || SHAPE_OF[id];
+
+  if (shape === "slab") {
+    return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 }];
+  } else if (shape === "carpet") {
+    return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.1, maxZ: z + 1 }];
+  } else if (shape === "trapdoor") {
+    return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.18, maxZ: z + 1 }];
+  } else if (shape === "fence" || shape === "gate" || shape === "wall") {
+    return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 1.5, maxZ: z + 1 }];
+  } else if (shape === "stairs") {
+    return [
+      { minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 },
+      { minX: x, minY: y + 0.5, minZ: z, maxX: x + 1, maxY: y + 1.0, maxZ: z + 0.5 }
+    ];
+  } else {
+    // Standard full 1x1x1 solid block
+    return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 1.0, maxZ: z + 1 }];
+  }
 }
 
-export function isSupportedOnGround(px, py, pz){
-  const hw = 0.6 / 2;
-  const minX = Math.floor(px - hw + 1e-4);
-  const maxX = Math.floor(px + hw - 1e-4);
-  const minZ = Math.floor(pz - hw + 1e-4);
-  const maxZ = Math.floor(pz + hw - 1e-4);
-  
-  const blockBelowY = Math.floor(py - 0.01);
-  const distToBlockTop = py - (blockBelowY + 1.0);
-  
-  // Feet must be within 0.08 blocks of a solid top surface directly beneath
-  if (distToBlockTop > 0.08) return false;
-  
-  for(let x = minX; x <= maxX; x++){
-    for(let z = minZ; z <= maxZ; z++){
-      if(collisionSolid(x, blockBelowY, z)) return true;
+export function collidesAt(px, py, pz) {
+  const hw = 0.3, h = 1.8;
+  const pMinX = px - hw + 1e-4, pMaxX = px + hw - 1e-4;
+  const pMinY = py + 1e-4,      pMaxY = py + h - 1e-4;
+  const pMinZ = pz - hw + 1e-4, pMaxZ = pz + hw - 1e-4;
+
+  const minGridX = Math.floor(pMinX);
+  const maxGridX = Math.floor(pMaxX);
+  const minGridY = Math.floor(pMinY);
+  const maxGridY = Math.floor(pMaxY);
+  const minGridZ = Math.floor(pMinZ);
+  const maxGridZ = Math.floor(pMaxZ);
+
+  for (let gx = minGridX; gx <= maxGridX; gx++) {
+    for (let gy = minGridY; gy <= maxGridY; gy++) {
+      for (let gz = minGridZ; gz <= maxGridZ; gz++) {
+        const aabbs = getBlockAABBs(gx, gy, gz);
+        for (const b of aabbs) {
+          if (pMinX < b.maxX && pMaxX > b.minX &&
+              pMinY < b.maxY && pMaxY > b.minY &&
+              pMinZ < b.maxZ && pMaxZ > b.minZ) {
+            return true;
+          }
+        }
+      }
     }
   }
   return false;
 }
 
-export function getIntersectingColliders(px, py, pz){
-  const hw = 0.6 / 2, h = 1.8;
-  const minX = Math.floor(px - hw + 1e-4);
-  const maxX = Math.floor(px + hw - 1e-4);
-  const minY = Math.floor(py - 0.05); // Include ground support block
-  const maxY = Math.floor(py + h - 1e-4);
-  const minZ = Math.floor(pz - hw + 1e-4);
-  const maxZ = Math.floor(pz + hw - 1e-4);
+export function getSupportingSurface(px, py, pz) {
+  const hw = 0.3;
+  const pMinX = px - hw + 1e-4, pMaxX = px + hw - 1e-4;
+  const pMinZ = pz - hw + 1e-4, pMaxZ = pz + hw - 1e-4;
+
+  const minGridX = Math.floor(pMinX);
+  const maxGridX = Math.floor(pMaxX);
+  const minGridY = Math.floor(py - 0.5);
+  const maxGridY = Math.floor(py + 0.1);
+  const minGridZ = Math.floor(pMinZ);
+  const maxGridZ = Math.floor(pMaxZ);
+
+  let bestSupport = null;
+  let maxTopY = -Infinity;
+
+  for (let gx = minGridX; gx <= maxGridX; gx++) {
+    for (let gy = minGridY; gy <= maxGridY; gy++) {
+      for (let gz = minGridZ; gz <= maxGridZ; gz++) {
+        const aabbs = getBlockAABBs(gx, gy, gz);
+        for (const b of aabbs) {
+          if (pMinX < b.maxX && pMaxX > b.minX && pMinZ < b.maxZ && pMaxZ > b.minZ) {
+            const dist = py - b.maxY;
+            if (dist >= -0.05 && dist <= 0.08) {
+              if (b.maxY > maxTopY) {
+                maxTopY = b.maxY;
+                const id = getBlock(gx, gy, gz);
+                const cx = Math.floor(gx / CHUNK);
+                const cz = Math.floor(gz / CHUNK);
+                bestSupport = {
+                  x: gx, y: gy, z: gz, id,
+                  name: thingName(id) || "Solid",
+                  topY: b.maxY,
+                  cx, cz,
+                  aabb: b
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return bestSupport;
+}
+
+export function isSupportedOnGround(px, py, pz) {
+  return getSupportingSurface(px, py, pz) !== null;
+}
+
+export function getIntersectingColliders(px, py, pz) {
+  const hw = 0.3, h = 1.8;
+  const minX = Math.floor(px - hw - 0.1);
+  const maxX = Math.floor(px + hw + 0.1);
+  const minY = Math.floor(py - 0.5);
+  const maxY = Math.floor(py + h + 0.1);
+  const minZ = Math.floor(pz - hw - 0.1);
+  const maxZ = Math.floor(pz + hw + 0.1);
   const list = [];
   
-  for(let x = minX; x <= maxX; x++)
-  for(let y = minY; y <= maxY; y++)
-  for(let z = minZ; z <= maxZ; z++){
-    if(collisionSolid(x, y, z)) {
-      const id = getBlock(x, y, z);
-      list.push({ x, y, z, id, name: thingName(id) || "Solid" });
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        const aabbs = getBlockAABBs(x, y, z);
+        if (aabbs.length > 0) {
+          const id = getBlock(x, y, z);
+          list.push({ x, y, z, id, name: thingName(id) || "Solid", aabbs });
+        }
+      }
     }
   }
   return list;
@@ -124,9 +188,9 @@ export function moveAxis(axis, amount){
         p.x += step;
       } else {
         let stepped = false;
-        // Step-up is strictly allowed ONLY when player is already grounded
         if(player.onGround){
-          const targetY = Math.floor(p.y) + 1.0 + 1e-4;
+          const support = getSupportingSurface(p.x + step, p.y + STEP_HEIGHT, p.z);
+          const targetY = support ? support.topY + 1e-4 : Math.floor(p.y) + 1.0 + 1e-4;
           const stepY = targetY - p.y;
           if(stepY > 0 && stepY <= STEP_HEIGHT){
             if(!collidesAt(p.x, targetY, p.z) && !collidesAt(p.x + step, targetY, p.z)){
@@ -146,8 +210,12 @@ export function moveAxis(axis, amount){
         p.y += step;
       } else {
         if(step < 0) {
-          // Landing on floor: snap Y to top of block surface
-          p.y = Math.floor(p.y + step) + 1.0 + 1e-4;
+          const support = getSupportingSurface(p.x, p.y + step, p.z);
+          if (support) {
+            p.y = support.topY + 1e-4;
+          } else {
+            p.y = Math.floor(p.y + step) + 1.0 + 1e-4;
+          }
           player.onGround = true;
         }
         player.vel.y = 0;
@@ -158,9 +226,9 @@ export function moveAxis(axis, amount){
         p.z += step;
       } else {
         let stepped = false;
-        // Step-up is strictly allowed ONLY when player is already grounded
         if(player.onGround){
-          const targetY = Math.floor(p.y) + 1.0 + 1e-4;
+          const support = getSupportingSurface(p.x, p.y + STEP_HEIGHT, p.z + step);
+          const targetY = support ? support.topY + 1e-4 : Math.floor(p.y) + 1.0 + 1e-4;
           const stepY = targetY - p.y;
           if(stepY > 0 && stepY <= STEP_HEIGHT){
             if(!collidesAt(p.x, targetY, p.z) && !collidesAt(p.x, targetY, p.z + step)){
