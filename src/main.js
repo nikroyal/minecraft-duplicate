@@ -86,13 +86,13 @@ export function updateItemDrops(dt) {
     d.mesh.rotation.y += dt * 3.5;
 
     const dist = d.pos.distanceTo(playerTarget);
-    // Magnet pull triggers up to 7.0 blocks away (covers full 6-block mining reach)
-    if (dist < 7.0 && now - d.spawnTime > 150 && !player.dead) {
+    // Magnet pull triggers up to 30.0 blocks away
+    if (dist < 30.0 && now - d.spawnTime > 150 && !player.dead) {
       // Faster lerp for smooth magnetic pull
-      d.pos.lerp(playerTarget, dt * 9.0);
+      d.pos.lerp(playerTarget, dt * 12.0);
       d.mesh.position.copy(d.pos);
-      // Collect item when within 1.0 block radius
-      if (dist < 1.0) {
+      // Collect item when within 1.2 block radius
+      if (dist < 1.2) {
         addItem(d.id, d.count);
         toast(`Picked up +${d.count} ${thingName(d.id)}`);
         webgl.scene.remove(d.mesh);
@@ -143,10 +143,10 @@ export function updateXpOrbs(dt) {
     orb.mesh.rotation.y += dt * 5.0;
 
     const dist = orb.pos.distanceTo(pTarget);
-    if (dist < 7.0 && now - orb.spawnTime > 150 && !player.dead) {
-      orb.pos.lerp(pTarget, dt * 10.0);
+    if (dist < 30.0 && now - orb.spawnTime > 150 && !player.dead) {
+      orb.pos.lerp(pTarget, dt * 12.0);
       orb.mesh.position.copy(orb.pos);
-      if (dist < 0.9) {
+      if (dist < 1.0) {
         player.xp = (player.xp || 0) + 1;
         if (player.xp >= (player.level + 1) * 10) {
           player.xp = 0;
