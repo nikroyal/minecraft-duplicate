@@ -38,11 +38,31 @@ export function spawnItemDrop(id, count, x, y, z) {
   if (typeof window !== 'undefined') window.__spawnItemDrop = spawnItemDrop;
   const col = thingColor(id);
   const placeable = isPlaceable(id);
-  const geo = placeable 
-    ? new THREE.BoxGeometry(0.24, 0.24, 0.24)
-    : new THREE.BoxGeometry(0.08, 0.08, 0.35);
-  const mat = new THREE.MeshLambertMaterial({ color: col });
-  const mesh = new THREE.Mesh(geo, mat);
+  
+  let mesh;
+  if (placeable && webgl.atlasTex) {
+    const geo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
+    const faceMap = [4, 5, 0, 1, 2, 3];
+    const uvAttr = geo.attributes.uv;
+    for (let f = 0; f < 6; f++) {
+      const faceIdx = faceMap[f];
+      const tile = tileFor(id, faceIdx);
+      const uv = tileUV(tile);
+      const baseIdx = f * 4;
+      uvAttr.setXY(baseIdx + 0, uv.u0, uv.v1);
+      uvAttr.setXY(baseIdx + 1, uv.u1, uv.v1);
+      uvAttr.setXY(baseIdx + 2, uv.u0, uv.v0);
+      uvAttr.setXY(baseIdx + 3, uv.u1, uv.v0);
+    }
+    uvAttr.needsUpdate = true;
+    const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
+    mesh = new THREE.Mesh(geo, mat);
+  } else {
+    const geo = new THREE.BoxGeometry(0.08, 0.08, 0.35);
+    const mat = new THREE.MeshLambertMaterial({ color: col });
+    mesh = new THREE.Mesh(geo, mat);
+  }
+
   mesh.position.set(x, y + 0.2, z);
   if (webgl.scene) webgl.scene.add(mesh);
 
@@ -233,8 +253,28 @@ export function updateProjectiles(dt) {
 const tntGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
 
 export function spawnPrimedTnt(x, y, z) {
-  const tntMat = new THREE.MeshLambertMaterial({ color: 0xd83030 });
-  const mesh = new THREE.Mesh(tntGeo, tntMat);
+  let mesh;
+  if (webgl.atlasTex) {
+    const geo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
+    const faceMap = [4, 5, 0, 1, 2, 3];
+    const uvAttr = geo.attributes.uv;
+    for (let f = 0; f < 6; f++) {
+      const faceIdx = faceMap[f];
+      const tile = tileFor(56, faceIdx); // ID 56 = TNT
+      const uv = tileUV(tile);
+      const baseIdx = f * 4;
+      uvAttr.setXY(baseIdx + 0, uv.u0, uv.v1);
+      uvAttr.setXY(baseIdx + 1, uv.u1, uv.v1);
+      uvAttr.setXY(baseIdx + 2, uv.u0, uv.v0);
+      uvAttr.setXY(baseIdx + 3, uv.u1, uv.v0);
+    }
+    uvAttr.needsUpdate = true;
+    const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
+    mesh = new THREE.Mesh(geo, mat);
+  } else {
+    const tntMat = new THREE.MeshLambertMaterial({ color: 0xd83030 });
+    mesh = new THREE.Mesh(tntGeo, tntMat);
+  }
   mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
   if (webgl.scene) webgl.scene.add(mesh);
 
@@ -378,7 +418,7 @@ function updateDayNight(dt){
 }
 
 // ---- Raycast helper ----
-function raycastVoxel(maxDist){
+function raycastVoxel(maxDist, includeWater = false){
   const o = eyePos(), d = lookDir();
   const dirX = Math.abs(d.x) < 1e-6 ? (d.x < 0 ? -1e-6 : 1e-6) : d.x;
   const dirY = Math.abs(d.y) < 1e-6 ? (d.y < 0 ? -1e-6 : 1e-6) : d.y;
@@ -393,7 +433,7 @@ function raycastVoxel(maxDist){
   
   for(let i=0; i<128; i++){
     const b = getBlock(x, y, z);
-    if(b !== 0 && BLOCKS[b]){
+    if(b !== 0 && BLOCKS[b] && (includeWater || (b !== 8 && b !== 9))){
       return { hit: [x,y,z], prev: [px,py,pz] };
     }
     px = x; py = y; pz = z;
@@ -408,7 +448,6 @@ function raycastVoxel(maxDist){
 // ---- Mining Speed Calculation ----
 function miningSpeed(blockId){
   const tool = heldTool();
-  if(!tool) return 1;
   const b = BLOCKS[blockId]; if(!b) return 1;
   const name = b.name.toLowerCase();
   
@@ -417,12 +456,18 @@ function miningSpeed(blockId){
   const isSoft  = /dirt|grass|sand|gravel|snow|clay/.test(name);
   
   let good = false;
-  if(tool.tool === "pickaxe" && isStone) good = true;
-  if(tool.tool === "axe"     && isWood)  good = true;
-  if(tool.tool === "shovel"  && isSoft)  good = true;
+  if(tool && tool.tool === "pickaxe" && isStone) good = true;
+  if(tool && tool.tool === "axe"     && isWood)  good = true;
+  if(tool && tool.tool === "shovel"  && isSoft)  good = true;
   
-  if(!good) return 1;
-  return [1, 2, 3.5, 5, 7][tool.tier] || 2;
+  let speed = 1;
+  if(good && tool) {
+    speed = [1, 2, 3.5, 5, 7][tool.tier] || 2;
+  }
+  if (player.inWater) {
+    speed *= 0.65;
+  }
+  return Math.max(0.5, speed);
 }
 
 function updateMining(dt){
@@ -658,7 +703,9 @@ function blockColor(id){
 }
 
 export function placeBlock(){
-  const r = raycastVoxel(6);
+  const heldId = hotbar[game.selected];
+  const isBucket = (heldId === 144 || heldId === 145);
+  const r = raycastVoxel(6, isBucket);
   if(!r) return;
   
   // Intercept right click container interaction
@@ -695,8 +742,6 @@ export function placeBlock(){
     }
     return;
   }
-
-  const heldId = hotbar[game.selected];
 
   // Ranged Bow Firing
   if (heldId === 146) {
@@ -765,11 +810,13 @@ export function placeBlock(){
   }
 
   const [x, y, z] = r.prev;
-  const id = hotbar[game.selected];
   
-  if(!isPlaceable(id)){ toast(`${thingName(id)} can't be placed`); return; }
-  if(game.survival && invCount(id) <= 0){ toast(`out of ${thingName(id)}`); return; }
-  if(getBlock(x, y, z) !== 0) return;
+  if(!isPlaceable(heldId)){ toast(`${thingName(heldId)} can't be placed`); return; }
+  if(game.survival && invCount(heldId) <= 0){ toast(`out of ${thingName(heldId)}`); return; }
+  
+  // Allow placing into air (0) or replacing water (8 or 9)
+  const currentVoxel = getBlock(x, y, z);
+  if(currentVoxel !== 0 && currentVoxel !== 8 && currentVoxel !== 9) return;
   
   // Collide check
   const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
@@ -839,8 +886,12 @@ function loop(now){
   if (webgl.waterMat && webgl.waterMat.uniforms) {
     webgl.waterMat.uniforms.uTime.value = now * 0.001;
     if (webgl.camera) webgl.waterMat.uniforms.uCameraPos.value.copy(webgl.camera.position);
-    if (webgl.dirLight) webgl.waterMat.uniforms.uSunDir.value.copy(webgl.dirLight.position).normalize();
+    if (webgl.dirLight) {
+      webgl.waterMat.uniforms.uSunDir.value.copy(webgl.dirLight.position).normalize();
+      if (webgl.dirLight.color) webgl.waterMat.uniforms.uSunColor.value.copy(webgl.dirLight.color);
+    }
     if (webgl.scene && webgl.scene.fog) webgl.waterMat.uniforms.uSkyColor.value.copy(webgl.scene.fog.color);
+    if (typeof game.timeOfDay === 'number') webgl.waterMat.uniforms.uTimeOfDay.value = game.timeOfDay;
   }
 
   // Dynamic Sprinting FOV Stretch interpolation
@@ -1320,13 +1371,32 @@ export function updateHeldItemMesh() {
     const col = thingColor(id);
     const placeable = isPlaceable(id);
     
-    const geo = placeable 
-      ? new THREE.BoxGeometry(0.08, 0.08, 0.08)
-      : new THREE.BoxGeometry(0.02, 0.02, 0.25);
-    const mat = new THREE.MeshLambertMaterial({color: col});
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(0, 0, 0);
-    webgl.heldGroup.add(m);
+    if (placeable && webgl.atlasTex) {
+      const geo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+      const faceMap = [4, 5, 0, 1, 2, 3]; // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
+      const uvAttr = geo.attributes.uv;
+      for (let f = 0; f < 6; f++) {
+        const faceIdx = faceMap[f];
+        const tile = tileFor(id, faceIdx);
+        const uv = tileUV(tile);
+        const baseIdx = f * 4;
+        uvAttr.setXY(baseIdx + 0, uv.u0, uv.v1);
+        uvAttr.setXY(baseIdx + 1, uv.u1, uv.v1);
+        uvAttr.setXY(baseIdx + 2, uv.u0, uv.v0);
+        uvAttr.setXY(baseIdx + 3, uv.u1, uv.v0);
+      }
+      uvAttr.needsUpdate = true;
+      const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(0, 0, 0);
+      webgl.heldGroup.add(m);
+    } else {
+      const geo = new THREE.BoxGeometry(0.03, 0.03, 0.28);
+      const mat = new THREE.MeshLambertMaterial({color: col});
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(0, 0, 0);
+      webgl.heldGroup.add(m);
+    }
   }
   
   webgl.heldGroup.position.set(0.24, -0.2, -0.35);
@@ -1346,13 +1416,33 @@ export function updateHeldItemMesh() {
     if (id !== 0 && invCount(id) > 0) {
       const col = thingColor(id);
       const placeable = isPlaceable(id);
-      const geo = placeable 
-        ? new THREE.BoxGeometry(0.12, 0.12, 0.12)
-        : new THREE.BoxGeometry(0.04, 0.04, 0.4);
-      const mat = new THREE.MeshLambertMaterial({color: col});
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(0, -0.25, 0.15);
-      arm.add(mesh);
+      
+      if (placeable && webgl.atlasTex) {
+        const geo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+        const faceMap = [4, 5, 0, 1, 2, 3];
+        const uvAttr = geo.attributes.uv;
+        for (let f = 0; f < 6; f++) {
+          const faceIdx = faceMap[f];
+          const tile = tileFor(id, faceIdx);
+          const uv = tileUV(tile);
+          const baseIdx = f * 4;
+          uvAttr.setXY(baseIdx + 0, uv.u0, uv.v1);
+          uvAttr.setXY(baseIdx + 1, uv.u1, uv.v1);
+          uvAttr.setXY(baseIdx + 2, uv.u0, uv.v0);
+          uvAttr.setXY(baseIdx + 3, uv.u1, uv.v0);
+        }
+        uvAttr.needsUpdate = true;
+        const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(0, -0.25, 0.15);
+        arm.add(mesh);
+      } else {
+        const geo = new THREE.BoxGeometry(0.04, 0.04, 0.4);
+        const mat = new THREE.MeshLambertMaterial({color: col});
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(0, -0.25, 0.15);
+        arm.add(mesh);
+      }
     }
   }
 }

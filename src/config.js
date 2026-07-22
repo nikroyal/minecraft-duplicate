@@ -381,7 +381,7 @@ export function faceColor(id, face){
 }
 
 export function isSolid(id){ return Boolean(id !== AIR && BLOCKS[id] && BLOCKS[id].solid); }
-export function isOpaque(id){ return Boolean(id !== AIR && BLOCKS[id] && !BLOCKS[id].alpha && !BLOCKS[id].cutout); }
+export function isOpaque(id){ return Boolean(id !== AIR && BLOCKS[id] && !BLOCKS[id].alpha && !BLOCKS[id].cutout && !BLOCKS[id].shape && id !== 20 && id !== 45 && id !== 49 && id !== 90 && id !== 91 && id !== 92); }
 
 // ---- Texture Atlas Config ----
 export const TILE = 16;

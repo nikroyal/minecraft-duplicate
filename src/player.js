@@ -15,6 +15,7 @@ const JUMP = 8.4;
 const SPEED = 4.6;
 const SPRINT = 7.4;
 const FLYSPEED = 10;
+const STEP_HEIGHT = 1.05;
 
 export function spawnPlayer(){
   if (player.spawnPoint) {
@@ -26,6 +27,8 @@ export function spawnPlayer(){
   player.vel.set(0, 0, 0);
   player.onGround = false;
   player.fallPeak = player.pos.y;
+  player.coyoteTimer = 0;
+  player.jumpBuffer = 0;
 }
 
 export function chunkReadyAt(wx, wz){
@@ -65,6 +68,22 @@ export function collidesAt(px, py, pz){
   return false;
 }
 
+export function isSupportedOnGround(px, py, pz){
+  const hw = 0.6 / 2;
+  const minX = Math.floor(px - hw + 1e-5);
+  const maxX = Math.floor(px + hw - 1e-5);
+  const minZ = Math.floor(pz - hw + 1e-5);
+  const maxZ = Math.floor(pz + hw - 1e-5);
+  const checkY = Math.floor(py - 0.08);
+  
+  for(let x = minX; x <= maxX; x++){
+    for(let z = minZ; z <= maxZ; z++){
+      if(collisionSolid(x, checkY, z)) return true;
+    }
+  }
+  return false;
+}
+
 const MAX_STEP = 0.35;
 export function moveAxis(axis, amount){
   if(!isFinite(amount) || Math.abs(amount) < 1e-6) return;
@@ -75,8 +94,27 @@ export function moveAxis(axis, amount){
     const step = Math.max(-MAX_STEP, Math.min(MAX_STEP, remaining));
     remaining -= step;
     if(axis === "x"){
-      if(!collidesAt(p.x + step, p.y, p.z)) p.x += step;
-      else { player.vel.x = 0; break; }
+      if(!collidesAt(p.x + step, p.y, p.z)) {
+        p.x += step;
+      } else {
+        let stepped = false;
+        if(player.onGround || player.vel.y >= -2.0){
+          const targetY = Math.floor(p.y) + 1.0 + 1e-4;
+          const stepY = targetY - p.y;
+          if(stepY > 0 && stepY <= STEP_HEIGHT){
+            if(!collidesAt(p.x, targetY, p.z) && !collidesAt(p.x + step, targetY, p.z)){
+              p.y = targetY;
+              p.x += step;
+              player.onGround = true;
+              stepped = true;
+            }
+          }
+        }
+        if(!stepped){
+          player.vel.x = 0;
+          break;
+        }
+      }
     } else if(axis === "y"){
       if(!collidesAt(p.x, p.y + step, p.z)) {
         p.y += step;
@@ -101,8 +139,27 @@ export function moveAxis(axis, amount){
         break;
       }
     } else {
-      if(!collidesAt(p.x, p.y, p.z + step)) p.z += step;
-      else { player.vel.z = 0; break; }
+      if(!collidesAt(p.x, p.y, p.z + step)) {
+        p.z += step;
+      } else {
+        let stepped = false;
+        if(player.onGround || player.vel.y >= -2.0){
+          const targetY = Math.floor(p.y) + 1.0 + 1e-4;
+          const stepY = targetY - p.y;
+          if(stepY > 0 && stepY <= STEP_HEIGHT){
+            if(!collidesAt(p.x, targetY, p.z) && !collidesAt(p.x, targetY, p.z + step)){
+              p.y = targetY;
+              p.z += step;
+              player.onGround = true;
+              stepped = true;
+            }
+          }
+        }
+        if(!stepped){
+          player.vel.z = 0;
+          break;
+        }
+      }
     }
   }
 }
@@ -136,6 +193,25 @@ export function updatePlayer(dt){
     return;
   }
 
+  // Ground status evaluation & Coyote Timer
+  if(!player.flying){
+    if(player.vel.y <= 0.1 && isSupportedOnGround(player.pos.x, player.pos.y, player.pos.z)){
+      player.onGround = true;
+    }
+    if(player.onGround){
+      player.coyoteTimer = 0.12;
+    } else {
+      player.coyoteTimer = Math.max(0, (player.coyoteTimer || 0) - dt);
+    }
+  }
+
+  // Jump Input Buffering
+  if(!blockInput && (keys["Space"] || touch.jump)){
+    player.jumpBuffer = 0.15;
+  } else if((player.jumpBuffer || 0) > 0){
+    player.jumpBuffer -= dt;
+  }
+
   if(player.flying){
     player.fallPeak = player.pos.y;
     const sp = FLYSPEED * (sprint ? 2 : 1);
@@ -160,28 +236,6 @@ export function updatePlayer(dt){
   player.vel.y += GRAV * dt;
   if(player.vel.y < -55) player.vel.y = -55;
 
-  if(!blockInput && (keys["Space"] || touch.jump) && player.onGround){
-    player.vel.y = JUMP;
-    player.onGround = false;
-  }
-
-  const wasOnGround = player.onGround;
-  player.onGround = false;
-  
-  const oldX = player.pos.x, oldZ = player.pos.z;
-  moveAxis("x", player.vel.x * dt);
-  moveAxis("z", player.vel.z * dt);
-  moveAxis("y", player.vel.y * dt);
-
-  if (player.onGround && !player.flying) {
-    const dX = player.pos.x - oldX;
-    const dZ = player.pos.z - oldZ;
-    player.distWalked = (player.distWalked || 0) + Math.sqrt(dX * dX + dZ * dZ);
-    if (player.distWalked >= 100) {
-      unlockAchievement(1, "First Journey", "Walked over 100 blocks.");
-    }
-  }
-
   // Water check & physics
   const feetBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z));
   const headBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + player.eye), Math.floor(player.pos.z));
@@ -194,6 +248,40 @@ export function updatePlayer(dt){
     player.vel.z *= 0.85;
     if (!blockInput && (keys["Space"] || touch.jump)) {
       player.vel.y = Math.min(player.vel.y + 16 * dt, 4.5); // Swimming up
+      const upperAir = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.8), Math.floor(player.pos.z)) !== 8;
+      if (upperAir) {
+        player.vel.y = Math.max(player.vel.y, 6.4);
+      }
+    }
+  }
+
+  // Trigger jump if jump buffer is active and player is on ground or within coyote window
+  if(!blockInput && !inWater && (player.jumpBuffer || 0) > 0 && (player.onGround || (player.coyoteTimer || 0) > 0)){
+    player.vel.y = JUMP;
+    player.onGround = false;
+    player.coyoteTimer = 0;
+    player.jumpBuffer = 0;
+  }
+
+  const wasOnGround = player.onGround;
+  player.onGround = false;
+  
+  const oldX = player.pos.x, oldZ = player.pos.z;
+  moveAxis("x", player.vel.x * dt);
+  moveAxis("z", player.vel.z * dt);
+  moveAxis("y", player.vel.y * dt);
+
+  // Post-move ground probe check to keep player grounded state precise
+  if(!player.flying && player.vel.y <= 0.1 && isSupportedOnGround(player.pos.x, player.pos.y, player.pos.z)){
+    player.onGround = true;
+  }
+
+  if (player.onGround && !player.flying) {
+    const dX = player.pos.x - oldX;
+    const dZ = player.pos.z - oldZ;
+    player.distWalked = (player.distWalked || 0) + Math.sqrt(dX * dX + dZ * dZ);
+    if (player.distWalked >= 100) {
+      unlockAchievement(1, "First Journey", "Walked over 100 blocks.");
     }
   }
 

@@ -384,6 +384,45 @@ export function buildChunkMesh(ch){
     const id = ch.get(x,y,z);
     if(id===AIR || id===8) continue; // Water is handled by dedicated greedy meshing pass
     const bl = BLOCKS[id];
+    if(!bl) continue;
+
+    // Dedicated X-cross plant renderer for Wheat Crops (IDs 90, 91, 92)
+    if (id === 90 || id === 91 || id === 92) {
+      const g = groups.cutout;
+      const h = id === 90 ? 0.4 : (id === 91 ? 0.75 : 1.0);
+      const lvl = getLightGlobal(ox+x, y, oz+z);
+      const ln = lvl / MAX_LIGHT;
+      const lightB = 0.35 + Math.sqrt(ln) * 0.65;
+      const warm = lvl > 8 ? (lvl - 8) / 7 : 0;
+      let rC = lightB * (1 + warm * 0.12);
+      let gC = lightB * (1 + warm * 0.04);
+      let bC = lightB * (1 - warm * 0.08);
+
+      const cropColor = id === 90 ? 0x7a6a4a : (id === 91 ? 0x50a040 : 0xd8c060);
+      rC *= ((cropColor >> 16) & 255) / 255;
+      gC *= ((cropColor >> 8) & 255) / 255;
+      bC *= (cropColor & 255) / 255;
+
+      const uv = tileUV("leaves");
+
+      // Diagonal Quad 1
+      const b1 = g.pos.length / 3;
+      g.pos.push(ox+x, y, oz+z,  ox+x+1, y, oz+z+1,  ox+x+1, y+h, oz+z+1,  ox+x, y+h, oz+z);
+      g.col.push(rC,gC,bC, rC,gC,bC, rC,gC,bC, rC,gC,bC);
+      g.norm.push(0.707, 0, 0.707, 0.707, 0, 0.707, 0.707, 0, 0.707, 0.707, 0, 0.707);
+      g.uv.push(uv.u0,uv.v0, uv.u1,uv.v0, uv.u1,uv.v1, uv.u0,uv.v1);
+      g.idx.push(b1,b1+1,b1+2, b1,b1+2,b1+3, b1+2,b1+1,b1, b1+3,b1+2,b1);
+
+      // Diagonal Quad 2
+      const b2 = g.pos.length / 3;
+      g.pos.push(ox+x+1, y, oz+z,  ox+x, y, oz+z+1,  ox+x, y+h, oz+z+1,  ox+x+1, y+h, oz+z);
+      g.col.push(rC,gC,bC, rC,gC,bC, rC,gC,bC, rC,gC,bC);
+      g.norm.push(-0.707, 0, 0.707, -0.707, 0, 0.707, -0.707, 0, 0.707, -0.707, 0, 0.707);
+      g.uv.push(uv.u0,uv.v0, uv.u1,uv.v0, uv.u1,uv.v1, uv.u0,uv.v1);
+      g.idx.push(b2,b2+1,b2+2, b2,b2+2,b2+3, b2+2,b2+1,b2, b2+3,b2+2,b2);
+      continue;
+    }
+
     const alpha = bl.alpha;
     const g = bl.cutout ? groups.cutout : (alpha ? groups.alpha : groups.opaque);
 
@@ -404,11 +443,13 @@ export function buildChunkMesh(ch){
         draw = true; // Torch post
       } else if(id === 45) {
         draw = (F.f === wallFace); // Ladder
-      } else if(id === 49) {
+      } else if(id === 49 || bl.shape === "pane") {
         draw = (F.f === 3 || F.f === 5); // Glass pane
       } else if(id === 8) { // WATER
         if(neigh === 8 || isOpaque(neigh)) draw = false; // Don't draw inner water-to-water faces or faces touching solid opaque terrain
         else draw = true; // Draw water face against air or non-water transparent blocks
+      } else if(bl.shape) {
+        draw = true; // Always draw faces for custom shaped blocks (slabs, carpets, trapdoors, stairs, fences)
       } else if(alpha){
         if(neigh===AIR) draw=true;
         else if(isOpaque(neigh)) draw=false;
@@ -420,7 +461,7 @@ export function buildChunkMesh(ch){
 
       const base = g.pos.length/3;
       const dirS = F.f===0?1.0 : F.f===1?0.5 : (F.f===2||F.f===3)?0.82:0.68;
-      const useOwnLight = (id === 20 || id === 45 || id === 49);
+      const useOwnLight = (id === 20 || id === 45 || id === 49 || Boolean(bl.shape));
       const lvl = useOwnLight ? getLightGlobal(ox+x, y, oz+z) : getLightGlobal(ox+nx, ny, oz+nz);
       const ln = lvl/MAX_LIGHT;
       const lightB = 0.35 + Math.sqrt(ln)*0.65;
@@ -440,7 +481,7 @@ export function buildChunkMesh(ch){
         let py = y+c[1];
         let pz = oz+z+c[2];
 
-        // Sloped flowing water Y height adjustment
+        // Sloped flowing water & sub-block geometry adjustments
         if (id === 8) {
           const dist = waterFlowDist(ox+x, y, oz+z);
           const topNeigh = getBlock(ox+x, y+1, oz+z);
@@ -457,9 +498,22 @@ export function buildChunkMesh(ch){
           if (F.f === 2) pz = oz + z + 0.95;
           if (F.f === 5) px = ox + x + 0.05;
           if (F.f === 4) px = ox + x + 0.95;
-        } else if (id === 49) {
+        } else if (id === 49 || bl.shape === "pane") {
           if (F.f === 3) pz = oz + z + 0.5;
+          if (F.f === 2) pz = oz + z + 0.5;
           if (F.f === 5) px = ox + x + 0.5;
+          if (F.f === 4) px = ox + x + 0.5;
+        } else if (bl.shape === "slab") {
+          if (c[1] === 1) py = y + 0.5;
+        } else if (bl.shape === "carpet") {
+          if (c[1] === 1) py = y + 0.0625;
+        } else if (bl.shape === "trapdoor") {
+          if (c[1] === 1) py = y + 0.1875;
+        } else if (bl.shape === "wall" || bl.shape === "fence" || bl.shape === "gate") {
+          px = ox + x + 0.375 + c[0]*0.25;
+          pz = oz + z + 0.375 + c[2]*0.25;
+        } else if (bl.shape === "stairs") {
+          if (c[1] === 1 && c[2] === 0) py = y + 0.5;
         }
 
         // Apply Ambient Occlusion shadow per vertex
@@ -491,87 +545,109 @@ export function buildChunkMesh(ch){
 export function createWaterMaterial() {
   const vertexShader = `
     uniform float uTime;
-    varying vec3 vWorldPosition;
+    attribute float aFaceType;
+
+    varying vec3 vWorldPos;
     varying vec3 vNormal;
     varying vec2 vUv;
-    varying vec3 vViewPosition;
+    varying float vFaceType;
 
     void main() {
       vUv = uv;
+      vFaceType = aFaceType;
       vec3 pos = position;
-      
-      // Gentle wave micro-displacement for top exposed water faces (normal.y > 0.5)
+
+      // Micro wave height displacement on top exposed water faces
       if (normal.y > 0.5) {
-        float wave = sin(pos.x * 2.2 + uTime * 2.0) * cos(pos.z * 2.2 + uTime * 1.6) * 0.02;
-        wave += sin((pos.x + pos.z) * 1.4 + uTime * 1.2) * 0.01;
+        float wave = sin(pos.x * 2.5 + uTime * 2.2) * cos(pos.z * 2.5 + uTime * 1.8) * 0.025;
+        wave += sin((pos.x + pos.z) * 1.8 + uTime * 1.5) * 0.015;
         pos.y += wave;
       }
 
-      vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
-      vWorldPosition = worldPosition.xyz;
-      
-      vec4 mvPosition = viewMatrix * worldPosition;
-      vViewPosition = -mvPosition.xyz;
-      
+      vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+      vWorldPos = worldPos.xyz;
       vNormal = normalize(mat3(modelMatrix) * normal);
-      gl_Position = projectionMatrix * mvPosition;
+
+      gl_Position = projectionMatrix * viewMatrix * worldPos;
     }
   `;
 
   const fragmentShader = `
     uniform float uTime;
-    uniform vec3 uWaterColor;
-    uniform vec3 uDeepWaterColor;
-    uniform vec3 uSkyColor;
-    uniform vec3 uSunDir;
     uniform vec3 uCameraPos;
+    uniform vec3 uSunDir;
+    uniform vec3 uSunColor;
+    uniform vec3 uSkyColor;
+    uniform vec3 uShallowColor;
+    uniform vec3 uDeepColor;
+    uniform float uTimeOfDay;
 
-    varying vec3 vWorldPosition;
+    varying vec3 vWorldPos;
     varying vec3 vNormal;
     varying vec2 vUv;
-    varying vec3 vViewPosition;
+    varying float vFaceType;
 
-    // Procedural moving wave normal ripples
-    vec3 getWaveNormal(vec3 worldPos, float time) {
-      vec2 p = worldPos.xz * 2.2;
-      float n1 = sin(p.x * 1.4 + p.y * 1.8 + time * 2.4);
-      float n2 = cos(p.x * 2.8 - p.y * 1.2 + time * 1.8);
-      float n3 = sin(p.x * 0.9 + p.y * 3.4 + time * 3.1);
+    // Procedural dual-layer scrolling normal map for subtle water ripples
+    vec3 getWaterNormal(vec3 worldPos, vec3 N, float time, float faceType) {
+      vec2 flowUV;
+      if (faceType > 0.5) {
+        // Vertical waterfall face: scroll downward in Y
+        flowUV = vec2(worldPos.x + worldPos.z, worldPos.y + time * 1.8);
+      } else {
+        // Top surface face: scroll horizontally
+        flowUV = worldPos.xz * 1.5 + vec2(time * 0.4, time * 0.3);
+      }
+
+      // Layer 1: Medium ripple waves
+      float n1 = sin(flowUV.x * 4.0 + flowUV.y * 3.0 + time * 1.2);
+      float n2 = cos(flowUV.x * 5.0 - flowUV.y * 4.0 - time * 1.6);
       
+      // Layer 2: Fine detail ripples
+      vec2 fineUV = flowUV * 2.8 - vec2(time * 0.6, time * 0.5);
+      float n3 = sin(fineUV.x * 8.0 + fineUV.y * 6.0);
+      float n4 = cos(fineUV.x * 7.0 - fineUV.y * 9.0);
+
       vec2 bump = vec2(
-        (n1 * 0.08 + n2 * 0.05) * abs(vNormal.y),
-        (n2 * 0.06 + n3 * 0.05) * abs(vNormal.y)
+        (n1 * 0.04 + n3 * 0.02) * abs(N.y) + (n2 * 0.04) * (1.0 - abs(N.y)),
+        (n2 * 0.04 + n4 * 0.02) * abs(N.y) + (n1 * 0.04) * (1.0 - abs(N.y))
       );
-      return normalize(vec3(vNormal.x + bump.x, vNormal.y, vNormal.z + bump.y));
+
+      return normalize(vec3(N.x + bump.x, N.y, N.z + bump.y));
     }
 
     void main() {
-      vec3 V = normalize(uCameraPos - vWorldPosition);
-      vec3 N = getWaveNormal(vWorldPosition, uTime);
+      vec3 V = normalize(uCameraPos - vWorldPos);
+      vec3 N = getWaterNormal(vWorldPos, vNormal, uTime, vFaceType);
 
-      // Fresnel effect approximation
-      float dotNV = max(dot(N, V), 0.0);
-      float fresnel = pow(1.0 - dotNV, 3.5);
+      // Schlick Fresnel approximation
+      float dotNV = clamp(dot(N, V), 0.0, 1.0);
+      float fresnel = 0.04 + 0.96 * pow(1.0 - dotNV, 4.0);
 
-      // Depth color gradient simulation (darker blue for lower world Y or deeper view)
-      float depthFactor = clamp((48.0 - vWorldPosition.y) * 0.025, 0.0, 0.55);
-      vec3 baseWaterColor = mix(uWaterColor, uDeepWaterColor, depthFactor);
+      // Depth-based color attenuation simulation
+      float depthEst = clamp((44.0 - vWorldPos.y) * 0.04 + (1.0 - dotNV) * 0.35, 0.0, 1.0);
+      
+      // Shallow turquoise to deep blue gradient
+      vec3 baseWaterColor = mix(uShallowColor, uDeepColor, depthEst);
 
-      // Sky reflection blend via Fresnel
-      float skyMix = fresnel * 0.45;
-      vec3 waterColor = mix(baseWaterColor, uSkyColor, skyMix);
+      // Ambient & Sun lighting response
+      float diff = max(dot(N, uSunDir), 0.15);
+      vec3 litWaterColor = baseWaterColor * (0.55 + diff * 0.45);
 
-      // Blinn-Phong specular sun highlight
+      // Sky & sun reflection at grazing angles
+      vec3 skyReflection = mix(uSkyColor, vec3(1.0, 0.96, 0.88), fresnel * 0.3);
+      vec3 colorWithReflection = mix(litWaterColor, skyReflection, fresnel * 0.55);
+
+      // Blinn-Phong specular highlight for sun/moon reflection
       vec3 H = normalize(uSunDir + V);
-      float spec = pow(max(dot(N, H), 0.0), 96.0);
-      vec3 specColor = vec3(1.0, 0.94, 0.78) * spec * (0.4 + fresnel * 0.6);
+      float spec = pow(max(dot(N, H), 0.0), 160.0);
+      vec3 specularColor = uSunColor * spec * (0.5 + fresnel * 0.5) * 1.8;
 
-      vec3 finalColor = waterColor + specColor;
+      vec3 finalColor = colorWithReflection + specularColor;
 
-      // Opacity: 0.68 looking down, up to 0.88 at grazing angles
-      float opacity = mix(0.68, 0.88, fresnel);
+      // Transparency: highly transparent looking down (~0.52), more opaque at grazing angles (~0.85)
+      float alpha = mix(0.52, 0.85, fresnel);
 
-      gl_FragColor = vec4(finalColor, opacity);
+      gl_FragColor = vec4(finalColor, alpha);
     }
   `;
 
@@ -580,24 +656,26 @@ export function createWaterMaterial() {
     fragmentShader,
     uniforms: {
       uTime: { value: 0 },
-      uWaterColor: { value: new THREE.Color(0x2d6ebe) }, // RGB (45, 110, 190)
-      uDeepWaterColor: { value: new THREE.Color(0x10284d) },
-      uSkyColor: { value: new THREE.Color(0x8fc3e8) },
-      uSunDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
       uCameraPos: { value: new THREE.Vector3() },
+      uSunDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
+      uSunColor: { value: new THREE.Color(0xfff2cc) },
+      uSkyColor: { value: new THREE.Color(0x8fc3e8) },
+      uShallowColor: { value: new THREE.Color(0x28d0df) }, // Vibrant turquoise
+      uDeepColor: { value: new THREE.Color(0x0b336d) },    // Rich deep blue
+      uTimeOfDay: { value: 0.3 },
     },
     transparent: true,
     side: THREE.DoubleSide,
-    depthWrite: true,
+    depthWrite: false,
   });
 }
 
-// Dedicated Greedy Water Mesher
+// Dedicated Outer-Shell Greedy Water Mesher
 export function buildWaterGreedyMesh(ch) {
   const ox = ch.cx * CHUNK, oz = ch.cz * CHUNK;
-  const pos = [], norm = [], uv = [], idx = [];
+  const pos = [], norm = [], uv = [], idx = [], faceType = [];
 
-  // Top exposed water faces (+Y)
+  // 1. Top (+Y) faces
   for (let y = 0; y < HEIGHT; y++) {
     const mask = new Array(CHUNK * CHUNK).fill(false);
     let hasMask = false;
@@ -648,33 +726,82 @@ export function buildWaterGreedyMesh(ch) {
           ox + x + w, yTop, oz + z + h,
           ox + x,     yTop, oz + z + h
         );
-        norm.push(
-          0, 1, 0,
-          0, 1, 0,
-          0, 1, 0,
-          0, 1, 0
-        );
-        uv.push(
-          0, 0,
-          w, 0,
-          w, h,
-          0, h
-        );
+        norm.push(0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0);
+        uv.push(0, 0,  w, 0,  w, h,  0, h);
+        faceType.push(0, 0, 0, 0);
         idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
       }
     }
   }
 
-  // Exposed Side Faces
-  const SIDE_FACES = [
-    { n: [1, 0, 0],  offset: [1, 0, 0] }, // East (+X)
-    { n: [-1, 0, 0], offset: [0, 0, 0] }, // West (-X)
-    { n: [0, 0, 1],  offset: [0, 0, 1] }, // North (+Z)
-    { n: [0, 0, -1], offset: [0, 0, 0] }, // South (-Z)
+  // 2. Bottom (-Y) faces
+  for (let y = 0; y < HEIGHT; y++) {
+    const mask = new Array(CHUNK * CHUNK).fill(false);
+    let hasMask = false;
+
+    for (let z = 0; z < CHUNK; z++) {
+      for (let x = 0; x < CHUNK; x++) {
+        if (ch.get(x, y, z) === 8) {
+          const botId = getBlock(ox + x, y - 1, oz + z);
+          if (botId !== 8 && !isOpaque(botId)) {
+            mask[z * CHUNK + x] = true;
+            hasMask = true;
+          }
+        }
+      }
+    }
+    if (!hasMask) continue;
+
+    for (let z = 0; z < CHUNK; z++) {
+      for (let x = 0; x < CHUNK; x++) {
+        if (!mask[z * CHUNK + x]) continue;
+
+        let w = 1;
+        while (x + w < CHUNK && mask[z * CHUNK + (x + w)]) w++;
+
+        let h = 1;
+        let canExtend = true;
+        while (z + h < CHUNK && canExtend) {
+          for (let k = 0; k < w; k++) {
+            if (!mask[(z + h) * CHUNK + (x + k)]) {
+              canExtend = false;
+              break;
+            }
+          }
+          if (canExtend) h++;
+        }
+
+        for (let hz = 0; hz < h; hz++) {
+          for (let wx = 0; wx < w; wx++) {
+            mask[(z + hz) * CHUNK + (x + wx)] = false;
+          }
+        }
+
+        const base = pos.length / 3;
+        pos.push(
+          ox + x,     y, oz + z + h,
+          ox + x + w, y, oz + z + h,
+          ox + x + w, y, oz + z,
+          ox + x,     y, oz + z
+        );
+        norm.push(0, -1, 0,  0, -1, 0,  0, -1, 0,  0, -1, 0);
+        uv.push(0, 0,  w, 0,  w, h,  0, h);
+        faceType.push(0, 0, 0, 0);
+        idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+    }
+  }
+
+  // 3. Side (+X, -X, +Z, -Z) faces
+  const SIDE_DIRECTIONS = [
+    { n: [1, 0, 0],  offset: [1, 0, 0] },
+    { n: [-1, 0, 0], offset: [0, 0, 0] },
+    { n: [0, 0, 1],  offset: [0, 0, 1] },
+    { n: [0, 0, -1], offset: [0, 0, 0] },
   ];
 
-  for (const sf of SIDE_FACES) {
-    const [nx, ny, nz] = sf.n;
+  for (const sDir of SIDE_DIRECTIONS) {
+    const [nx, ny, nz] = sDir.n;
     for (let y = 0; y < HEIGHT; y++) {
       for (let z = 0; z < CHUNK; z++) {
         for (let x = 0; x < CHUNK; x++) {
@@ -682,9 +809,9 @@ export function buildWaterGreedyMesh(ch) {
             const neighId = getBlock(ox + x + nx, y + ny, oz + z + nz);
             if (neighId !== 8 && !isOpaque(neighId)) {
               const base = pos.length / 3;
-              const px = ox + x + sf.offset[0];
-              const py = y + sf.offset[1];
-              const pz = oz + z + sf.offset[2];
+              const px = ox + x + sDir.offset[0];
+              const py = y + sDir.offset[1];
+              const pz = oz + z + sDir.offset[2];
               
               if (nx !== 0) {
                 pos.push(
@@ -701,8 +828,9 @@ export function buildWaterGreedyMesh(ch) {
                   px,     py + 1, pz
                 );
               }
-              norm.push(nx, ny, nz, nx, ny, nz, nx, ny, nz, nx, ny, nz);
-              uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+              norm.push(nx, ny, nz,  nx, ny, nz,  nx, ny, nz,  nx, ny, nz);
+              uv.push(0, 0,  1, 0,  1, 1,  0, 1);
+              faceType.push(1, 1, 1, 1);
               idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
             }
           }
@@ -711,19 +839,21 @@ export function buildWaterGreedyMesh(ch) {
     }
   }
 
-  return { pos, norm, uv, idx };
+  return { pos, norm, uv, idx, faceType };
 }
 
 export function makeWaterMesh(g) {
   if (!g || g.idx.length === 0) return null;
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(g.pos, 3));
-  geo.setAttribute("normal",   new THREE.Float32BufferAttribute(g.norm, 3));
-  geo.setAttribute("uv",       new THREE.Float32BufferAttribute(g.uv, 2));
+  geo.setAttribute("position",  new THREE.Float32BufferAttribute(g.pos, 3));
+  geo.setAttribute("normal",    new THREE.Float32BufferAttribute(g.norm, 3));
+  geo.setAttribute("uv",        new THREE.Float32BufferAttribute(g.uv, 2));
+  geo.setAttribute("aFaceType", new THREE.Float32BufferAttribute(g.faceType, 1));
   geo.setIndex(g.idx);
 
   const mat = webgl.waterMat || createWaterMaterial();
   const mesh = new THREE.Mesh(geo, mat);
+  mesh.renderOrder = 15;
   mesh.frustumCulled = true;
   return mesh;
 }
@@ -841,148 +971,239 @@ export function paintTile(ctx, col, row, painter){
   painter(px);
 }
 
+export const PAINTERS = {
+  grass_top(px){ const rnd=trng(11); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6aa84f, 0.82+n*0.36)); if(n>0.93) px(x,y, shade(0x4f8a3a,1)); } },
+  grass_side(px){ const rnd=trng(12);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6b4f34, 0.8+n*0.4)); }
+    for(let x=0;x<TILE;x++){ const h=3+((trng(x+7)()*3)|0); for(let y=0;y<h;y++) px(x,y, shade(0x6aa84f,0.8+trng(x*3+y)()*0.4)); } },
+  dirt(px){ const rnd=trng(21); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6b4f34,0.78+n*0.42)); if(n>0.92) px(x,y, shade(0x4a3722,1)); } },
+  stone(px){ const rnd=trng(31); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8a8a,0.82+n*0.34)); if(n>0.95) px(x,y, shade(0x6e6e6e,1)); } },
+  sand(px){ const rnd=trng(41); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0xd9c88f,0.88+n*0.22)); if(n>0.94) px(x,y, shade(0xc4b070,1)); } },
+  wood_top(px){ const rnd=trng(51);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const dx=x-7.5,dy=y-7.5; const d=Math.sqrt(dx*dx+dy*dy); const ring=(Math.sin(d*1.6)+1)/2; px(x,y, shade(0xa9834f,0.7+ring*0.4+rnd()*0.08)); } },
+  wood_side(px){ const rnd=trng(52); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const grain=(Math.sin(x*1.7)+1)/2; px(x,y, shade(0x7a5a34,0.72+grain*0.34+rnd()*0.08)); } },
+  leaves(px){ const rnd=trng(61); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); if(n>0.14) px(x,y, shade(0x3f7a3f,0.7+n*0.5)); else px(x,y, "rgba(0,0,0,0)"); } },
+  plank(px){ const rnd=trng(71);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(0xb08a52,0.82+rnd()*0.28)); }
+    for(let y=0;y<TILE;y+=4)for(let x=0;x<TILE;x++) px(x,y, shade(0x6b5330,1));
+    for(let x=3;x<TILE;x+=6)for(let y=0;y<TILE;y++) px(x,y, shade(0x6b5330,1)); },
+  water(px){ const rnd=trng(81); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const w=(Math.sin((x+y)*0.8)+1)/2; px(x,y, shade(0x2970da,0.85+w*0.25+rnd()*0.05)); } },
+  glass(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const edge=(x===0||y===0||x===TILE-1||y===TILE-1); px(x,y, edge? shade(0xbfe3ef,1) : "rgba(191,227,239,0.15)"); }
+    for(let i=0;i<TILE;i++){ px(i,i,"rgba(255,255,255,0.4)"); } },
+  brick(px){ const rnd=trng(101);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9c4a3a,0.85+rnd()*0.2));
+    for(let y=0;y<TILE;y+=4){ for(let x=0;x<TILE;x++) px(x,y, shade(0xcfc3b0,1)); }
+    for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(0xcfc3b0,1)); } },
+  _ore(px, seed, mineral){ const rnd=trng(seed);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8a8a,0.82+n*0.34)); if(n>0.95) px(x,y, shade(0x6e6e6e,1)); }
+    const r2=trng(seed+5);
+    for(let i=0;i<12;i++){ const bx=(r2()*(TILE-3))|0, by=(r2()*(TILE-3))|0, s=1+((r2()*2)|0);
+      for(let dx=0;dx<=s;dx++)for(let dy=0;dy<=s;dy++){ if(r2()>0.3) px(bx+dx,by+dy, shade(mineral,0.7+r2()*0.5)); } } },
+  coal_ore(px){ PAINTERS._ore(px, 201, 0x2a2a2a); },
+  iron_ore(px){ PAINTERS._ore(px, 202, 0xc99a6a); },
+  gold_ore(px){ PAINTERS._ore(px, 203, 0xf2d24a); },
+  diamond_ore(px){ PAINTERS._ore(px, 204, 0x6fe6e0); },
+  cobble(px){ const rnd=trng(211);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x808080,0.7+rnd()*0.5));
+    const r2=trng(219);
+    for(let i=0;i<26;i++){ const bx=(r2()*TILE)|0, by=(r2()*TILE)|0; px(bx,by, shade(0x4a4a4a,1)); } },
+  stone_brick(px){ const rnd=trng(221);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x8f8f8f,0.85+rnd()*0.2));
+    for(let y=0;y<TILE;y+=8) for(let x=0;x<TILE;x++) px(x,y, shade(0x5f5f5f,1));
+    for(let x=0;x<TILE;x+=8) for(let y=0;y<TILE;y++) px(x,y, shade(0x5f5f5f,1)); },
+  mossy_brick(px){ const rnd=trng(231);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const moss=rnd()>0.7; px(x,y, moss? shade(0x5a7a3a,0.7+rnd()*0.4) : shade(0x8f8f8f,0.85+rnd()*0.2)); }
+    for(let y=0;y<TILE;y+=8) for(let x=0;x<TILE;x++) px(x,y, shade(0x4f5f3f,1));
+    for(let x=0;x<TILE;x+=8) for(let y=0;y<TILE;y++) px(x,y, shade(0x4f5f3f,1)); },
+  sandstone(px){ const rnd=trng(241);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0xd9c88f,0.9+rnd()*0.16));
+    for(let y=0;y<TILE;y+=5) for(let x=0;x<TILE;x++) px(x,y, shade(0xc0ad74,1)); },
+  dark_brick(px){ const rnd=trng(251);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x5a3a34,0.82+rnd()*0.24));
+    for(let y=0;y<TILE;y+=4) for(let x=0;x<TILE;x++) px(x,y, shade(0x3a241f,1));
+    for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(0x3a241f,1)); } },
+  torch(px){
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y,"rgba(0,0,0,0)");
+    for(let y=6;y<TILE;y++){ px(7,y, shade(0x7a5a34,1)); px(8,y, shade(0x8a6a44,1)); }
+    for(let y=2;y<7;y++)for(let x=6;x<10;x++){ const c = y<4?0xfff2a0 : 0xff9030; px(x,y, shade(c, 0.9+Math.random()*0.2)); }
+    px(7,1, shade(0xffe070,1)); px(8,1, shade(0xffe070,1)); },
+  glowstone(px){ const rnd=trng(261);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0xf7e08a,0.7+n*0.5)); if(n>0.8) px(x,y, shade(0xfff4c0,1)); } },
+  _noise(px,base,seed,amt){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(base, (1-amt/2)+rnd()*amt)); } },
+  _speck(px,base,seed,dark){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(base,0.85+n*0.3)); if(n>0.9) px(x,y, shade(dark,1)); } },
+  _planks(px,base,seed){ const rnd=trng(seed);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.85+rnd()*0.22));
+    for(let y=0;y<TILE;y+=4) for(let x=0;x<TILE;x++) px(x,y, shade(base,0.55));
+    for(let x=3;x<TILE;x+=6) for(let y=0;y<TILE;y++) px(x,y, shade(base,0.55)); },
+  _bricks(px,base,seed,mortar){ const rnd=trng(seed);
+    for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.85+rnd()*0.2));
+    for(let y=0;y<TILE;y+=4){ for(let x=0;x<TILE;x++) px(x,y, shade(mortar,1)); }
+    for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(mortar,1)); } },
+  _polished(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.92+rnd()*0.12));
+    for(let i=0;i<TILE;i++){ px(0,i,shade(base,1.1)); px(i,0,shade(base,1.1)); } },
+  _wool(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(base,0.86+n*0.24)); if(n>0.85) px(x,y, shade(base,0.7)); } },
+  _log_top(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const dx=x-7.5,dy=y-7.5; const d=Math.sqrt(dx*dx+dy*dy); const ring=(Math.sin(d*1.6)+1)/2; px(x,y, shade(base,0.72+ring*0.36+rnd()*0.08)); } },
+  _log_side(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const grain=(Math.sin(x*1.7)+1)/2; px(x,y, shade(base,0.74+grain*0.3+rnd()*0.08)); } },
+  _metal(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.9+rnd()*0.14));
+    for(let i=0;i<TILE;i++){ px(i,0,shade(base,1.15)); px(0,i,shade(base,1.15)); px(i,TILE-1,shade(base,0.7)); px(TILE-1,i,shade(base,0.7)); } },
+
+  birch_top(px){ PAINTERS._log_top(px,0xe8dcc0,301); },
+  birch_side(px){ const rnd=trng(302); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(0xd8cba8,0.88+rnd()*0.16)); if(rnd()>0.94) px(x,y, shade(0x3a3a3a,1)); } },
+  spruce_top(px){ PAINTERS._log_top(px,0x5a3f28,303); },
+  spruce_side(px){ PAINTERS._log_side(px,0x4a3420,304); },
+  granite(px){ PAINTERS._speck(px,0xa06a54,311,0x804a38); },
+  andesite(px){ PAINTERS._speck(px,0x8a8a90,312,0x6a6a70); },
+  diorite(px){ PAINTERS._speck(px,0xdcdcdc,313,0xffffff); },
+  gravel(px){ const rnd=trng(314); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8078,0.7+n*0.5)); if(n>0.85) px(x,y, shade(0x5a544e,1)); } },
+  clay(px){ PAINTERS._noise(px,0xa0a6b0,315,0.16); },
+  snow(px){ PAINTERS._noise(px,0xf4f8ff,316,0.1); },
+  obsidian(px){ const rnd=trng(317); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x1a1428,0.7+n*0.6)); if(n>0.9) px(x,y, shade(0x5a4a80,1)); } },
+  birch_plank(px){ PAINTERS._planks(px,0xe4d8b8,321); },
+  spruce_plank(px){ PAINTERS._planks(px,0x6a4f34,322); },
+  pol_granite(px){ PAINTERS._polished(px,0xb47a64,323); },
+  pol_andesite(px){ PAINTERS._polished(px,0x9a9aa0,324); },
+  pol_diorite(px){ PAINTERS._polished(px,0xececec,325); },
+  terracotta(px){ PAINTERS._noise(px,0xb06a4a,326,0.18); },
+  ice(px){ const rnd=trng(327); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9cc8f0,0.9+rnd()*0.14)); for(let i=0;i<TILE;i++) px(i,i,shade(0xd0e8ff,1)); },
+  packed_snow(px){ PAINTERS._noise(px,0xeef4ff,328,0.08); },
+  chiseled_sandstone(px){ const rnd=trng(329); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0xcab878,0.9+rnd()*0.14));
+    for(let i=0;i<TILE;i++){ px(2,i,shade(0xa89858,1)); px(TILE-3,i,shade(0xa89858,1)); px(i,7,shade(0xa89858,1)); } },
+  smooth_stone(px){ PAINTERS._noise(px,0x9a9a9a,330,0.12); },
+  craft_top(px){ const rnd=trng(331); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a6a3a,0.85+rnd()*0.2));
+    for(let i=0;i<TILE;i++){ px(TILE/2|0,i,shade(0x5a3a1a,1)); px(i,TILE/2|0,shade(0x5a3a1a,1)); } },
+  craft_side(px){ PAINTERS._planks(px,0x8a5a2a,332); for(let x=2;x<7;x++)for(let y=2;y<7;y++) if((x+y)%2) px(x,y,shade(0x5a3a1a,1)); },
+  furnace_top(px){ const rnd=trng(333); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x6a6a6a,0.85+rnd()*0.2));
+    for(let i=4;i<12;i++){ px(i,4,shade(0x3a3a3a,1)); px(i,11,shade(0x3a3a3a,1)); px(4,i,shade(0x3a3a3a,1)); px(11,i,shade(0x3a3a3a,1)); } },
+  furnace_side(px){ const rnd=trng(334); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x5a5a5a,0.85+rnd()*0.2));
+    for(let x=5;x<11;x++)for(let y=8;y<13;y++) px(x,y, shade(0x2a2a2a,1));
+    for(let x=6;x<10;x++) px(x,12,shade(0xff8030,1)); },
+  chest_top(px){ const rnd=trng(335); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a7040,0.85+rnd()*0.2));
+    for(let i=0;i<TILE;i++){ px(i,0,shade(0x6a4a20,1)); px(i,TILE-1,shade(0x6a4a20,1)); } },
+  chest_side(px){ const rnd=trng(336); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x8a6030,0.85+rnd()*0.2));
+    for(let i=0;i<TILE;i++){ px(i,7,shade(0x5a3a1a,1)); px(i,8,shade(0x5a3a1a,1)); }
+    for(let y=6;y<11;y++){ px(7,y,shade(0x3a2a10,1)); px(8,y,shade(0xf2d24a,1)); } },
+  bookshelf(px){ const rnd=trng(337); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a6a3a,0.85+rnd()*0.2));
+    for(let x=0;x<TILE;x++){ px(x,0,shade(0x6a4a20,1)); px(x,7,shade(0x6a4a20,1)); px(x,8,shade(0x6a4a20,1)); px(x,TILE-1,shade(0x6a4a20,1)); }
+    const cols=[0xb03030,0x3050b0,0x40904a,0xe0c040,0x8a3a8a];
+    for(let x=1;x<TILE-1;x+=2){ const c=cols[(x*7)%cols.length]; for(let y=1;y<7;y++) px(x,y,shade(c,0.8+rnd()*0.4)); for(let y=9;y<TILE-1;y++) px(x,y,shade(cols[(x*3)%cols.length],0.8+rnd()*0.4)); } },
+  ladder(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y,"rgba(0,0,0,0)");
+    for(let y=0;y<TILE;y++){ px(3,y,shade(0x9a7b4a,1)); px(12,y,shade(0x9a7b4a,1)); }
+    for(let y=2;y<TILE;y+=4)for(let x=3;x<=12;x++) px(x,y,shade(0xb08a52,1)); },
+  iron_block(px){ PAINTERS._metal(px,0xe8e8e8,338); },
+  gold_block(px){ PAINTERS._metal(px,0xf2d24a,339); },
+  diamond_block(px){ PAINTERS._metal(px,0x6fe6e0,340); },
+  glass_pane(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const edge=(x<2||x>TILE-3); px(x,y, edge? shade(0xcfe8f0,1):"rgba(207,232,240,0.2)"); } },
+  wool_white(px){ PAINTERS._wool(px,0xf0f0f0,350); },
+  wool_red(px){ PAINTERS._wool(px,0xb03030,351); },
+  wool_blue(px){ PAINTERS._wool(px,0x3050b0,352); },
+  wool_green(px){ PAINTERS._wool(px,0x40904a,353); },
+  wool_yellow(px){ PAINTERS._wool(px,0xe0c040,354); },
+  wool_black(px){ PAINTERS._wool(px,0x2a2a2a,355); },
+};
+
+const tileDataUrlCache = {};
+export function getTileDataURL(tileName) {
+  if (typeof document === 'undefined' || !tileName) return null;
+  if (tileDataUrlCache[tileName]) return tileDataUrlCache[tileName];
+
+  const cv = document.createElement("canvas");
+  cv.width = 16; cv.height = 16;
+  const ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  const px = (x, y, color) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, 1, 1);
+  };
+
+  const fn = PAINTERS[tileName] || PAINTERS.stone;
+  if (fn) fn(px);
+
+  const url = cv.toDataURL();
+  tileDataUrlCache[tileName] = url;
+  return url;
+}
+
+export function getItemDataURL(id) {
+  if (typeof document === 'undefined' || !id) return null;
+  const cacheKey = "item_" + id;
+  if (tileDataUrlCache[cacheKey]) return tileDataUrlCache[cacheKey];
+
+  const cv = document.createElement("canvas");
+  cv.width = 16; cv.height = 16;
+  const ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  const px = (x, y, color) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, 1, 1);
+  };
+
+  const it = ITEMS[id];
+  const colHex = it?.color || 0x8a8a8a;
+  const colStr = shade(colHex, 1.0);
+  const darkStr = shade(colHex, 0.6);
+  const lightStr = shade(colHex, 1.3);
+
+  if (it?.tool === "pickaxe") {
+    for (let i = 4; i < 14; i++) px(17 - i, i, "#7a5a34");
+    for (let x = 2; x <= 13; x++) {
+      const y = Math.floor(2 + Math.abs(x - 7.5) * 0.4);
+      px(x, y, colStr);
+      px(x, y + 1, darkStr);
+    }
+  } else if (it?.tool === "shovel") {
+    for (let i = 4; i < 14; i++) px(17 - i, i, "#7a5a34");
+    for (let x = 2; x <= 6; x++) for (let y = 2; y <= 6; y++) px(x, y, colStr);
+    px(2, 2, lightStr); px(6, 6, darkStr);
+  } else if (it?.tool === "axe") {
+    for (let i = 4; i < 14; i++) px(17 - i, i, "#7a5a34");
+    for (let x = 2; x <= 6; x++) for (let y = 2; y <= 7; y++) px(x, y, colStr);
+    px(2, 2, lightStr); px(6, 7, darkStr);
+  } else if (it?.tool === "hoe") {
+    for (let i = 4; i < 14; i++) px(17 - i, i, "#7a5a34");
+    for (let x = 2; x <= 7; x++) { px(x, 2, colStr); px(x, 3, darkStr); }
+  } else if (id === 104) { // Diamond gem
+    const cy = 0x6fe6e0;
+    px(7,2,shade(cy,1.4)); px(8,2,shade(cy,1.4));
+    for (let x = 5; x <= 10; x++) px(x,4,shade(cy,1.3));
+    for (let x = 4; x <= 11; x++) px(x,5,shade(cy,1.1));
+    for (let x = 5; x <= 10; x++) px(x,7,shade(cy,0.9));
+    for (let x = 6; x <= 9; x++) px(x,9,shade(cy,0.8));
+    px(7,11,shade(cy,0.7)); px(8,11,shade(cy,0.7));
+    px(6,4,"#ffffff"); px(7,4,"#ffffff"); px(6,5,"#ffffff");
+  } else if (id === 101 || id === 120) { // Coal / Charcoal
+    for (let y = 4; y <= 11; y++) for (let x = 4; x <= 11; x++) {
+      if ((x === 4 || x === 11) && (y === 4 || y === 11)) continue;
+      px(x, y, (x + y) % 2 === 0 ? "#2a2a2a" : "#1a1a1a");
+    }
+  } else if (id === 102 || id === 103) { // Iron / Gold Ingot
+    for (let y = 5; y <= 10; y++) for (let x = 3; x <= 12; x++) px(x, y, colStr);
+    for (let x = 3; x <= 12; x++) { px(x, 5, lightStr); px(x, 10, darkStr); }
+  } else {
+    for (let y = 4; y <= 11; y++) for (let x = 4; x <= 11; x++) {
+      if ((x === 4 || x === 11) && (y === 4 || y === 11)) continue;
+      const shadeFact = (x === 4 || y === 4) ? 1.2 : ((x === 11 || y === 11) ? 0.7 : 1.0);
+      px(x, y, shade(colHex, shadeFact));
+    }
+  }
+
+  const url = cv.toDataURL();
+  tileDataUrlCache[cacheKey] = url;
+  return url;
+}
+
 export function buildAtlas(){
   const cv=document.createElement("canvas");
   cv.width=ATLAS_COLS*TILE; cv.height=ATLAS_ROWS*TILE;
   const ctx=cv.getContext("2d");
   ctx.imageSmoothingEnabled=false;
 
-  const painters={
-    grass_top(px){ const rnd=trng(11); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6aa84f, 0.82+n*0.36)); if(n>0.93) px(x,y, shade(0x4f8a3a,1)); } },
-    grass_side(px){ const rnd=trng(12);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6b4f34, 0.8+n*0.4)); }
-      for(let x=0;x<TILE;x++){ const h=3+((trng(x+7)()*3)|0); for(let y=0;y<h;y++) px(x,y, shade(0x6aa84f,0.8+trng(x*3+y)()*0.4)); } },
-    dirt(px){ const rnd=trng(21); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6b4f34,0.78+n*0.42)); if(n>0.92) px(x,y, shade(0x4a3722,1)); } },
-    stone(px){ const rnd=trng(31); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8a8a,0.82+n*0.34)); if(n>0.95) px(x,y, shade(0x6e6e6e,1)); } },
-    sand(px){ const rnd=trng(41); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0xd9c88f,0.88+n*0.22)); if(n>0.94) px(x,y, shade(0xc4b070,1)); } },
-    wood_top(px){ const rnd=trng(51);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const dx=x-7.5,dy=y-7.5; const d=Math.sqrt(dx*dx+dy*dy); const ring=(Math.sin(d*1.6)+1)/2; px(x,y, shade(0xa9834f,0.7+ring*0.4+rnd()*0.08)); } },
-    wood_side(px){ const rnd=trng(52); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const grain=(Math.sin(x*1.7)+1)/2; px(x,y, shade(0x7a5a34,0.72+grain*0.34+rnd()*0.08)); } },
-    leaves(px){ const rnd=trng(61); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); if(n>0.14) px(x,y, shade(0x3f7a3f,0.7+n*0.5)); else px(x,y, "rgba(0,0,0,0)"); } },
-    plank(px){ const rnd=trng(71);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(0xb08a52,0.82+rnd()*0.28)); }
-      for(let y=0;y<TILE;y+=4)for(let x=0;x<TILE;x++) px(x,y, shade(0x6b5330,1));
-      for(let x=3;x<TILE;x+=6)for(let y=0;y<TILE;y++) px(x,y, shade(0x6b5330,1)); },
-    water(px){ const rnd=trng(81); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const w=(Math.sin((x+y)*0.8)+1)/2; px(x,y, shade(0x2970da,0.85+w*0.25+rnd()*0.05)); } },
-    glass(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const edge=(x===0||y===0||x===TILE-1||y===TILE-1); px(x,y, edge? shade(0xbfe3ef,1) : "rgba(191,227,239,0.15)"); }
-      for(let i=0;i<TILE;i++){ px(i,i,"rgba(255,255,255,0.4)"); } },
-    brick(px){ const rnd=trng(101);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9c4a3a,0.85+rnd()*0.2));
-      for(let y=0;y<TILE;y+=4){ for(let x=0;x<TILE;x++) px(x,y, shade(0xcfc3b0,1)); }
-      for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(0xcfc3b0,1)); } },
-    _ore(px, seed, mineral){ const rnd=trng(seed);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8a8a,0.82+n*0.34)); if(n>0.95) px(x,y, shade(0x6e6e6e,1)); }
-      const r2=trng(seed+5);
-      for(let i=0;i<10;i++){ const bx=(r2()*(TILE-3))|0, by=(r2()*(TILE-3))|0, s=1+((r2()*2)|0);
-        for(let dx=0;dx<=s;dx++)for(let dy=0;dy<=s;dy++){ if(r2()>0.35) px(bx+dx,by+dy, shade(mineral,0.7+r2()*0.5)); } } },
-    coal_ore(px){ painters._ore(px, 201, 0x2a2a2a); },
-    iron_ore(px){ painters._ore(px, 202, 0xc99a6a); },
-    gold_ore(px){ painters._ore(px, 203, 0xf2d24a); },
-    diamond_ore(px){ painters._ore(px, 204, 0x6fe6e0); },
-    cobble(px){ const rnd=trng(211);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x808080,0.7+rnd()*0.5));
-      const r2=trng(219);
-      for(let i=0;i<26;i++){ const bx=(r2()*TILE)|0, by=(r2()*TILE)|0; px(bx,by, shade(0x4a4a4a,1)); } },
-    stone_brick(px){ const rnd=trng(221);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x8f8f8f,0.85+rnd()*0.2));
-      for(let y=0;y<TILE;y+=8) for(let x=0;x<TILE;x++) px(x,y, shade(0x5f5f5f,1));
-      for(let x=0;x<TILE;x+=8) for(let y=0;y<TILE;y++) px(x,y, shade(0x5f5f5f,1)); },
-    mossy_brick(px){ const rnd=trng(231);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const moss=rnd()>0.7; px(x,y, moss? shade(0x5a7a3a,0.7+rnd()*0.4) : shade(0x8f8f8f,0.85+rnd()*0.2)); }
-      for(let y=0;y<TILE;y+=8) for(let x=0;x<TILE;x++) px(x,y, shade(0x4f5f3f,1));
-      for(let x=0;x<TILE;x+=8) for(let y=0;y<TILE;y++) px(x,y, shade(0x4f5f3f,1)); },
-    sandstone(px){ const rnd=trng(241);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0xd9c88f,0.9+rnd()*0.16));
-      for(let y=0;y<TILE;y+=5) for(let x=0;x<TILE;x++) px(x,y, shade(0xc0ad74,1)); },
-    dark_brick(px){ const rnd=trng(251);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x5a3a34,0.82+rnd()*0.24));
-      for(let y=0;y<TILE;y+=4) for(let x=0;x<TILE;x++) px(x,y, shade(0x3a241f,1));
-      for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(0x3a241f,1)); } },
-    torch(px){
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y,"rgba(0,0,0,0)");
-      for(let y=6;y<TILE;y++){ px(7,y, shade(0x7a5a34,1)); px(8,y, shade(0x8a6a44,1)); }
-      for(let y=2;y<7;y++)for(let x=6;x<10;x++){ const c = y<4?0xfff2a0 : 0xff9030; px(x,y, shade(c, 0.9+Math.random()*0.2)); }
-      px(7,1, shade(0xffe070,1)); px(8,1, shade(0xffe070,1)); },
-    glowstone(px){ const rnd=trng(261);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0xf7e08a,0.7+n*0.5)); if(n>0.8) px(x,y, shade(0xfff4c0,1)); } },
-    _noise(px,base,seed,amt){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(base, (1-amt/2)+rnd()*amt)); } },
-    _speck(px,base,seed,dark){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(base,0.85+n*0.3)); if(n>0.9) px(x,y, shade(dark,1)); } },
-    _planks(px,base,seed){ const rnd=trng(seed);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.85+rnd()*0.22));
-      for(let y=0;y<TILE;y+=4) for(let x=0;x<TILE;x++) px(x,y, shade(base,0.55));
-      for(let x=3;x<TILE;x+=6) for(let y=0;y<TILE;y++) px(x,y, shade(base,0.55)); },
-    _bricks(px,base,seed,mortar){ const rnd=trng(seed);
-      for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.85+rnd()*0.2));
-      for(let y=0;y<TILE;y+=4){ for(let x=0;x<TILE;x++) px(x,y, shade(mortar,1)); }
-      for(let y=0;y<TILE;y+=4){ const off=((y/4)&1)?4:0; for(let x=off;x<TILE;x+=8) for(let yy=0;yy<4;yy++) if(y+yy<TILE) px(x,y+yy, shade(mortar,1)); } },
-    _polished(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.92+rnd()*0.12));
-      for(let i=0;i<TILE;i++){ px(0,i,shade(base,1.1)); px(i,0,shade(base,1.1)); } },
-    _wool(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(base,0.86+n*0.24)); if(n>0.85) px(x,y, shade(base,0.7)); } },
-    _log_top(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const dx=x-7.5,dy=y-7.5; const d=Math.sqrt(dx*dx+dy*dy); const ring=(Math.sin(d*1.6)+1)/2; px(x,y, shade(base,0.72+ring*0.36+rnd()*0.08)); } },
-    _log_side(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const grain=(Math.sin(x*1.7)+1)/2; px(x,y, shade(base,0.74+grain*0.3+rnd()*0.08)); } },
-    _metal(px,base,seed){ const rnd=trng(seed); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(base,0.9+rnd()*0.14));
-      for(let i=0;i<TILE;i++){ px(i,0,shade(base,1.15)); px(0,i,shade(base,1.15)); px(i,TILE-1,shade(base,0.7)); px(TILE-1,i,shade(base,0.7)); } },
-
-    birch_top(px){ painters._log_top(px,0xe8dcc0,301); },
-    birch_side(px){ const rnd=trng(302); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(0xd8cba8,0.88+rnd()*0.16)); if(rnd()>0.94) px(x,y, shade(0x3a3a3a,1)); } },
-    spruce_top(px){ painters._log_top(px,0x5a3f28,303); },
-    spruce_side(px){ painters._log_side(px,0x4a3420,304); },
-    granite(px){ painters._speck(px,0xa06a54,311,0x804a38); },
-    andesite(px){ painters._speck(px,0x8a8a90,312,0x6a6a70); },
-    diorite(px){ painters._speck(px,0xdcdcdc,313,0xffffff); },
-    gravel(px){ const rnd=trng(314); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x8a8078,0.7+n*0.5)); if(n>0.85) px(x,y, shade(0x5a544e,1)); } },
-    clay(px){ painters._noise(px,0xa0a6b0,315,0.16); },
-    snow(px){ painters._noise(px,0xf4f8ff,316,0.1); },
-    obsidian(px){ const rnd=trng(317); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x1a1428,0.7+n*0.6)); if(n>0.9) px(x,y, shade(0x5a4a80,1)); } },
-    birch_plank(px){ painters._planks(px,0xe4d8b8,321); },
-    spruce_plank(px){ painters._planks(px,0x6a4f34,322); },
-    pol_granite(px){ painters._polished(px,0xb47a64,323); },
-    pol_andesite(px){ painters._polished(px,0x9a9aa0,324); },
-    pol_diorite(px){ painters._polished(px,0xececec,325); },
-    terracotta(px){ painters._noise(px,0xb06a4a,326,0.18); },
-    ice(px){ const rnd=trng(327); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9cc8f0,0.9+rnd()*0.14)); for(let i=0;i<TILE;i++) px(i,i,shade(0xd0e8ff,1)); },
-    packed_snow(px){ painters._noise(px,0xeef4ff,328,0.08); },
-    chiseled_sandstone(px){ const rnd=trng(329); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0xcab878,0.9+rnd()*0.14));
-      for(let i=0;i<TILE;i++){ px(2,i,shade(0xa89858,1)); px(TILE-3,i,shade(0xa89858,1)); px(i,7,shade(0xa89858,1)); } },
-    smooth_stone(px){ painters._noise(px,0x9a9a9a,330,0.12); },
-    craft_top(px){ const rnd=trng(331); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a6a3a,0.85+rnd()*0.2));
-      for(let i=0;i<TILE;i++){ px(TILE/2|0,i,shade(0x5a3a1a,1)); px(i,TILE/2|0,shade(0x5a3a1a,1)); } },
-    craft_side(px){ painters._planks(px,0x8a5a2a,332); for(let x=2;x<7;x++)for(let y=2;y<7;y++) if((x+y)%2) px(x,y,shade(0x5a3a1a,1)); },
-    furnace_top(px){ const rnd=trng(333); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x6a6a6a,0.85+rnd()*0.2));
-      for(let i=4;i<12;i++){ px(i,4,shade(0x3a3a3a,1)); px(i,11,shade(0x3a3a3a,1)); px(4,i,shade(0x3a3a3a,1)); px(11,i,shade(0x3a3a3a,1)); } },
-    furnace_side(px){ const rnd=trng(334); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x5a5a5a,0.85+rnd()*0.2));
-      for(let x=5;x<11;x++)for(let y=8;y<13;y++) px(x,y, shade(0x2a2a2a,1));
-      for(let x=6;x<10;x++) px(x,12,shade(0xff8030,1)); },
-    chest_top(px){ const rnd=trng(335); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a7040,0.85+rnd()*0.2));
-      for(let i=0;i<TILE;i++){ px(i,0,shade(0x6a4a20,1)); px(i,TILE-1,shade(0x6a4a20,1)); } },
-    chest_side(px){ const rnd=trng(336); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x8a6030,0.85+rnd()*0.2));
-      for(let i=0;i<TILE;i++){ px(i,7,shade(0x5a3a1a,1)); px(i,8,shade(0x5a3a1a,1)); }
-      for(let y=6;y<11;y++){ px(7,y,shade(0x3a2a10,1)); px(8,y,shade(0xf2d24a,1)); } },
-    bookshelf(px){ const rnd=trng(337); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y, shade(0x9a6a3a,0.85+rnd()*0.2));
-      for(let x=0;x<TILE;x++){ px(x,0,shade(0x6a4a20,1)); px(x,7,shade(0x6a4a20,1)); px(x,8,shade(0x6a4a20,1)); px(x,TILE-1,shade(0x6a4a20,1)); }
-      const cols=[0xb03030,0x3050b0,0x40904a,0xe0c040,0x8a3a8a];
-      for(let x=1;x<TILE-1;x+=2){ const c=cols[(x*7)%cols.length]; for(let y=1;y<7;y++) px(x,y,shade(c,0.8+rnd()*0.4)); for(let y=9;y<TILE-1;y++) px(x,y,shade(cols[(x*3)%cols.length],0.8+rnd()*0.4)); } },
-    ladder(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++) px(x,y,"rgba(0,0,0,0)");
-      for(let y=0;y<TILE;y++){ px(3,y,shade(0x9a7b4a,1)); px(12,y,shade(0x9a7b4a,1)); }
-      for(let y=2;y<TILE;y+=4)for(let x=3;x<=12;x++) px(x,y,shade(0xb08a52,1)); },
-    iron_block(px){ painters._metal(px,0xe8e8e8,338); },
-    gold_block(px){ painters._metal(px,0xf2d24a,339); },
-    diamond_block(px){ painters._metal(px,0x6fe6e0,340); },
-    glass_pane(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const edge=(x<2||x>TILE-3); px(x,y, edge? shade(0xcfe8f0,1):"rgba(207,232,240,0.2)"); } },
-    wool_white(px){ painters._wool(px,0xf0f0f0,350); },
-    wool_red(px){ painters._wool(px,0xb03030,351); },
-    wool_blue(px){ painters._wool(px,0x3050b0,352); },
-    wool_green(px){ painters._wool(px,0x40904a,353); },
-    wool_yellow(px){ painters._wool(px,0xe0c040,354); },
-    wool_black(px){ painters._wool(px,0x2a2a2a,355); },
-  };
-
-  const TILE_NAMES = Object.keys(painters).filter(k => !k.startsWith('_'));
+  const TILE_NAMES = Object.keys(PAINTERS).filter(k => !k.startsWith('_'));
   TILE_NAMES.forEach((name,i)=>{
     const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
-    paintTile(ctx, col, row, painters[name]||painters.stone);
+    paintTile(ctx, col, row, PAINTERS[name]||PAINTERS.stone);
   });
-
   const tex=new THREE.CanvasTexture(cv);
   tex.magFilter=THREE.NearestFilter;
   tex.minFilter=THREE.NearestFilter;
