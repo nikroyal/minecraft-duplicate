@@ -381,7 +381,9 @@ function skyState(t){
 const dayColor = new THREE.Color(0xfff0d8), nightColor = new THREE.Color(0x9fb6e0);
 
 function updateDayNight(dt){
-  game.timeOfDay = (game.timeOfDay + dt/DAY_LENGTH) % 1;
+  if (!game.timeFrozen && !game.paused) {
+    game.timeOfDay = (game.timeOfDay + dt/DAY_LENGTH) % 1;
+  }
   const s = skyState(game.timeOfDay);
 
   webgl.renderer.setClearColor(s.sky);
