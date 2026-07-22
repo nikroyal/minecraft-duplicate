@@ -1425,19 +1425,18 @@ export function bootGame() {
 
   // Action listeners (left/right click)
   window.addEventListener("mousedown", (e) => {
-    if(player.dead) return;
+    if(player.dead || !game.running || isMenuOpen()) return;
+
     if(document.pointerLockElement !== webgl.renderer.domElement){
       // Click on canvas when pointer not locked: re-acquire lock
-      if(!touch.isTouch && game.running && !isMenuOpen()) {
+      if(!touch.isTouch) {
         game.paused = false;
         try {
           const promise = document.getElementById('game')?.requestPointerLock();
           if (promise && typeof promise.catch === 'function') promise.catch(() => {});
         } catch(err){}
       }
-      return;
     }
-    if(getCraftOpen() || isMenuOpen()) return;
 
     if(e.button === 0){ // Left Click: mine / attack
       if(player.swingProgress === 0) player.swingProgress = 0.01;
