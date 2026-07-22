@@ -170,6 +170,7 @@ export function flashDamage() {
 }
 
 export function toast(msg) {
+  if (typeof document === 'undefined' || !document.body || typeof document.body.appendChild !== 'function') return;
   const el = document.createElement("div");
   el.className = "toast";
   el.textContent = msg;
