@@ -234,6 +234,12 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#33ff33' }}>
             <strong>Active Colliders ({window.__physicsTelemetry.collidersCount}):</strong> {window.__physicsTelemetry.collidersList}
           </div>
+          <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#ffaa00' }}>
+            <strong>⚠ CHUNK PIPELINE SYNC</strong>
+          </div>
+          <div><strong>Dirty Chunks:</strong> <span style={{ color: window.__physicsTelemetry.dirtyChunks > 0 ? '#ff6b35' : '#4cd964' }}>{window.__physicsTelemetry.dirtyChunks}</span> {window.__physicsTelemetry.dirtyCxCz}</div>
+          <div><strong>Last Water Tick:</strong> {window.__physicsTelemetry.lastWaterTick}</div>
+          <div><strong>Last Mesh Rebuild:</strong> {window.__physicsTelemetry.lastMeshRebuild}</div>
         </div>
       )}
     </div>

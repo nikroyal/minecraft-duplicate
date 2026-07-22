@@ -1058,7 +1058,7 @@ export function processGenBudget(){
     if(!ch.generated) generateChunk(ch);
     genBudget--;
   }
-  let meshBudget=3;
+  let meshBudget=6; // Increased: water can dirty many chunks per tick
   const pcx=Math.floor(player.pos.x/CHUNK), pcz=Math.floor(player.pos.z/CHUNK);
   const dirty=[];
   for(const ch of world.chunks.values()){
@@ -1074,8 +1074,14 @@ export function processGenBudget(){
       return nc && nc.generated;
     });
     if(!nAll && !queueEmpty) continue;
-    if(!ch.lit) computeChunkLight(ch);
+    // Always relight before meshing (water/block changes invalidate lighting)
+    computeChunkLight(ch);
+    ch.lit = true;
     updateChunkMesh(ch);
+    // Debug: record rebuild events
+    if (typeof window !== 'undefined') {
+      window.__lastMeshRebuild = { cx: ch.cx, cz: ch.cz, t: performance.now() };
+    }
     meshBudget--;
   }
 }
@@ -1572,7 +1578,32 @@ export function tickWater(){
       if(fed && minD<=MAX_FLOW){ setWater(x,y,z,minD); changed.add(wkey(x,y,z)); queueWater(x,y,z); }
     }
   }
-  const chunks=new Set();
-  for(const k of changed){ const [x,,z]=k.split(",").map(Number); chunks.add(keyOf(Math.floor(x/CHUNK),Math.floor(z/CHUNK))); }
-  for(const ck of chunks){ const [cx,cz]=ck.split(",").map(Number); const ch=getChunk(cx,cz); if(ch&&ch.generated){ computeChunkLight(ch); updateChunkMesh(ch); } }
+
+  // Mark ALL affected chunks AND their 4 neighbors dirty.
+  // Do NOT call updateChunkMesh directly — let processGenBudget handle rebuilds
+  // in order, so render mesh, water mesh, and collision (voxel-based) always match.
+  const dirtyChunks = new Set();
+  for(const k of changed){
+    const [x,,z]=k.split(",").map(Number);
+    const cx = Math.floor(x/CHUNK), cz = Math.floor(z/CHUNK);
+    dirtyChunks.add(keyOf(cx, cz));
+    // Always dirty neighbors — water can expose neighbor faces
+    dirtyChunks.add(keyOf(cx-1, cz));
+    dirtyChunks.add(keyOf(cx+1, cz));
+    dirtyChunks.add(keyOf(cx, cz-1));
+    dirtyChunks.add(keyOf(cx, cz+1));
+  }
+  for(const ck of dirtyChunks){
+    const [cx,cz]=ck.split(",").map(Number);
+    const ch=getChunk(cx,cz);
+    if(ch && ch.generated){
+      ch.dirty = true;  // Let processGenBudget rebuild on next frame
+      ch.lit   = false; // Also force a light recompute
+    }
+  }
+
+  // Debug telemetry
+  if (typeof window !== 'undefined') {
+    window.__lastWaterTick = { changed: changed.size, dirtyChunks: dirtyChunks.size };
+  }
 }

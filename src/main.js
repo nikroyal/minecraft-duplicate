@@ -1193,6 +1193,16 @@ function loop(now){
     const inWater = (feetB === 8 || headB === 8);
     const cameraSync = (Math.abs(webgl.camera.position.x - player.pos.x) < 0.05 && Math.abs(webgl.camera.position.z - player.pos.z) < 0.05) ? "SYNC OK" : "DRIFT WARNING";
 
+    // Count dirty chunks for sync debug
+    let dirtyChunkCount = 0;
+    const dirtyCxCz = [];
+    for (const ch of world.chunks.values()) {
+      if (ch.generated && ch.dirty) {
+        dirtyChunkCount++;
+        dirtyCxCz.push(`(${ch.cx},${ch.cz})`);
+      }
+    }
+
     window.__physicsTelemetry = {
       grounded: player.onGround,
       velY: player.vel.y.toFixed(2),
@@ -1206,6 +1216,11 @@ function loop(now){
       collidersCount: colliders.length,
       collidersList: colliders.map(c => `${c.name} [${c.x},${c.y},${c.z}]`).join(", ") || "None",
       cameraSync,
+      // Chunk pipeline sync
+      dirtyChunks: dirtyChunkCount,
+      dirtyCxCz: dirtyCxCz.slice(0, 6).join(" ") || "None",
+      lastWaterTick: window.__lastWaterTick ? `Δ${window.__lastWaterTick.changed} blocks, ${window.__lastWaterTick.dirtyChunks} chunks` : "n/a",
+      lastMeshRebuild: window.__lastMeshRebuild ? `(${window.__lastMeshRebuild.cx},${window.__lastMeshRebuild.cz}) ${(performance.now() - window.__lastMeshRebuild.t).toFixed(0)}ms ago` : "n/a",
     };
   } else if (webgl.debugGroup) {
     webgl.debugGroup.visible = false;
