@@ -1401,19 +1401,19 @@ export function bootGame() {
 
   document.addEventListener("pointerlockchange", () => {
     game.pointerLocked = (document.pointerLockElement === webgl.renderer.domElement);
-    // IMPORTANT: Do NOT set game.running = false here.
-    // The browser exits pointer lock when:
-    //   a) User presses Escape (should just pause/show resume prompt, not kill session)
-    //   b) A menu opens and calls exitPointerLock() (menu handles its own state)
-    //   c) Window loses focus (should pause, not kill session)
-    // We track pointerLocked separately and show a "click to resume" overlay
-    // when lock is lost unexpectedly (no menu open, not dead).
     if (!game.pointerLocked && !isMenuOpen() && !player.dead && game.running) {
       game.paused = true; // Pause physics/input, show resume overlay
     } else if (game.pointerLocked) {
       game.paused = false; // Lock regained - resume
     }
     if (reactBridge.updateUI) reactBridge.updateUI();
+  });
+
+  document.addEventListener("pointerlockerror", () => {
+    if (!document.pointerLockElement && !isMenuOpen() && !player.dead && game.running) {
+      game.paused = true;
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    }
   });
 
   // Prevent right-click browser context menu on all document (not just canvas)
