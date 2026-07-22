@@ -559,8 +559,7 @@ export function createWaterMaterial() {
 
       // Micro wave height displacement on top exposed water faces
       if (normal.y > 0.5) {
-        float wave = sin(pos.x * 2.5 + uTime * 2.2) * cos(pos.z * 2.5 + uTime * 1.8) * 0.025;
-        wave += sin((pos.x + pos.z) * 1.8 + uTime * 1.5) * 0.015;
+        float wave = sin(pos.x * 2.0 + uTime * 1.8) * cos(pos.z * 2.0 + uTime * 1.4) * 0.015;
         pos.y += wave;
       }
 
@@ -592,24 +591,23 @@ export function createWaterMaterial() {
       vec2 flowUV;
       if (faceType > 0.5) {
         // Vertical waterfall face: scroll downward in Y
-        flowUV = vec2(worldPos.x + worldPos.z, worldPos.y + time * 1.8);
+        flowUV = vec2(worldPos.x + worldPos.z, worldPos.y + time * 1.5);
       } else {
-        // Top surface face: scroll horizontally
-        flowUV = worldPos.xz * 1.5 + vec2(time * 0.4, time * 0.3);
+        // Top surface face: subtle horizontal drift
+        flowUV = worldPos.xz * 1.2 + vec2(time * 0.3, time * 0.2);
       }
 
-      // Layer 1: Medium ripple waves
-      float n1 = sin(flowUV.x * 4.0 + flowUV.y * 3.0 + time * 1.2);
-      float n2 = cos(flowUV.x * 5.0 - flowUV.y * 4.0 - time * 1.6);
+      // Layer 1: Subtle medium ripple waves
+      float n1 = sin(flowUV.x * 3.5 + flowUV.y * 2.8 + time * 1.2);
+      float n2 = cos(flowUV.x * 4.2 - flowUV.y * 3.5 - time * 1.4);
       
-      // Layer 2: Fine detail ripples
-      vec2 fineUV = flowUV * 2.8 - vec2(time * 0.6, time * 0.5);
-      float n3 = sin(fineUV.x * 8.0 + fineUV.y * 6.0);
-      float n4 = cos(fineUV.x * 7.0 - fineUV.y * 9.0);
+      // Layer 2: Fine micro ripples
+      vec2 fineUV = flowUV * 2.2 - vec2(time * 0.4, time * 0.3);
+      float n3 = sin(fineUV.x * 6.0 + fineUV.y * 5.0);
 
       vec2 bump = vec2(
-        (n1 * 0.04 + n3 * 0.02) * abs(N.y) + (n2 * 0.04) * (1.0 - abs(N.y)),
-        (n2 * 0.04 + n4 * 0.02) * abs(N.y) + (n1 * 0.04) * (1.0 - abs(N.y))
+        (n1 * 0.015 + n3 * 0.008) * abs(N.y) + (n2 * 0.015) * (1.0 - abs(N.y)),
+        (n2 * 0.015 + n3 * 0.008) * abs(N.y) + (n1 * 0.015) * (1.0 - abs(N.y))
       );
 
       return normalize(vec3(N.x + bump.x, N.y, N.z + bump.y));
@@ -619,33 +617,31 @@ export function createWaterMaterial() {
       vec3 V = normalize(uCameraPos - vWorldPos);
       vec3 N = getWaterNormal(vWorldPos, vNormal, uTime, vFaceType);
 
-      // Schlick Fresnel approximation
+      // Schlick Fresnel approximation with F0 = 0.02 (water IOR ~1.33)
       float dotNV = clamp(dot(N, V), 0.0, 1.0);
-      float fresnel = 0.04 + 0.96 * pow(1.0 - dotNV, 4.0);
+      float F0 = 0.02;
+      float fresnel = F0 + (1.0 - F0) * pow(1.0 - dotNV, 5.0);
 
-      // Depth-based color attenuation simulation
-      float depthEst = clamp((44.0 - vWorldPos.y) * 0.04 + (1.0 - dotNV) * 0.35, 0.0, 1.0);
-      
-      // Shallow turquoise to deep blue gradient
+      // Light, clear Minecraft depth-based color gradient
+      float depthEst = clamp((40.0 - vWorldPos.y) * 0.025 + (1.0 - dotNV) * 0.2, 0.0, 1.0);
       vec3 baseWaterColor = mix(uShallowColor, uDeepColor, depthEst);
 
-      // Ambient & Sun lighting response
-      float diff = max(dot(N, uSunDir), 0.15);
-      vec3 litWaterColor = baseWaterColor * (0.55 + diff * 0.45);
+      // Soft diffuse ambient lighting response
+      float diff = max(dot(N, uSunDir), 0.3);
+      vec3 litWaterColor = baseWaterColor * mix(0.75, 1.0, diff);
 
-      // Sky & sun reflection at grazing angles
-      vec3 skyReflection = mix(uSkyColor, vec3(1.0, 0.96, 0.88), fresnel * 0.3);
-      vec3 colorWithReflection = mix(litWaterColor, skyReflection, fresnel * 0.55);
+      // Subtle sky reflection blended via Fresnel (not overwhelming transparency)
+      vec3 colorWithReflection = mix(litWaterColor, uSkyColor, fresnel * 0.25);
 
-      // Blinn-Phong specular highlight for sun/moon reflection
+      // Tightened Blinn-Phong specular glint (high exponent 384.0, low strength for subtle sun glints)
       vec3 H = normalize(uSunDir + V);
-      float spec = pow(max(dot(N, H), 0.0), 160.0);
-      vec3 specularColor = uSunColor * spec * (0.5 + fresnel * 0.5) * 1.8;
+      float spec = pow(max(dot(N, H), 0.0), 384.0);
+      vec3 specularColor = uSunColor * spec * 0.35;
 
       vec3 finalColor = colorWithReflection + specularColor;
 
-      // Transparency: highly transparent looking down (~0.52), more opaque at grazing angles (~0.85)
-      float alpha = mix(0.52, 0.85, fresnel);
+      // Subtle Minecraft transparency: 40% opaque looking down, up to 65% at grazing angles
+      float alpha = mix(0.40, 0.65, fresnel);
 
       gl_FragColor = vec4(finalColor, alpha);
     }
@@ -658,10 +654,10 @@ export function createWaterMaterial() {
       uTime: { value: 0 },
       uCameraPos: { value: new THREE.Vector3() },
       uSunDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
-      uSunColor: { value: new THREE.Color(0xfff2cc) },
-      uSkyColor: { value: new THREE.Color(0x8fc3e8) },
-      uShallowColor: { value: new THREE.Color(0x28d0df) }, // Vibrant turquoise
-      uDeepColor: { value: new THREE.Color(0x0b336d) },    // Rich deep blue
+      uSunColor: { value: new THREE.Color(0xfff5e0) },
+      uSkyColor: { value: new THREE.Color(0x7ec0ee) },
+      uShallowColor: { value: new THREE.Color(0x4ecce6) }, // Lighter, vibrant cyan
+      uDeepColor: { value: new THREE.Color(0x2678b8) },    // Light, clear ocean blue
       uTimeOfDay: { value: 0.3 },
     },
     transparent: true,
