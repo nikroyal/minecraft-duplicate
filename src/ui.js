@@ -65,11 +65,13 @@ export function openCraft() {
 
 function requestLockOrPause() {
   if (!touch.isTouch && game.running) {
-    game.paused = false;
     try {
       const promise = webgl.renderer?.domElement ? webgl.renderer.domElement.requestPointerLock() : document.getElementById('game')?.requestPointerLock();
       if (promise && typeof promise.catch === 'function') promise.catch(() => {});
     } catch(e){}
+    if (!document.pointerLockElement) {
+      game.paused = true;
+    }
   }
 }
 
