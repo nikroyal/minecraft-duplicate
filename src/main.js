@@ -852,6 +852,7 @@ export function placeBlock(){
   }
 
   const [x, y, z] = r.prev;
+  const id = heldId;
   
   if(!isPlaceable(heldId)){ toast(`${thingName(heldId)} can't be placed`); return; }
   if(game.survival && invCount(heldId) <= 0){ toast(`out of ${thingName(heldId)}`); return; }
@@ -1423,8 +1424,7 @@ export function bootGame() {
   });
 
   // Action listeners (left/right click)
-  webgl.renderer.domElement.addEventListener("mousedown", (e) => {
-    e.preventDefault(); // Prevent focus-related issues
+  window.addEventListener("mousedown", (e) => {
     if(player.dead) return;
     if(document.pointerLockElement !== webgl.renderer.domElement){
       // Click on canvas when pointer not locked: re-acquire lock
@@ -1445,6 +1445,7 @@ export function bootGame() {
         mining.held = true;
       }
     } else if(e.button === 2){ // Right Click: place block / interact
+      e.preventDefault();
       placeBlock();
     }
   });
