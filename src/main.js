@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { keys, touch, player, inventory, hotbar, game, webgl, avatarCallbacks, world, reactBridge, toolDurability, crops, achievements } from './state.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, BLOCKS, ITEMS, parentTiles, 
-  tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe, thingColor
+  tileFor, tileUV, isSolid, isPlaceable, thingName, resolveRecipe, thingColor, surfaceHeight
 } from './config.js';
 import { 
   Chunk, getChunk, generateChunk, getBlock, setBlock, getLightGlobal, 
