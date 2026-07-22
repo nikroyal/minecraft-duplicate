@@ -83,18 +83,21 @@ export function updateItemDrops(dt) {
 
   for (let i = itemDrops.length - 1; i >= 0; i--) {
     const d = itemDrops[i];
-    d.mesh.rotation.y += dt * 3.0;
+    d.mesh.rotation.y += dt * 3.5;
 
     const dist = d.pos.distanceTo(playerTarget);
-    if (dist < 2.4 && now - d.spawnTime > 400 && !player.dead) {
-      d.pos.lerp(playerTarget, dt * 7.5);
+    // Magnet pull triggers up to 7.0 blocks away (covers full 6-block mining reach)
+    if (dist < 7.0 && now - d.spawnTime > 150 && !player.dead) {
+      // Faster lerp for smooth magnetic pull
+      d.pos.lerp(playerTarget, dt * 9.0);
       d.mesh.position.copy(d.pos);
-      if (dist < 0.65) {
+      // Collect item when within 1.0 block radius
+      if (dist < 1.0) {
         addItem(d.id, d.count);
         toast(`Picked up +${d.count} ${thingName(d.id)}`);
         webgl.scene.remove(d.mesh);
-        d.mesh.geometry.dispose();
-        d.mesh.material.dispose();
+        if (d.mesh.geometry) d.mesh.geometry.dispose();
+        if (d.mesh.material) d.mesh.material.dispose();
         itemDrops.splice(i, 1);
         if (reactBridge.updateUI) reactBridge.updateUI();
         continue;
@@ -102,7 +105,9 @@ export function updateItemDrops(dt) {
     } else {
       d.vel.y += -22 * dt; // Gravity
       d.pos.addScaledVector(d.vel, dt);
-      if (isSolid(getBlock(Math.floor(d.pos.x), Math.floor(d.pos.y), Math.floor(d.pos.z)))) {
+      const bx = Math.floor(d.pos.x), by = Math.floor(d.pos.y), bz = Math.floor(d.pos.z);
+      if (isSolid(getBlock(bx, by, bz))) {
+        d.pos.y = by + 1.05; // Rest on top of block surface, don't embed inside floor
         d.vel.set(0, 0, 0);
       }
       d.mesh.position.copy(d.pos);
@@ -138,17 +143,15 @@ export function updateXpOrbs(dt) {
     orb.mesh.rotation.y += dt * 5.0;
 
     const dist = orb.pos.distanceTo(pTarget);
-    if (dist < 3.2 && now - orb.spawnTime > 300 && !player.dead) {
-      orb.pos.lerp(pTarget, dt * 9.0);
+    if (dist < 7.0 && now - orb.spawnTime > 150 && !player.dead) {
+      orb.pos.lerp(pTarget, dt * 10.0);
       orb.mesh.position.copy(orb.pos);
-      if (dist < 0.65) {
+      if (dist < 0.9) {
         player.xp = (player.xp || 0) + 1;
-        const levelReq = ((player.level || 0) + 1) * 10;
-        if (player.xp >= levelReq) {
-          player.xp -= levelReq;
+        if (player.xp >= (player.level + 1) * 10) {
+          player.xp = 0;
           player.level = (player.level || 0) + 1;
-          toast(`🌟 LEVEL UP! You are now Level ${player.level}!`);
-          unlockAchievement(10, "Experience Master", "Reach Level 1 or higher.");
+          toast(`Level Up! Level ${player.level}`);
         }
         webgl.scene.remove(orb.mesh);
         game.xpOrbs.splice(i, 1);
@@ -158,7 +161,9 @@ export function updateXpOrbs(dt) {
     } else {
       orb.vel.y += -18 * dt;
       orb.pos.addScaledVector(orb.vel, dt);
-      if (isSolid(getBlock(Math.floor(orb.pos.x), Math.floor(orb.pos.y), Math.floor(orb.pos.z)))) {
+      const bx = Math.floor(orb.pos.x), by = Math.floor(orb.pos.y), bz = Math.floor(orb.pos.z);
+      if (isSolid(getBlock(bx, by, bz))) {
+        orb.pos.y = by + 1.05;
         orb.vel.set(0, 0, 0);
       }
       orb.mesh.position.copy(orb.pos);
