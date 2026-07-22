@@ -893,6 +893,10 @@ function loop(now){
     }
     if (webgl.scene && webgl.scene.fog) webgl.waterMat.uniforms.uSkyColor.value.copy(webgl.scene.fog.color);
     if (typeof game.timeOfDay === 'number') webgl.waterMat.uniforms.uTimeOfDay.value = game.timeOfDay;
+    // Debug face-type coloring: toggle via window.__waterDebug = true in console
+    // Green=top(exposed), Cyan=side(waterfall/wall), Orange=bottom
+    // Any internal planes will appear as cyan inside a body of water
+    webgl.waterMat.uniforms.uDebugFaces.value = Boolean(window.__waterDebug);
   }
 
   // Dynamic Sprinting FOV Stretch interpolation

@@ -545,6 +545,7 @@ export function buildChunkMesh(ch){
 export function createWaterMaterial() {
   const vertexShader = `
     uniform float uTime;
+    uniform bool uDebugFaces;
     attribute float aFaceType;
 
     varying vec3 vWorldPos;
@@ -557,7 +558,7 @@ export function createWaterMaterial() {
       vFaceType = aFaceType;
       vec3 pos = position;
 
-      // Micro wave height displacement on top exposed water faces
+      // Wave displacement only on top faces (normal.y > 0 = +Y normal, correct after winding fix)
       if (normal.y > 0.5) {
         float wave = sin(pos.x * 2.0 + uTime * 1.8) * cos(pos.z * 2.0 + uTime * 1.4) * 0.015;
         pos.y += wave;
@@ -580,28 +581,25 @@ export function createWaterMaterial() {
     uniform vec3 uShallowColor;
     uniform vec3 uDeepColor;
     uniform float uTimeOfDay;
+    uniform bool uDebugFaces;  // When true: color by face type for visual audit
 
     varying vec3 vWorldPos;
     varying vec3 vNormal;
     varying vec2 vUv;
     varying float vFaceType;
 
-    // Procedural dual-layer scrolling normal map for subtle water ripples
     vec3 getWaterNormal(vec3 worldPos, vec3 N, float time, float faceType) {
       vec2 flowUV;
-      if (faceType > 0.5) {
-        // Vertical waterfall face: scroll texture downward in Y according to flow
+      if (faceType > 0.5 && faceType < 1.5) {
+        // Vertical waterfall face (faceType==1): scroll texture downward
         flowUV = vec2(worldPos.x + worldPos.z, worldPos.y * 0.5 - time * 0.6);
       } else {
-        // Top surface face: slowly scrolling horizontal UVs
+        // Top surface face (faceType==0): slowly scrolling horizontal UVs
         flowUV = worldPos.xz * 0.5 + vec2(time * 0.12, time * 0.10);
       }
 
-      // Layer 1: Subtle medium ripple waves
       float n1 = sin(flowUV.x * 3.5 + flowUV.y * 2.8 + time * 1.2);
       float n2 = cos(flowUV.x * 4.2 - flowUV.y * 3.5 - time * 1.4);
-      
-      // Layer 2: Fine micro ripples
       vec2 fineUV = flowUV * 2.2 - vec2(time * 0.4, time * 0.3);
       float n3 = sin(fineUV.x * 6.0 + fineUV.y * 5.0);
 
@@ -609,38 +607,47 @@ export function createWaterMaterial() {
         (n1 * 0.012 + n3 * 0.006) * abs(N.y) + (n2 * 0.012) * (1.0 - abs(N.y)),
         (n2 * 0.012 + n3 * 0.006) * abs(N.y) + (n1 * 0.012) * (1.0 - abs(N.y))
       );
-
       return normalize(vec3(N.x + bump.x, N.y, N.z + bump.y));
     }
 
     void main() {
+      // DEBUG MODE: color faces by type for visual auditing
+      // Top face (0) = bright green, Side face (1) = cyan, Bottom face (2) = orange
+      // Any large planes appearing inside water volume = boundary desync bug
+      if (uDebugFaces) {
+        vec3 debugColor;
+        if (vFaceType < 0.5) {
+          debugColor = vec3(0.0, 1.0, 0.2);   // Green: top face (exposed surface)
+        } else if (vFaceType < 1.5) {
+          debugColor = vec3(0.0, 0.8, 1.0);   // Cyan: side face (waterfall/wall)
+        } else {
+          debugColor = vec3(1.0, 0.5, 0.0);   // Orange: bottom face
+        }
+        gl_FragColor = vec4(debugColor, 0.85);
+        return;
+      }
+
       vec3 V = normalize(uCameraPos - vWorldPos);
       vec3 N = getWaterNormal(vWorldPos, vNormal, uTime, vFaceType);
 
-      // Schlick Fresnel approximation with F0 = 0.02 (water IOR ~1.33)
+      // Schlick Fresnel: F0=0.02 (water IOR ~1.33)
       float dotNV = clamp(dot(N, V), 0.0, 1.0);
       float F0 = 0.02;
       float fresnel = F0 + (1.0 - F0) * pow(1.0 - dotNV, 5.0);
 
-      // Bright, clear Minecraft depth-based color gradient
       float depthEst = clamp((40.0 - vWorldPos.y) * 0.025 + (1.0 - dotNV) * 0.2, 0.0, 1.0);
       vec3 baseWaterColor = mix(uShallowColor, uDeepColor, depthEst);
 
-      // Soft diffuse ambient lighting response
       float diff = max(dot(N, uSunDir), 0.35);
       vec3 litWaterColor = baseWaterColor * mix(0.80, 1.0, diff);
 
-      // Subtle sky reflection blended via Fresnel
       vec3 colorWithReflection = mix(litWaterColor, uSkyColor, fresnel * 0.20);
 
-      // Tightened Blinn-Phong specular glint for direct sunlight
       vec3 H = normalize(uSunDir + V);
       float spec = pow(max(dot(N, H), 0.0), 512.0);
       vec3 specularColor = uSunColor * spec * 0.30;
 
       vec3 finalColor = colorWithReflection + specularColor;
-
-      // Bright, clear Minecraft transparency: 40% opaque looking down, up to 52% at grazing angles
       float alpha = mix(0.40, 0.52, fresnel);
 
       gl_FragColor = vec4(finalColor, alpha);
@@ -656,9 +663,10 @@ export function createWaterMaterial() {
       uSunDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
       uSunColor: { value: new THREE.Color(0xfff5e0) },
       uSkyColor: { value: new THREE.Color(0x7ec0ee) },
-      uShallowColor: { value: new THREE.Color(0x52d4ec) }, // Bright Minecraft cyan
-      uDeepColor: { value: new THREE.Color(0x2882c8) },    // Vibrant clear ocean blue
+      uShallowColor: { value: new THREE.Color(0x52d4ec) },
+      uDeepColor: { value: new THREE.Color(0x2882c8) },
       uTimeOfDay: { value: 0.3 },
+      uDebugFaces: { value: false },  // Toggle via window.__waterDebug = true
     },
     transparent: true,
     side: THREE.DoubleSide,   // Visible from both above AND below water surface
@@ -716,16 +724,19 @@ export function buildWaterGreedyMesh(ch) {
 
         const base = pos.length / 3;
         const yTop = y + 0.875;  // Minecraft water surface is 0.875 of block height
+        // +Y top face: V0→V1→V2→V3 = (x,z)→(x,z+h)→(x+w,z+h)→(x+w,z)
+        // edge1 = +Z, edge2 = +X  →  normal = Z×X = +Y ✓
         pos.push(
           ox + x,     yTop, oz + z,
-          ox + x + w, yTop, oz + z,
+          ox + x,     yTop, oz + z + h,
           ox + x + w, yTop, oz + z + h,
-          ox + x,     yTop, oz + z + h
+          ox + x + w, yTop, oz + z
         );
         norm.push(0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0);
-        uv.push(0, 0,  w, 0,  w, h,  0, h);
+        uv.push(0, 0,  0, h,  w, h,  w, 0);
         faceType.push(0, 0, 0, 0);
         idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        // Verify winding: cross product (Z×X)=(0,0,h)×(w,0,0)=(0*0-h*0, h*w-0*0, 0*0-0*w)=(0,hw,0)=+Y ✓
       }
     }
   }
@@ -774,15 +785,21 @@ export function buildWaterGreedyMesh(ch) {
         }
 
         const base = pos.length / 3;
+        // -Y bottom face: V0→V1→V2→V3 = (x,z+h)→(x+w,z+h)→(x+w,z)→(x,z)
+        // edge1=(x+w,z+h)-(x,z+h)=(w,0,0)=+X, edge2=(x+w,z)-(x+w,z+h)=(0,0,-h)=-Z
+        // normal = (+X)×(-Z) = -(X×Z) = -(-Y) = +... wait: X×Z=(0,-1,0)=-Y. -(-Y)=+Y. No.
+        // We want -Y for bottom face. Use: edge1=+Z, edge2=+X → Z×X = +Y (wrong for -Y).
+        // Correct for -Y: edge1=+X, edge2=+Z → X×Z = -Y ✓
+        // So: V0=(x,z), V1=(x+w,z), V2=(x+w,z+h), V3=(x,z+h)
         pos.push(
-          ox + x,     y, oz + z + h,
-          ox + x + w, y, oz + z + h,
+          ox + x,     y, oz + z,
           ox + x + w, y, oz + z,
-          ox + x,     y, oz + z
+          ox + x + w, y, oz + z + h,
+          ox + x,     y, oz + z + h
         );
         norm.push(0, -1, 0,  0, -1, 0,  0, -1, 0,  0, -1, 0);
         uv.push(0, 0,  w, 0,  w, h,  0, h);
-        faceType.push(0, 0, 0, 0);
+        faceType.push(2, 2, 2, 2); // face type 2 = bottom face
         idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
       }
     }
@@ -1055,7 +1072,17 @@ export function processGenBudget(){
   let genBudget=2;
   while(genBudget>0 && genQueue.length){
     const ch=genQueue.shift();
-    if(!ch.generated) generateChunk(ch);
+    if(!ch.generated){
+      generateChunk(ch);
+      // After generating, mark all already-generated neighbors dirty.
+      // Without this: chunk A meshes with neighbor B unloaded (B appears as AIR),
+      // drawing boundary faces. When B generates later with water, A keeps its
+      // now-interior boundary faces → large vertical planes inside the water volume.
+      for(const [dx,dz] of [[-1,0],[1,0],[0,-1],[0,1]]){
+        const nc=getChunk(ch.cx+dx, ch.cz+dz);
+        if(nc && nc.generated){ nc.dirty=true; nc.lit=false; }
+      }
+    }
     genBudget--;
   }
   let meshBudget=6; // Increased: water can dirty many chunks per tick
