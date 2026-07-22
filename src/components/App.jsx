@@ -330,49 +330,82 @@ export default function App() {
                   {craftTab === 'manual' && (
                     <div className="manual-body" style={{ padding: 0 }}>
                       <h3>🎮 Welcome to Voxel</h3>
-                      <p>Mine resources, craft tools &amp; weapons, build structures, manage hunger and health, and survive hostile mobs through the night.</p>
-                      <h3>⌨️ Controls</h3>
+                      <p>Mine resources, craft tools &amp; weapons, build structures, farm crops, cook in furnaces, manage health and hunger, and survive hostile mobs through the night in an infinitely expandable voxel world.</p>
+                      
+                      <h3>⌨️ Controls &amp; Shortcuts</h3>
                       <ul>
-                        <li><span className="m-key">W A S D</span> Move &nbsp;|&nbsp; <span className="m-key">Space</span> Jump &nbsp;|&nbsp; <span className="m-key">Shift</span> Sprint</li>
-                        <li><span className="m-key">Left-click</span> Mine / attack &nbsp;|&nbsp; <span className="m-key">Right-click</span> Place / interact</li>
-                        <li><span className="m-key">1–8</span> Hotbar &nbsp;|&nbsp; <span className="m-key">Scroll</span> Cycle &nbsp;|&nbsp; <span className="m-key">E</span> Open/close</li>
-                        <li><span className="m-key">Q</span> Eat held food &nbsp;|&nbsp; <span className="m-key">F</span> Fly (creative) &nbsp;|&nbsp; <span className="m-key">Esc</span> Lobby</li>
-                        <li><span className="m-key">H</span> / <span className="m-key">F5</span> Cycle camera view</li>
+                        <li><span className="m-key">W A S D</span> Move &nbsp;|&nbsp; <span className="m-key">Space</span> Jump &nbsp;|&nbsp; <span className="m-key">Ctrl / Shift</span> Sprint</li>
+                        <li><span className="m-key">Left-click</span> Mine block / attack mob (hold to break)</li>
+                        <li><span className="m-key">Right-click</span> Place block / interact (Chest, Furnace, Bed, TNT, Hoe, Seeds)</li>
+                        <li><span className="m-key">1–8</span> Select Hotbar Slot &nbsp;|&nbsp; <span className="m-key">Scroll Wheel</span> Cycle Hotbar</li>
+                        <li><span className="m-key">E</span> Open / Close Handbook (Inventory &amp; Crafting)</li>
+                        <li><span className="m-key">Q</span> Drop 1 held item (or eat food when holding food)</li>
+                        <li><span className="m-key">F</span> Toggle Creative Flying</li>
+                        <li><span className="m-key">F3</span> Toggle 3D Physics Debug Overlay &amp; Telemetry</li>
+                        <li><span className="m-key">F5 / H</span> Cycle Camera View (First-Person, Third-Person Back, Third-Person Front)</li>
+                        <li><span className="m-key">Esc</span> Pause / Open Main Menu / Release Pointer Lock</li>
                       </ul>
-                      <h3>❤️ Health &amp; Hunger</h3>
+
+                      <h3>🏃 Movement &amp; Jump Mechanics</h3>
                       <ul>
-                        <li><strong>Hearts (20 HP):</strong> Lose HP from falls (3.5+ blocks), drowning, void, mobs.</li>
-                        <li><strong>Hunger (20):</strong> Drains over time, faster sprinting. At 0 → starvation. At 16+ → HP regen.</li>
-                        <li><strong>Eating:</strong> Hold food, press <span className="m-key">Q</span>.</li>
+                        <li><strong>Ground &amp; Step-Up:</strong> Smoothly step up 0.5-block slabs, carpets, trapdoors, and 1-block steps while walking grounded.</li>
+                        <li><strong>Jump Buffering:</strong> Pressing <span className="m-key">Space</span> up to 150ms before touching the ground automatically triggers an instant jump upon landing.</li>
+                        <li><strong>Coyote Timer:</strong> Allows jumping up to 120ms after walking off ledges or block edges.</li>
+                        <li><strong>Fluid Swimming:</strong> Hold <span className="m-key">Space</span> to swim up. Leaping out of water at the surface gives a boost to land on adjacent terrain.</li>
+                        <li><strong>Underwater Interaction:</strong> Full support for underwater mining and placing blocks into water voxels.</li>
                       </ul>
-                      <h3>⛏️ Tools</h3>
+
+                      <h3>❤️ Health, Hunger &amp; Survival</h3>
                       <ul>
-                        <li><strong>Pickaxe</strong> → stone/ores &nbsp;|&nbsp; <strong>Axe</strong> → wood &nbsp;|&nbsp; <strong>Shovel</strong> → dirt/sand</li>
-                        <li><strong>Hoe</strong> → right-click grass/dirt → Farmland for crops</li>
-                        <li><strong>Tiers:</strong> Wood → Stone → Iron → Diamond (faster + more durable)</li>
+                        <li><strong>Health (20 HP / 10 Hearts):</strong> Damage taken from fall (3.5+ blocks), drowning, void, zombies, creepers, or starvation.</li>
+                        <li><strong>Hunger (20 / 10 Drumsticks):</strong> Drains over time (faster while sprinting). At 16+ HP regens over time. At 0 hunger, starvation damage occurs.</li>
+                        <li><strong>Eating Food:</strong> Select food in hotbar and press <span className="m-key">Q</span> (or right-click) to restore hunger &amp; health.</li>
                       </ul>
-                      <h3>🔥 Furnace</h3>
+
+                      <h3>⛏️ Tools &amp; Durability Tiers</h3>
                       <ul>
-                        <li><strong>Fuel (bottom slot):</strong> Coal / Charcoal / Logs / Planks</li>
-                        <li><strong>Input (top slot):</strong> Ore or smeltable block</li>
-                        <li>Output appears on right after smelting completes</li>
+                        <li><strong>Pickaxe:</strong> Required for Stone, Cobblestone, Coal/Iron/Gold/Diamond Ores, Bricks, Sandstone, Obsidian.</li>
+                        <li><strong>Axe:</strong> Efficiently chops Logs, Planks, Wood, Crafting Tables, Chests, Bookshelves.</li>
+                        <li><strong>Shovel:</strong> Fast digging for Dirt, Grass, Sand, Gravel, Snow, Clay.</li>
+                        <li><strong>Hoe:</strong> Right-click Grass or Dirt to till into Farmland for planting crops.</li>
+                        <li><strong>Tool Tiers:</strong> Wood (30 durability) &rarr; Stone (60) &rarr; Iron (150) &rarr; Diamond (500). Higher tiers mine faster and unlock higher-grade ores.</li>
                       </ul>
-                      <h3>🌾 Farming</h3>
+
+                      <h3>🔥 Smelting &amp; Cooking (Furnace)</h3>
                       <ul>
-                        <li>Hoe dirt/grass → plant Wheat Seeds (138) → harvest ripe wheat</li>
-                        <li>3 Wheat → 1 Bread (food)</li>
+                        <li>Right-click a placed <strong>Furnace</strong> to open the smelting interface.</li>
+                        <li><strong>Top Input Slot:</strong> Raw Iron Ore, Gold Ore, Sand (smelts into Glass), Clay (smelts into Terracotta).</li>
+                        <li><strong>Bottom Fuel Slot:</strong> Coal, Charcoal, Wood Logs, or Planks.</li>
+                        <li>smelting progress bar runs automatically and outputs refined ingots/materials.</li>
                       </ul>
-                      <h3>⚔️ Mobs</h3>
+
+                      <h3>🌾 Farming &amp; Agriculture</h3>
                       <ul>
-                        <li><strong>Zombies:</strong> Melee damage. Use a sword.</li>
-                        <li><strong>Creepers:</strong> Hiss + inflate → explosion. Run!</li>
-                        <li>Light up areas with Torches to stop mob spawning.</li>
+                        <li>Right-click Grass/Dirt with a <strong>Hoe</strong> to create Farmland (ID 89).</li>
+                        <li>Right-click Farmland with <strong>Wheat Seeds</strong> (ID 138) to plant crops.</li>
+                        <li>Watch crops grow through growth stages &rarr; Harvest ripe wheat &rarr; Craft 3 Wheat into 1 Bread!</li>
                       </ul>
-                      <h3>💡 Tips</h3>
+
+                      <h3>🏹 Combat, Weapons &amp; TNT</h3>
                       <ul>
-                        <li>Dig down to Y&lt;8 for Diamond ore.</li>
-                        <li>Always carry food &amp; torches underground.</li>
-                        <li>Ladders inside a 1×1 shaft = fast, safe descent.</li>
+                        <li><strong>Swords:</strong> High melee damage for fighting zombies &amp; creepers.</li>
+                        <li><strong>Bow &amp; Arrows:</strong> Craft Bow (146) and Arrows (147). Right-click to fire high-velocity physics arrows!</li>
+                        <li><strong>TNT Explosions:</strong> Place TNT (56) and right-click to ignite. Primed TNT pulses and flashes white for 3s before triggering a 4-block radius terrain explosion.</li>
+                      </ul>
+
+                      <h3>🛌 Bed &amp; Passing the Night</h3>
+                      <ul>
+                        <li>Right-click a placed <strong>Bed</strong> (57) at night to pass the night instantly to dawn, restore HP/hunger, and update your respawn point.</li>
+                      </ul>
+
+                      <h3>🌊 Modern Shader Water</h3>
+                      <ul>
+                        <li>Features procedural animated wave scrolling, dual-layer normal map ripples, Schlick Fresnel reflections, specular sun glints, and depth-based color transitions from vibrant turquoise shallow water to deep blue oceans.</li>
+                      </ul>
+
+                      <h3>🛠️ Debug &amp; Telemetry (F3)</h3>
+                      <ul>
+                        <li>Press <span className="m-key">F3</span> to toggle 3D AABB wireframe player boxes, collision contact highlights, ground normal indicators, and live telemetry for position, velocity, and camera sync.</li>
                       </ul>
                     </div>
                   )}
