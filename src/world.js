@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { world, player, webgl, game, inventory } from './state.js';
+import { world, player, webgl, game, inventory, crops } from './state.js';
+import { uiState, setChestOpen, setFurnaceOpen } from './ui.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, MAX_LIGHT, AIR, BLOCKS, VARIANTS,
   keyOf, hash2, hash3, vnoise3, surfaceHeight, isCave,
@@ -170,28 +171,48 @@ export function setBlock(wx,wy,wz,v, record, scheduleSaveCallback){
     delete flowDist[wkey(wx, wy, wz)];
   }
 
+  const key = wx + "," + wy + "," + wz;
+  if (crops && crops[key]) {
+    delete crops[key];
+  }
+  const cropAboveKey = wx + "," + (wy + 1) + "," + wz;
+  if (v === 0 && crops && crops[cropAboveKey]) {
+    delete crops[cropAboveKey];
+  }
+
   if (v === 0) {
-    const key = wx + "," + wy + "," + wz;
     if (prev === 43 && world.chests && world.chests[key]) {
-      world.chests[key].forEach(slot => {
+      const slots = world.chests[key];
+      delete world.chests[key];
+      if (uiState.activeChestCoords === key) setChestOpen(false);
+      slots.forEach(slot => {
         if (slot.id > 0 && slot.count > 0) {
-          inventory[slot.id] = (inventory[slot.id] || 0) + slot.count;
+          if (typeof window !== 'undefined' && typeof window.__spawnItemDrop === 'function') {
+            window.__spawnItemDrop(slot.id, slot.count, wx + 0.5, wy + 0.5, wz + 0.5);
+          } else {
+            inventory[slot.id] = (inventory[slot.id] || 0) + slot.count;
+          }
         }
       });
-      delete world.chests[key];
     }
     else if (prev === 42 && world.furnaces && world.furnaces[key]) {
       const f = world.furnaces[key];
-      if (f.inputId > 0 && f.inputCount > 0) {
-        inventory[f.inputId] = (inventory[f.inputId] || 0) + f.inputCount;
-      }
-      if (f.fuelId > 0 && f.fuelCount > 0) {
-        inventory[f.fuelId] = (inventory[f.fuelId] || 0) + f.fuelCount;
-      }
-      if (f.outputId > 0 && f.outputCount > 0) {
-        inventory[f.outputId] = (inventory[f.outputId] || 0) + f.outputCount;
-      }
       delete world.furnaces[key];
+      if (uiState.activeFurnaceCoords === key) setFurnaceOpen(false);
+      const items = [
+        { id: f.inputId, count: f.inputCount },
+        { id: f.fuelId, count: f.fuelCount },
+        { id: f.outputId, count: f.outputCount }
+      ];
+      items.forEach(item => {
+        if (item.id > 0 && item.count > 0) {
+          if (typeof window !== 'undefined' && typeof window.__spawnItemDrop === 'function') {
+            window.__spawnItemDrop(item.id, item.count, wx + 0.5, wy + 0.5, wz + 0.5);
+          } else {
+            inventory[item.id] = (inventory[item.id] || 0) + item.count;
+          }
+        }
+      });
     }
   }
 

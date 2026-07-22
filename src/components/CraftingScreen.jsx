@@ -113,27 +113,27 @@ export default function CraftingScreen({ onClose }) {
   const handleGridClick = useCallback((idx) => {
     const slotId = grid[idx];
     if (held) {
-      // Place held item into grid slot
       const newGrid = [...grid];
       if (slotId === 0) {
         // Empty slot → place 1
         newGrid[idx] = held.id;
         const newCount = held.count - 1;
         setHeld(newCount > 0 ? { id: held.id, count: newCount } : null);
+        setGrid(newGrid);
       } else if (slotId === held.id) {
-        // Same item → stack 1 more
-        newGrid[idx] = held.id; // already there, just reduce held
-        const newCount = held.count - 1;
-        setHeld(newCount > 0 ? { id: held.id, count: newCount } : null);
+        // Same item already in single-slot cell → keep held stack safe without deleting
       } else {
-        // Different item → swap
-        const displaced = slotId;
-        newGrid[idx] = held.id;
-        const newHeldCount = held.count - 1;
-        addItem(displaced, 1);
-        setHeld(newHeldCount > 0 ? { id: held.id, count: newHeldCount } : null);
+        // Different item → swap slot item with held
+        if (held.count === 1) {
+          newGrid[idx] = held.id;
+          setHeld({ id: slotId, count: 1 });
+        } else {
+          addItem(slotId, 1);
+          newGrid[idx] = held.id;
+          setHeld({ id: held.id, count: held.count - 1 });
+        }
+        setGrid(newGrid);
       }
-      setGrid(newGrid);
     } else if (slotId > 0) {
       // No held item → pick up from grid
       const newGrid = [...grid];
@@ -148,8 +148,7 @@ export default function CraftingScreen({ onClose }) {
     e.preventDefault();
     const slotId = grid[idx];
     if (held) {
-      // Place 1 from held into slot
-      if (slotId === 0 || slotId === held.id) {
+      if (slotId === 0) {
         const newGrid = [...grid];
         newGrid[idx] = held.id;
         const newCount = held.count - 1;

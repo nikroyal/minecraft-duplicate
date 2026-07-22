@@ -289,8 +289,18 @@ export function updateMobs(dt){
       m.yaw = Math.atan2(-dx, -dz);
       if (m.type === "skeleton" && distToP < 8.0) {
         // Skeleton backs up or maintains distance
-        wishX = Math.sin(m.yaw);
-        wishZ = Math.cos(m.yaw);
+        const backX = Math.sin(m.yaw);
+        const backZ = Math.cos(m.yaw);
+        const testX = m.pos.x + backX * 0.5;
+        const testZ = m.pos.z + backZ * 0.5;
+        if (mobCollides(m, testX, m.pos.y, testZ)) {
+          // Blocked behind wall → strafe sideways
+          wishX = Math.cos(m.yaw);
+          wishZ = -Math.sin(m.yaw);
+        } else {
+          wishX = backX;
+          wishZ = backZ;
+        }
       } else {
         wishX = -Math.sin(m.yaw);
         wishZ = -Math.cos(m.yaw);
@@ -320,7 +330,8 @@ export function updateMobs(dt){
         const mobEye = m.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
         const pTarget = player.pos.clone().add(new THREE.Vector3(0, 1.0, 0));
         const arrDir = pTarget.sub(mobEye).normalize();
-        spawnProjectile(mobEye.x, mobEye.y, mobEye.z, arrDir, 18, false);
+        const spawnPos = mobEye.clone().add(arrDir.clone().multiplyScalar(0.6));
+        spawnProjectile(spawnPos.x, spawnPos.y, spawnPos.z, arrDir, 18, false);
       }
     }
 

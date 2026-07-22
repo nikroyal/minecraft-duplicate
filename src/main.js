@@ -34,6 +34,7 @@ export const itemDrops = [];
 
 export function spawnItemDrop(id, count, x, y, z) {
   if (!id || id <= 0 || count <= 0) return;
+  if (typeof window !== 'undefined') window.__spawnItemDrop = spawnItemDrop;
   const col = thingColor(id);
   const placeable = isPlaceable(id);
   const geo = placeable 

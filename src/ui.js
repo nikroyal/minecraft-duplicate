@@ -188,7 +188,8 @@ export function saveWorld() {
     player: {
       x: player.pos.x, y: player.pos.y, z: player.pos.z,
       yaw: player.yaw, pitch: player.pitch, flying: player.flying,
-      health: player.health, hunger: player.hunger
+      health: player.health, hunger: player.hunger,
+      fallPeak: player.fallPeak
     },
     avatar: player.avatar,
     survival: game.survival,
@@ -233,6 +234,7 @@ export function loadWorld() {
       player.flying = !!p.player.flying;
       if (typeof p.player.health === "number") player.health = p.player.health;
       if (typeof p.player.hunger === "number") player.hunger = p.player.hunger;
+      if (typeof p.player.fallPeak === "number") player.fallPeak = p.player.fallPeak;
     }
     if (p.avatar) {
       Object.assign(player.avatar, p.avatar);

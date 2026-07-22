@@ -88,11 +88,11 @@ export function moveAxis(axis, amount){
           const maxX = Math.floor(p.x + hw - 1e-5);
           const minZ = Math.floor(p.z - hw + 1e-5);
           const maxZ = Math.floor(p.z + hw - 1e-5);
-          const footY = Math.floor(p.y);
+          const checkY = Math.floor(p.y - 0.01);
           let groundHit = false;
           for (let x = minX; x <= maxX; x++) {
             for (let z = minZ; z <= maxZ; z++) {
-              if (collisionSolid(x, footY - 1, z)) groundHit = true;
+              if (collisionSolid(x, checkY, z)) groundHit = true;
             }
           }
           if (groundHit) player.onGround = true;
@@ -223,11 +223,14 @@ export function updatePlayer(dt){
     player.stepTimer = 0;
   }
 
-  // Void respawn
-  if(player.pos.y < -20){
-    hurtPlayer(4, "void");
-    player.vel.set(0, 0, 0);
-    spawnPlayer();
+  // Void handling
+  if(player.pos.y < -30){
+    if (game.survival) {
+      playerDie("void");
+    } else {
+      player.vel.set(0, 0, 0);
+      spawnPlayer();
+    }
   }
 }
 

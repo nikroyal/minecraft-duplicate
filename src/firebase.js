@@ -81,13 +81,13 @@ export function initFirebase(onStatusChange, onSyncConflict) {
   }
 }
 
-function areEditsEqual(localEdits = {}, cloudEdits = {}) {
-  const safeLocal = localEdits || {};
-  const safeCloud = cloudEdits || {};
+function arePayloadsEqual(localPayload = {}, cloudData = {}) {
+  const safeLocalEdits = localPayload.edits || {};
+  const safeCloudEdits = cloudData.edits || {};
   const normLocal = {};
-  for (const k in safeLocal) normLocal[String(k).replace(/_/g, ',')] = safeLocal[k];
+  for (const k in safeLocalEdits) normLocal[String(k).replace(/_/g, ',')] = safeLocalEdits[k];
   const normCloud = {};
-  for (const k in safeCloud) normCloud[String(k).replace(/_/g, ',')] = safeCloud[k];
+  for (const k in safeCloudEdits) normCloud[String(k).replace(/_/g, ',')] = safeCloudEdits[k];
 
   const localKeys = Object.keys(normLocal);
   const cloudKeys = Object.keys(normCloud);
@@ -96,6 +96,10 @@ function areEditsEqual(localEdits = {}, cloudEdits = {}) {
   for (const k of localKeys) {
     if (String(normLocal[k]) !== String(normCloud[k])) return false;
   }
+
+  if (JSON.stringify(localPayload.inventory || {}) !== JSON.stringify(cloudData.inventory || {})) return false;
+  if (JSON.stringify(localPayload.hotbar || []) !== JSON.stringify(cloudData.hotbar || [])) return false;
+
   return true;
 }
 
@@ -126,7 +130,7 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
         }
         
         if (localPayload) {
-          const isSame = areEditsEqual(localPayload.edits, cloudData.edits);
+          const isSame = arePayloadsEqual(localPayload, cloudData);
 
           if (!isSame) {
             onStatusChange({ state: 'conflict', message: 'Sync Conflict: Action Required.' });
