@@ -264,7 +264,7 @@ export function updatePlayer(dt){
   const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   let wish = new THREE.Vector3();
   
-  const blockInput = (!touch.isTouch && document.pointerLockElement !== webgl.renderer?.domElement) || isMenuOpen();
+  const blockInput = isMenuOpen() || game.paused;
   
   if(!blockInput){
     if(keys["KeyW"]) wish.add(forward);
