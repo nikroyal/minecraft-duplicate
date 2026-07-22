@@ -7,6 +7,16 @@ export function initAudio() {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
       audioCtx = new AudioCtx();
+      const resume = () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+      };
+      if (typeof window !== 'undefined') {
+        window.addEventListener('click', resume, { once: true });
+        window.addEventListener('keydown', resume, { once: true });
+        window.addEventListener('touchstart', resume, { once: true });
+      }
     }
   } catch (e) {
     console.warn("Web Audio API not supported", e);

@@ -65,23 +65,30 @@ export default function App() {
 
     window.__onSyncConflict = (cloudData) => setConflictData(cloudData);
 
+    let lastCoords = '', lastClock = '', lastTarget = null, lastFpsVal = 0;
+
     reactBridge.updateUI = () => {
       forceUpdate();
       const px = player?.pos ? Math.floor(player.pos.x) : 0;
       const py = player?.pos ? Math.floor(player.pos.y) : 0;
       const pz = player?.pos ? Math.floor(player.pos.z) : 0;
-      setCoordsStr(`${px} ${py} ${pz}`);
+      const newCoords = `${px} ${py} ${pz}`;
+      if (newCoords !== lastCoords) { lastCoords = newCoords; setCoordsStr(newCoords); }
 
       const timeVal = typeof game?.timeOfDay === 'number' && !isNaN(game.timeOfDay) ? game.timeOfDay : 0.3;
       const rawTime = (timeVal * 24) % 24;
       const hh = Math.floor(rawTime).toString().padStart(2, '0');
       const mm = Math.floor((rawTime % 1) * 60).toString().padStart(2, '0');
-      setClockStr(`${hh}:${mm}`);
+      const newClock = `${hh}:${mm}`;
+      if (newClock !== lastClock) { lastClock = newClock; setClockStr(newClock); }
 
       const target = window.__targetBlockId;
       const name = target > 0 ? thingName(target) : null;
-      setTargetBlockName(name ? String(name).toUpperCase() : null);
-      setFps(game.fps || 60);
+      const newTarget = name ? String(name).toUpperCase() : null;
+      if (newTarget !== lastTarget) { lastTarget = newTarget; setTargetBlockName(newTarget); }
+
+      const currentFps = game.fps || 60;
+      if (currentFps !== lastFpsVal) { lastFpsVal = currentFps; setFps(currentFps); }
     };
 
     if (lastAuthStatus) {

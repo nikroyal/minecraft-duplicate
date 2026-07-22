@@ -1019,6 +1019,16 @@ function loop(now){
 // ---- Game Bootloader --------------------------------------------------------
 export function bootGame() {
   const canvas = document.getElementById("game");
+  if (canvas) {
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault();
+      console.warn("WebGL Context Lost. Waiting for restoration...");
+    });
+    canvas.addEventListener("webglcontextrestored", () => {
+      console.log("WebGL Context Restored. Rebuilding scene resources...");
+      if (typeof buildAtlas === "function") webgl.atlasTex = buildAtlas();
+    });
+  }
   webgl.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   webgl.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   webgl.renderer.setSize(window.innerWidth, window.innerHeight);
