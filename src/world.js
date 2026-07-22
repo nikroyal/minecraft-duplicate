@@ -806,9 +806,13 @@ export function buildWaterGreedyMesh(ch) {
   }
 
   // 3. Side (+X & -X) vertical faces (Greedy Merged over Y and Z)
+  // Side face top is capped at y+0.875 when the water block above is exposed
+  // (top neighbour is not water), to match the water surface height.
   for (const nx of [1, -1]) {
     for (let x = 0; x < CHUNK; x++) {
       const mask = new Array(HEIGHT * CHUNK).fill(false);
+      // surfaceRow[y*CHUNK+z] = true when block at (x,y,z) is the topmost water layer
+      const surfaceRow = new Array(HEIGHT * CHUNK).fill(false);
       let hasMask = false;
 
       for (let y = 0; y < HEIGHT; y++) {
@@ -818,6 +822,9 @@ export function buildWaterGreedyMesh(ch) {
             if (neighId !== 8 && !isOpaque(neighId)) {
               mask[y * CHUNK + z] = true;
               hasMask = true;
+              // Mark as surface row if block above is not water
+              const aboveId = getBlock(ox + x, y + 1, oz + z);
+              if (aboveId !== 8) surfaceRow[y * CHUNK + z] = true;
             }
           }
         }
@@ -828,14 +835,21 @@ export function buildWaterGreedyMesh(ch) {
         for (let z = 0; z < CHUNK; z++) {
           if (!mask[y * CHUNK + z]) continue;
 
+          // Only merge cells that share the same surface status to avoid
+          // mixing full-height and capped-height cells in one quad
+          const isSurface = surfaceRow[y * CHUNK + z];
+
           let w = 1;
-          while (z + w < CHUNK && mask[y * CHUNK + (z + w)]) w++;
+          while (z + w < CHUNK &&
+                 mask[y * CHUNK + (z + w)] &&
+                 surfaceRow[y * CHUNK + (z + w)] === isSurface) w++;
 
           let h = 1;
           let canExtend = true;
           while (y + h < HEIGHT && canExtend) {
             for (let k = 0; k < w; k++) {
-              if (!mask[(y + h) * CHUNK + (z + k)]) {
+              const mi = (y + h) * CHUNK + (z + k);
+              if (!mask[mi] || surfaceRow[mi] !== isSurface) {
                 canExtend = false;
                 break;
               }
@@ -851,27 +865,31 @@ export function buildWaterGreedyMesh(ch) {
 
           const base = pos.length / 3;
           const px = ox + x + (nx > 0 ? 1 : 0);
+          // Top of this quad: cap at 0.875 for surface rows, full 1.0 for submerged
+          const yTop = y + h - 1 + (isSurface ? 0.875 : 1.0);
+          // yBottom is always the integer y of the lowest row
+          const yBot = y;
+
           if (nx > 0) {
-            // +X East: V0→V1→V2→V3 = (z,y0)→(z,y+h)→(z+w,y+h)→(z+w,y0)
-            // edge1=+Y, edge2=+Z  →  normal = Y×Z = +X ✓
+            // +X East: edge1=+Y, edge2=+Z → Y×Z = +X ✓
             pos.push(
-              px, y,     oz + z,
-              px, y + h, oz + z,
-              px, y + h, oz + z + w,
-              px, y,     oz + z + w
+              px, yBot,  oz + z,
+              px, yTop,  oz + z,
+              px, yTop,  oz + z + w,
+              px, yBot,  oz + z + w
             );
           } else {
-            // -X West: V0→V1→V2→V3 = (z+w,y0)→(z+w,y+h)→(z,y+h)→(z,y0)
-            // edge1=+Y, edge2=-Z  →  normal = Y×(-Z) = -X ✓
+            // -X West: edge1=+Y, edge2=-Z → Y×(-Z) = -X ✓
             pos.push(
-              px, y,     oz + z + w,
-              px, y + h, oz + z + w,
-              px, y + h, oz + z,
-              px, y,     oz + z
+              px, yBot,  oz + z + w,
+              px, yTop,  oz + z + w,
+              px, yTop,  oz + z,
+              px, yBot,  oz + z
             );
           }
+          const hv = yTop - yBot; // actual height for UVs
           norm.push(nx, 0, 0,  nx, 0, 0,  nx, 0, 0,  nx, 0, 0);
-          uv.push(0, 0,  0, h,  w, h,  w, 0);
+          uv.push(0, 0,  0, hv,  w, hv,  w, 0);
           faceType.push(1, 1, 1, 1);
           idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
@@ -880,9 +898,11 @@ export function buildWaterGreedyMesh(ch) {
   }
 
   // 4. Side (+Z & -Z) vertical faces (Greedy Merged over Y and X)
+  // Same surface-cap logic: top row capped at y+0.875, submerged at y+1.0
   for (const nz of [1, -1]) {
     for (let z = 0; z < CHUNK; z++) {
       const mask = new Array(HEIGHT * CHUNK).fill(false);
+      const surfaceRow = new Array(HEIGHT * CHUNK).fill(false);
       let hasMask = false;
 
       for (let y = 0; y < HEIGHT; y++) {
@@ -892,6 +912,8 @@ export function buildWaterGreedyMesh(ch) {
             if (neighId !== 8 && !isOpaque(neighId)) {
               mask[y * CHUNK + x] = true;
               hasMask = true;
+              const aboveId = getBlock(ox + x, y + 1, oz + z);
+              if (aboveId !== 8) surfaceRow[y * CHUNK + x] = true;
             }
           }
         }
@@ -902,14 +924,19 @@ export function buildWaterGreedyMesh(ch) {
         for (let x = 0; x < CHUNK; x++) {
           if (!mask[y * CHUNK + x]) continue;
 
+          const isSurface = surfaceRow[y * CHUNK + x];
+
           let w = 1;
-          while (x + w < CHUNK && mask[y * CHUNK + (x + w)]) w++;
+          while (x + w < CHUNK &&
+                 mask[y * CHUNK + (x + w)] &&
+                 surfaceRow[y * CHUNK + (x + w)] === isSurface) w++;
 
           let h = 1;
           let canExtend = true;
           while (y + h < HEIGHT && canExtend) {
             for (let k = 0; k < w; k++) {
-              if (!mask[(y + h) * CHUNK + (x + k)]) {
+              const mi = (y + h) * CHUNK + (x + k);
+              if (!mask[mi] || surfaceRow[mi] !== isSurface) {
                 canExtend = false;
                 break;
               }
@@ -925,27 +952,29 @@ export function buildWaterGreedyMesh(ch) {
 
           const base = pos.length / 3;
           const pz = oz + z + (nz > 0 ? 1 : 0);
+          const yTop = y + h - 1 + (isSurface ? 0.875 : 1.0);
+          const yBot = y;
+          const hv = yTop - yBot;
+
           if (nz > 0) {
-            // +Z North: V0→V1→V2→V3 = (x+w,y0)→(x+w,y+h)→(x,y+h)→(x,y0)
-            // edge1=+Y, edge2=-X  →  normal = Y×(-X) = +Z ✓
+            // +Z North: edge1=+Y, edge2=-X → Y×(-X) = +Z ✓
             pos.push(
-              ox + x + w, y,     pz,
-              ox + x + w, y + h, pz,
-              ox + x,     y + h, pz,
-              ox + x,     y,     pz
+              ox + x + w, yBot,  pz,
+              ox + x + w, yTop,  pz,
+              ox + x,     yTop,  pz,
+              ox + x,     yBot,  pz
             );
           } else {
-            // -Z South: V0→V1→V2→V3 = (x,y0)→(x,y+h)→(x+w,y+h)→(x+w,y0)
-            // edge1=+Y, edge2=+X  →  normal = Y×X = -Z ✓
+            // -Z South: edge1=+Y, edge2=+X → Y×X = -Z ✓
             pos.push(
-              ox + x,     y,     pz,
-              ox + x,     y + h, pz,
-              ox + x + w, y + h, pz,
-              ox + x + w, y,     pz
+              ox + x,     yBot,  pz,
+              ox + x,     yTop,  pz,
+              ox + x + w, yTop,  pz,
+              ox + x + w, yBot,  pz
             );
           }
           norm.push(0, 0, nz,  0, 0, nz,  0, 0, nz,  0, 0, nz);
-          uv.push(w, 0,  w, h,  0, h,  0, 0);
+          uv.push(w, 0,  w, hv,  0, hv,  0, 0);
           faceType.push(1, 1, 1, 1);
           idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
