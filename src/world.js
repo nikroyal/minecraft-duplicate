@@ -940,8 +940,10 @@ export function makeWaterMesh(g) {
   geo.setAttribute("aFaceType", new THREE.Float32BufferAttribute(g.faceType, 1));
   geo.setIndex(g.idx);
 
-  const mat = webgl.waterMat || createWaterMaterial();
-  const mesh = new THREE.Mesh(geo, mat);
+  if (!webgl.waterMat) {
+    webgl.waterMat = createWaterMaterial();
+  }
+  const mesh = new THREE.Mesh(geo, webgl.waterMat);
   mesh.renderOrder = 15;
   mesh.frustumCulled = true;
   return mesh;
@@ -955,24 +957,41 @@ export function makeMesh(g, mode){
   geo.setAttribute("uv",       new THREE.Float32BufferAttribute(g.uv,2));
   geo.setAttribute("normal",   new THREE.Float32BufferAttribute(g.norm,3));
   geo.setIndex(g.idx);
-  const opts={ map: webgl.atlasTex, vertexColors:true, side: THREE.FrontSide };
-  if(mode==="cutout"){
-    opts.transparent=false; opts.alphaTest=0.5; opts.side = THREE.DoubleSide;
-  } else if(mode==="alpha"){
-    opts.transparent=true; opts.opacity=0.65; opts.side = THREE.DoubleSide; opts.depthWrite=true;
+  
+  let mat;
+  if(mode === "cutout"){
+    if (!webgl.cutoutMat) {
+      webgl.cutoutMat = new THREE.MeshLambertMaterial({ 
+        map: webgl.atlasTex, vertexColors: true, side: THREE.DoubleSide, transparent: false, alphaTest: 0.5 
+      });
+    }
+    mat = webgl.cutoutMat;
+  } else if(mode === "alpha"){
+    if (!webgl.alphaMat) {
+      webgl.alphaMat = new THREE.MeshLambertMaterial({ 
+        map: webgl.atlasTex, vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.65, depthWrite: true 
+      });
+    }
+    mat = webgl.alphaMat;
   } else {
-    opts.transparent=false;
+    if (!webgl.opaqueMat) {
+      webgl.opaqueMat = new THREE.MeshLambertMaterial({ 
+        map: webgl.atlasTex, vertexColors: true, side: THREE.FrontSide, transparent: false 
+      });
+    }
+    mat = webgl.opaqueMat;
   }
-  const mesh=new THREE.Mesh(geo, new THREE.MeshLambertMaterial(opts));
-  mesh.frustumCulled=true;
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.frustumCulled = true;
   return mesh;
 }
 
 export function disposeMesh(m){ 
   if(m){ 
     webgl.scene.remove(m); 
-    m.geometry.dispose(); 
-    if(m.material && m.material !== webgl.waterMat) m.material.dispose(); 
+    if (m.geometry) m.geometry.dispose(); 
+    // Do NOT dispose shared materials!
   } 
 }
 
