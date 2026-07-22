@@ -225,6 +225,7 @@ export default function CraftingScreen({ onClose }) {
   // Keyboard shortcut listener (keys 1-8 to assign held item or selected item to hotbar slot)
   React.useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
       if (e.code.startsWith('Digit')) {
         const num = parseInt(e.code.replace('Digit', ''), 10);
         if (num >= 1 && num <= 8) {

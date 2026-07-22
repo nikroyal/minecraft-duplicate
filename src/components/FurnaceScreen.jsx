@@ -20,14 +20,7 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
         smeltProgress: 0
       };
     }
-    const handleKeyDown = (e) => {
-      if (e.code === "Escape" || e.code === "KeyE") {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeFurnaceCoords, onClose]);
+  }, [activeFurnaceCoords]);
 
   const furnace = (activeFurnaceCoords && world.furnaces && world.furnaces[activeFurnaceCoords]) 
     ? world.furnaces[activeFurnaceCoords]

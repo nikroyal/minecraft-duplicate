@@ -11,14 +11,7 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
     if (activeChestCoords && !world.chests[activeChestCoords]) {
       world.chests[activeChestCoords] = Array.from({ length: 27 }, () => ({ id: 0, count: 0 }));
     }
-    const handleKeyDown = (e) => {
-      if (e.code === "Escape" || e.code === "KeyE") {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeChestCoords, onClose]);
+  }, [activeChestCoords]);
 
   const chest = (activeChestCoords && world.chests && world.chests[activeChestCoords]) ? world.chests[activeChestCoords] : [];
 

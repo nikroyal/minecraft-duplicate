@@ -17,7 +17,7 @@ import CraftingScreen from './CraftingScreen.jsx';
 import MasterDashboardCard from './MasterDashboardCard.jsx';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
-  closeCraft, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
+  closeCraft, closeChest, closeFurnace, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
   lastAuthStatus, lastSyncConflict, activeAchievementNotification
 } from '../ui.js';
 
@@ -185,27 +185,11 @@ export default function App() {
   }, []);
 
   const handleCloseChest = () => {
-    setChestOpen(false);
-    setActiveChestCoords(null);
-    if (!window.__touch?.isTouch && game.running) {
-      try {
-        const promise = document.getElementById('game')?.requestPointerLock();
-        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-      } catch(e){}
-    }
-    forceUpdate();
+    closeChest();
   };
 
   const handleCloseFurnace = () => {
-    setFurnaceOpen(false);
-    setActiveFurnaceCoords(null);
-    if (!window.__touch?.isTouch && game.running) {
-      try {
-        const promise = document.getElementById('game')?.requestPointerLock();
-        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-      } catch(e){}
-    }
-    forceUpdate();
+    closeFurnace();
   };
 
   const handleResolveConflict = (keepCloud) => {

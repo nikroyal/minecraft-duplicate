@@ -24,7 +24,7 @@ import {
 import { 
   initUI, toast, updateHUD, updateClock, updateStatsHUD, flashDamage, 
   showDeathScreen, hideDeathScreen, buildHotbar, selectSlot, refreshCounts, 
-  openCraft, closeCraft, craft, saveWorld, scheduleSave, loadWorld, getCraftOpen,
+  openCraft, closeCraft, closeChest, closeFurnace, craft, saveWorld, scheduleSave, loadWorld, getCraftOpen,
   openChest, openFurnace, isMenuOpen, tickFurnaces, uiState,
   setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
   unlockAchievement
@@ -1462,33 +1462,19 @@ export function bootGame() {
 
   // Keyboard binding updates
   window.addEventListener("keydown", (e) => {
-    // If a menu is open, only capture E or Escape keys to close it
+    // CRITICAL: Ignore key shortcuts when typing in input, textarea, or contentEditable elements!
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+      return;
+    }
+
+    // If a menu is open, capture E or Escape keys to close it
     if(isMenuOpen()){
       if(e.code === "KeyE" || e.code === "Escape"){
         e.preventDefault();
+        e.stopPropagation();
         if (uiState.craftOpen) closeCraft();
-        if (uiState.chestOpen) {
-          setChestOpen(false);
-          setActiveChestCoords(null);
-          if (!window.__touch?.isTouch && game.running) {
-            try {
-              const promise = document.getElementById('game')?.requestPointerLock();
-              if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-            } catch(err){}
-          }
-          if (reactBridge.updateUI) reactBridge.updateUI();
-        }
-        if (uiState.furnaceOpen) {
-          setFurnaceOpen(false);
-          setActiveFurnaceCoords(null);
-          if (!window.__touch?.isTouch && game.running) {
-            try {
-              const promise = document.getElementById('game')?.requestPointerLock();
-              if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-            } catch(err){}
-          }
-          if (reactBridge.updateUI) reactBridge.updateUI();
-        }
+        if (uiState.chestOpen) closeChest();
+        if (uiState.furnaceOpen) closeFurnace();
       }
       return;
     }
@@ -1514,14 +1500,17 @@ export function bootGame() {
     }
 
     if(player.dead || !game.running) return;
-    // Don't process game keys while paused and not locked
-    if(game.paused && !document.pointerLockElement) return;
 
+    // Toggle/Open Crafting with 'KeyE' — works in-game or while paused
     if(e.code === "KeyE"){
       e.preventDefault();
+      if (game.paused) game.paused = false;
       openCraft();
       return;
     }
+
+    // Don't process other game controls (movement, flying, etc.) while paused and not locked
+    if(game.paused && !document.pointerLockElement) return;
     
     // Toggle Physics Debug Overlay on F3
     if(e.code === "F3"){

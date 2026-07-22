@@ -63,16 +63,44 @@ export function openCraft() {
   if (reactBridge.updateUI) reactBridge.updateUI();
 }
 
+function requestLockOrPause() {
+  if (!touch.isTouch && game.running) {
+    try {
+      const promise = webgl.renderer?.domElement ? webgl.renderer.domElement.requestPointerLock() : document.getElementById('game')?.requestPointerLock();
+      if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+    } catch(e){}
+    setTimeout(() => {
+      if (game.running && !document.pointerLockElement && !isMenuOpen()) {
+        game.paused = true;
+        if (reactBridge.updateUI) reactBridge.updateUI();
+      }
+    }, 60);
+  }
+}
+
 export function closeCraft() {
   uiState.craftOpen = false;
   Object.keys(keys).forEach(k => keys[k] = false);
   player.sprinting = false;
-  if(!touch.isTouch && game.running) {
-    try {
-      const promise = webgl.renderer.domElement ? webgl.renderer.domElement.requestPointerLock() : document.getElementById('game')?.requestPointerLock();
-      if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-    } catch(e){}
-  }
+  requestLockOrPause();
+  if (reactBridge.updateUI) reactBridge.updateUI();
+}
+
+export function closeChest() {
+  uiState.chestOpen = false;
+  uiState.activeChestCoords = null;
+  Object.keys(keys).forEach(k => keys[k] = false);
+  player.sprinting = false;
+  requestLockOrPause();
+  if (reactBridge.updateUI) reactBridge.updateUI();
+}
+
+export function closeFurnace() {
+  uiState.furnaceOpen = false;
+  uiState.activeFurnaceCoords = null;
+  Object.keys(keys).forEach(k => keys[k] = false);
+  player.sprinting = false;
+  requestLockOrPause();
   if (reactBridge.updateUI) reactBridge.updateUI();
 }
 
