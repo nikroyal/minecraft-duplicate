@@ -398,3 +398,97 @@ export async function updateUserRoleInFirestore(targetUid, newRole) {
     console.error("Failed to update user role:", err);
   }
 }
+
+export function subscribeToUserDoc(uid, callback) {
+  if (!db || !uid) return () => {};
+  const userRef = doc(db, 'users', uid);
+  return onSnapshot(userRef, (snap) => {
+    if (snap.exists()) {
+      callback(snap.data());
+    }
+  }, (err) => {
+    console.warn("User doc listener error:", err);
+  });
+}
+
+export async function updateUserDocInFirestore(targetUid, data) {
+  if (!db || !targetUid) return;
+  try {
+    const targetRef = doc(db, 'users', targetUid);
+    await setDoc(targetRef, data, { merge: true });
+  } catch (err) {
+    console.error("Failed to update user doc:", err);
+  }
+}
+
+export async function updateWorldSettingsInFirestore(settings) {
+  if (!db) return;
+  try {
+    const worldRef = doc(db, 'server_settings', 'world');
+    await setDoc(worldRef, { ...settings, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (err) {
+    console.error("Failed to update world settings:", err);
+  }
+}
+
+export function subscribeToWorldSettings(callback) {
+  if (!db) return () => {};
+  const worldRef = doc(db, 'server_settings', 'world');
+  return onSnapshot(worldRef, (snap) => {
+    if (snap.exists()) {
+      callback(snap.data());
+    }
+  }, (err) => {
+    console.warn("World settings listener error:", err);
+  });
+}
+
+export async function sendAdminBroadcast(text, senderEmail) {
+  if (!db || !text.trim()) return;
+  try {
+    const msgObj = {
+      id: 'b_' + Date.now(),
+      text: text.trim(),
+      sender: senderEmail || 'Admin Server',
+      timestamp: new Date().toISOString(),
+      type: 'broadcast'
+    };
+
+    // Update latest broadcast on world settings for real-time banner display
+    const worldRef = doc(db, 'server_settings', 'world');
+    await setDoc(worldRef, { latestBroadcast: msgObj, updatedAt: new Date().toISOString() }, { merge: true });
+
+    // Append to every user document so offline & online users have it in their messages inbox
+    const querySnapshot = await getDocs(collection(db, 'users'));
+    querySnapshot.forEach(async (uSnap) => {
+      const uData = uSnap.data();
+      const existing = Array.isArray(uData.messages) ? uData.messages : [];
+      const updatedMessages = [msgObj, ...existing].slice(0, 50); // keep last 50
+      await setDoc(doc(db, 'users', uSnap.id), { messages: updatedMessages }, { merge: true });
+    });
+  } catch (err) {
+    console.error("Failed to send admin broadcast:", err);
+  }
+}
+
+export async function sendAdminDirectMessage(targetUid, text, senderEmail) {
+  if (!db || !targetUid || !text.trim()) return;
+  try {
+    const msgObj = {
+      id: 'msg_' + Date.now(),
+      text: text.trim(),
+      sender: senderEmail || 'Admin Server',
+      timestamp: new Date().toISOString(),
+      type: 'direct'
+    };
+    const userRef = doc(db, 'users', targetUid);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const existing = Array.isArray(snap.data().messages) ? snap.data().messages : [];
+      const updatedMessages = [msgObj, ...existing].slice(0, 50);
+      await setDoc(userRef, { messages: updatedMessages }, { merge: true });
+    }
+  } catch (err) {
+    console.error("Failed to send direct message:", err);
+  }
+}

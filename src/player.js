@@ -283,7 +283,7 @@ export function updatePlayer(dt){
   const sprint = blockInput ? false : (keys["ControlLeft"] || keys["ControlRight"] || keys["ShiftLeft"] || keys["ShiftRight"]);
   player.sprinting = sprint;
 
-  if(!chunkReadyAt(player.pos.x, player.pos.z) && !player.flying){
+  if(player.frozen || (!chunkReadyAt(player.pos.x, player.pos.z) && !player.flying)){
     player.vel.set(0, 0, 0);
     return;
   }

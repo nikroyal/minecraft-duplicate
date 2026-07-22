@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { player, game, world, inventory, hotbar, reactBridge } from '../state.js';
 import { getBlock } from '../world.js';
 import { isSolid } from '../config.js';
-import { respawnPlayer, invCount } from '../player.js';
-import { resolveSyncConflict } from '../firebase.js';
+import { respawnPlayer, invCount, addItem } from '../player.js';
+import { resolveSyncConflict, subscribeToUserDoc, subscribeToWorldSettings, updateUserDocInFirestore } from '../firebase.js';
 import { thingName, BLOCKS, RECIPES, isPlaceable } from '../config.js';
 import { initAudio } from '../audio.js';
 
@@ -31,6 +31,10 @@ export default function App() {
   const [userRole, setUserRole] = useState('player');
   const [conflictData, setConflictData] = useState(null);
 
+  // Messages & Broadcasts
+  const [userMessages, setUserMessages] = useState([]);
+  const [latestBroadcastBanner, setLatestBroadcastBanner] = useState(null);
+
   // Check if current user is a Master Admin Account (strictly based on Firestore document 'role' field)
   const isMasterAccount = userRole === 'admin' || userRole === 'master';
 
@@ -48,6 +52,73 @@ export default function App() {
 
   // Force re-render helper used from game loop
   const forceUpdate = () => setTick(t => t + 1);
+
+  // ── Real-Time Admin Subscriptions (World Settings & User Document) ──
+  useEffect(() => {
+    // 1. Subscribe to World Settings (Time of Day, Weather, Global Broadcasts)
+    const unsubWorld = subscribeToWorldSettings((worldData) => {
+      if (!worldData) return;
+      if (typeof worldData.timeOfDay === 'number') {
+        game.timeOfDay = worldData.timeOfDay / 24000;
+      }
+      if (typeof worldData.timeFrozen === 'boolean') {
+        game.timeFrozen = worldData.timeFrozen;
+      }
+      if (worldData.latestBroadcast && worldData.latestBroadcast.id) {
+        setLatestBroadcastBanner(worldData.latestBroadcast);
+        toast(`📢 ${worldData.latestBroadcast.sender}: ${worldData.latestBroadcast.text}`);
+      }
+    });
+
+    return () => unsubWorld();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
+
+    // 2. Subscribe to User Document (Freeze, Teleport, Give Items, Heal, Messages)
+    const unsubUser = subscribeToUserDoc(currentUser.uid, (userData) => {
+      if (!userData) return;
+
+      // Frozen status
+      player.frozen = Boolean(userData.frozen);
+
+      // Messages
+      if (Array.isArray(userData.messages)) {
+        setUserMessages(userData.messages);
+      }
+
+      // Teleport signal
+      if (userData.teleportTarget) {
+        const { x, y, z } = userData.teleportTarget;
+        player.pos.set(x, y, z);
+        player.vel.set(0, 0, 0);
+        toast(`📍 Teleported by Admin to (${x}, ${y}, ${z})`);
+        updateUserDocInFirestore(currentUser.uid, { teleportTarget: null });
+      }
+
+      // Item additions (Gift items)
+      if (Array.isArray(userData.inventoryAdditions) && userData.inventoryAdditions.length > 0) {
+        userData.inventoryAdditions.forEach(item => {
+          if (item && item.id) {
+            addItem(item.id, item.count || 1);
+            toast(`🎁 Admin gave you ${item.count || 1}× ${thingName(item.id)}!`);
+          }
+        });
+        updateUserDocInFirestore(currentUser.uid, { inventoryAdditions: null });
+      }
+
+      // Health restore
+      if (typeof userData.healthOverride === 'number') {
+        player.hp = Math.min(20, userData.healthOverride);
+        player.dead = false;
+        toast(`❤️ Health restored to 20 HP by Admin!`);
+        updateUserDocInFirestore(currentUser.uid, { healthOverride: null });
+      }
+    });
+
+    return () => unsubUser();
+  }, [currentUser]);
 
   useEffect(() => {
     window.__onStatusChange = (status) => {
@@ -357,7 +428,7 @@ export default function App() {
                 padding: '6px 10px 0',
                 gap: 2,
               }}>
-                {['blocks','recipes','manual'].map(tab => (
+                {['blocks','recipes','manual','messages'].map(tab => (
                   <button key={tab}
                     onClick={() => setCraftTab(tab)}
                     style={{
@@ -368,7 +439,7 @@ export default function App() {
                       padding: '6px 12px', cursor: 'pointer',
                       fontWeight: craftTab === tab ? 700 : 400,
                     }}>
-                    {tab === 'blocks' ? '📚 Blocks' : tab === 'recipes' ? '📜 Recipes' : '📖 Manual'}
+                    {tab === 'blocks' ? '📚 Blocks' : tab === 'recipes' ? '📜 Recipes' : tab === 'manual' ? '📖 Manual' : `✉️ Messages (${userMessages.length})`}
                   </button>
                 ))}
               </div>
@@ -546,6 +617,49 @@ export default function App() {
                     <ul>
                       <li>Right-click a placed <strong>Bed (57)</strong> at night to pass the night instantly to dawn, restore HP/hunger, and update your respawn point.</li>
                     </ul>
+                  </div>
+                )}
+
+                {/* ── Admin Messages & Announcements Inbox ── */}
+                {craftTab === 'messages' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f5d77f', letterSpacing: 1, textTransform: 'uppercase' }}>
+                      ✉️ ADMIN MESSAGES &amp; SERVER ANNOUNCEMENTS ({userMessages.length})
+                    </div>
+                    {userMessages.length === 0 ? (
+                      <div style={{ fontSize: 11, color: '#9a8a76', padding: '24px 0', textAlign: 'center', lineHeight: 1.6 }}>
+                        No messages from server admins yet.<br/>All server-wide broadcasts and private admin messages will appear here!
+                      </div>
+                    ) : (
+                      userMessages.map(msg => (
+                        <div key={msg.id} style={{
+                          background: msg.type === 'broadcast' ? 'rgba(230,180,80,0.12)' : 'rgba(40,160,220,0.12)',
+                          border: msg.type === 'broadcast' ? '1px solid rgba(230,180,80,0.4)' : '1px solid rgba(40,160,220,0.4)',
+                          borderRadius: 8,
+                          padding: '10px 12px',
+                          fontSize: 11,
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{
+                              fontWeight: 700,
+                              color: msg.type === 'broadcast' ? '#f5d77f' : '#66ccff',
+                              fontSize: 10, textTransform: 'uppercase', letterSpacing: 1
+                            }}>
+                              {msg.type === 'broadcast' ? "📢 SERVER BROADCAST" : "✉️ DIRECT PRIVATE MESSAGE"}
+                            </span>
+                            <span style={{ fontSize: 9, color: '#887766' }}>
+                              {msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}
+                            </span>
+                          </div>
+                          <div style={{ color: '#f0e6d2', lineHeight: 1.4, margin: '4px 0' }}>
+                            {msg.text}
+                          </div>
+                          <div style={{ fontSize: 9, color: '#a09075', marginTop: 2 }}>
+                            From: <strong style={{ color: '#d6b278' }}>{msg.sender || 'Admin Server'}</strong>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
