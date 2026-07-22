@@ -1,4 +1,4 @@
-import { player, game, world, inventory, hotbar, keys, reactBridge } from './state.js';
+import { player, game, world, inventory, hotbar, keys, reactBridge, webgl } from './state.js';
 import { getBlock, setBlock } from './world.js';
 import { invCount, addItem, removeItem } from './player.js';
 import { placeBlock, updateHeldItemMesh } from './main.js';

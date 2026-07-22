@@ -193,17 +193,11 @@ export function playHissSound(duration = 1.5) {
   activeHissGain.connect(ctx.destination);
 
   activeHissSource.start(now);
+  activeHissSource.stop(now + duration + 0.1);
 }
 
 export function stopHissSound() {
-  if (activeHissGain && audioCtx) {
-    try {
-      const now = audioCtx.currentTime;
-      activeHissGain.gain.setValueAtTime(Math.max(0.001, activeHissGain.gain.value), now);
-      activeHissGain.gain.linearRampToValueAtTime(0.001, now + 0.05);
-    } catch(e) {}
-  }
-
+  if (!activeHissSource) return;
   const src = activeHissSource;
   const gain = activeHissGain;
   const flt = activeHissFilter;
@@ -212,12 +206,18 @@ export function stopHissSound() {
   activeHissGain = null;
   activeHissFilter = null;
 
+  if (gain && audioCtx) {
+    try {
+      const now = audioCtx.currentTime;
+      gain.gain.setValueAtTime(Math.max(0.001, gain.gain.value), now);
+      gain.gain.linearRampToValueAtTime(0.001, now + 0.05);
+    } catch(e) {}
+  }
+
+  try { src.stop(audioCtx ? audioCtx.currentTime + 0.05 : 0); } catch (e) {}
   setTimeout(() => {
-    if (src) {
-      try { src.stop(); } catch (e) {}
-    }
     safeDisconnect(src, gain, flt);
-  }, 60);
+  }, 70);
 }
 
 export function playExplodeSound() {

@@ -87,6 +87,8 @@ export const BLOCKS = {
   53:{ name: "Green Wool",  all:0x40904a, solid:true, hardness:0.8 },
   54:{ name: "Yellow Wool", all:0xe0c040, solid:true, hardness:0.8 },
   55:{ name: "Black Wool",  all:0x2a2a2a, solid:true, hardness:0.8 },
+  56:{ name: "TNT",         top:0xd83030, side:0xd84030, bottom:0x9a2020, solid:true, hardness:0.1 },
+  57:{ name: "Bed",         top:0xd83030, side:0xe8e8e8, bottom:0x8a5a2a, solid:true, hardness:0.2 },
   89:{ name: "Farmland",    top:0x5c4033, side:0x6b4f34, bottom:0x6b4f34, solid:true, hardness:0.6 },
   90:{ name: "Wheat Crop (Seeded)", all:0x7a6a4a, solid:false, alpha:true, cutout:true, hardness:0.1 },
   91:{ name: "Wheat Crop (Growing)", all:0x6aa84f, solid:false, alpha:true, cutout:true, hardness:0.1 },
@@ -207,6 +209,9 @@ export const ITEMS = {
   143: { name: "Diamond Shovel",color: 0x6fe6e0, tool: "shovel", tier: 4 },
   144: { name: "Diamond Axe",   color: 0x6fe6e0, tool: "axe", tier: 4 },
   145: { name: "Diamond Hoe",   color: 0x6fe6e0, tool: "hoe", tier: 4 },
+  146: { name: "Bow",           color: 0x9a7b4a, tool: "bow" },
+  147: { name: "Arrow",         color: 0xd8d8d8 },
+  148: { name: "Gunpowder",     color: 0x4a4a4a },
 };
 
 // Automatically assign id property to all ITEMS entries for safe reference
@@ -325,6 +330,10 @@ export const RECIPES = [];
   R({6:2},115,2,"String","2 Leaves → 2 String");
 
   R({130:1,103:4},137,1,"Golden Apple","Apple + 4 Gold → Golden Apple");
+  R({100:3,115:3},146,1,"Bow","3 Sticks + 3 String → Bow");
+  R({118:1,100:1,6:1},147,4,"Arrows","Flint + Stick + Leaves → 4 Arrows");
+  R({148:5,4:4},56,1,"TNT","5 Gunpowder + 4 Sand → TNT Block");
+  R({50:3,7:3},57,1,"Bed","3 Wool + 3 Planks → Bed");
 
   for(const [pid,label] of FENCE_SOURCE){
     if(FENCE_ID[pid]) R({[pid]:2,100:4}, FENCE_ID[pid], 3, `${label} Fence`, `2 Planks + 4 Sticks → 3 Fences`);
@@ -420,6 +429,8 @@ export const BLOCK_TILES = {
   49:{all:"glass_pane"},
   50:{all:"wool_white"}, 51:{all:"wool_red"}, 52:{all:"wool_blue"},
   53:{all:"wool_green"}, 54:{all:"wool_yellow"}, 55:{all:"wool_black"},
+  56:{top:"wool_red", side:"dark_brick", bottom:"dark_brick"},
+  57:{top:"wool_red", side:"wool_white", bottom:"plank"},
   89:{top:"dirt",side:"dirt",bottom:"dirt"},
   90:{all:"leaves"}, 91:{all:"leaves"}, 92:{all:"leaves"}
 };

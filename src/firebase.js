@@ -46,8 +46,8 @@ export function initFirebase(onStatusChange, onSyncConflict) {
           })
         });
       } catch (cacheErr) {
-        console.warn("Persistent cache failed, initializing default Firestore:", cacheErr);
-        db = initializeFirestore(app, {});
+        console.warn("Persistent cache fallback:", cacheErr);
+        if (!db) db = getAuth(app) ? app._container.getProvider('firestore').getImmediate() : null;
       }
       
       auth = getAuth(app);
@@ -82,17 +82,19 @@ export function initFirebase(onStatusChange, onSyncConflict) {
 }
 
 function areEditsEqual(localEdits = {}, cloudEdits = {}) {
+  const safeLocal = localEdits || {};
+  const safeCloud = cloudEdits || {};
   const normLocal = {};
-  for (const k in localEdits) normLocal[String(k).replace(/_/g, ',')] = localEdits[k];
+  for (const k in safeLocal) normLocal[String(k).replace(/_/g, ',')] = safeLocal[k];
   const normCloud = {};
-  for (const k in cloudEdits) normCloud[String(k).replace(/_/g, ',')] = cloudEdits[k];
+  for (const k in safeCloud) normCloud[String(k).replace(/_/g, ',')] = safeCloud[k];
 
   const localKeys = Object.keys(normLocal);
   const cloudKeys = Object.keys(normCloud);
   if (localKeys.length !== cloudKeys.length) return false;
 
   for (const k of localKeys) {
-    if (normLocal[k] !== normCloud[k]) return false;
+    if (String(normLocal[k]) !== String(normCloud[k])) return false;
   }
   return true;
 }
@@ -180,7 +182,7 @@ export async function logoutUser() {
   } catch (err) {
     console.warn("Sign out error:", err);
   } finally {
-    localStorage.removeItem(SAVE_KEY);
+    sessionStorage.setItem('sync_resolved', 'true');
     location.reload();
   }
 }

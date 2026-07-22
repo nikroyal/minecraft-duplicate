@@ -17,11 +17,15 @@ const SPRINT = 7.4;
 const FLYSPEED = 10;
 
 export function spawnPlayer(){
-  const h = surfaceHeight(8, 8);
-  player.pos.set(8.5, h + 3, 8.5);
+  if (player.spawnPoint) {
+    player.pos.copy(player.spawnPoint);
+  } else {
+    const h = surfaceHeight(8, 8);
+    player.pos.set(8.5, h + 3, 8.5);
+  }
   player.vel.set(0, 0, 0);
   player.onGround = false;
-  player.fallPeak = h + 3;
+  player.fallPeak = player.pos.y;
 }
 
 export function chunkReadyAt(wx, wz){
@@ -115,7 +119,8 @@ export function updatePlayer(dt){
   }
   if(wish.lengthSq() > 0) wish.normalize();
 
-  const sprint = blockInput ? false : (keys["ShiftLeft"] || keys["ShiftRight"]);
+  const sprint = blockInput ? false : (keys["ControlLeft"] || keys["ControlRight"] || keys["ShiftLeft"] || keys["ShiftRight"]);
+  player.sprinting = sprint;
 
   if(!chunkReadyAt(player.pos.x, player.pos.z) && !player.flying){
     player.vel.set(0, 0, 0);

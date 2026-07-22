@@ -6,11 +6,12 @@ import { craft, scheduleSave } from '../ui.js';
 import Swatch3D from './Swatch3D.jsx';
 
 // ── helpers ────────────────────────────────────────────────────────────────
-function SlotBox({ id, count, size = 52, onClick, highlighted, ghost, style = {} }) {
+function SlotBox({ id, count, size = 52, onClick, onContextMenu, highlighted, ghost, style = {} }) {
   const isEmpty = !id || id === 0;
   return (
     <div
       onClick={onClick}
+      onContextMenu={onContextMenu}
       style={{
         width: size, height: size, position: 'relative',
         background: 'rgba(30,24,16,0.9)',
@@ -195,6 +196,54 @@ export default function CraftingScreen({ onClose }) {
     setHeld(null);
   }, [held]);
 
+  // Hotbar slot click interaction
+  const handleHotbarSlotClick = useCallback((idx) => {
+    const currentSlotId = hotbar[idx];
+    if (held) {
+      const oldId = currentSlotId;
+      hotbar[idx] = held.id;
+      if (oldId > 0 && oldId !== held.id && invCount(oldId) > 0) {
+        const cnt = Math.min(invCount(oldId), 64);
+        removeItem(oldId, cnt);
+        setHeld({ id: oldId, count: cnt });
+      } else {
+        addItem(held.id, held.count);
+        setHeld(null);
+      }
+    } else if (currentSlotId > 0) {
+      game.selected = idx;
+      const count = invCount(currentSlotId);
+      if (count > 0) {
+        const take = Math.min(count, 64);
+        removeItem(currentSlotId, take);
+        setHeld({ id: currentSlotId, count: take });
+      }
+    }
+    scheduleSave();
+    if (reactBridge.updateUI) reactBridge.updateUI();
+  }, [held]);
+
+  // Keyboard shortcut listener (keys 1-8 to assign held item or selected item to hotbar slot)
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code.startsWith('Digit')) {
+        const num = parseInt(e.code.replace('Digit', ''), 10);
+        if (num >= 1 && num <= 8) {
+          const slotIdx = num - 1;
+          if (held) {
+            hotbar[slotIdx] = held.id;
+            addItem(held.id, held.count);
+            setHeld(null);
+            scheduleSave();
+            if (reactBridge.updateUI) reactBridge.updateUI();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [held]);
+
   // Clear grid → return all items to inventory
   const clearGrid = useCallback(() => {
     for (const id of grid) {
@@ -236,7 +285,7 @@ export default function CraftingScreen({ onClose }) {
           background: 'rgba(0,0,0,0.3)',
         }}>
           <span style={{ color: '#f2d9a0', fontWeight: 700, fontSize: 14, letterSpacing: 2 }}>
-            🔨 CRAFTING TABLE
+            🔨 INVENTORY & CRAFTING
           </span>
           {held && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#f2d9a0' }}>
@@ -257,7 +306,7 @@ export default function CraftingScreen({ onClose }) {
         </div>
 
         {/* ── Body ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* ── TOP: Grid + Output ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 28, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -359,12 +408,62 @@ export default function CraftingScreen({ onClose }) {
           </div>
 
           {/* ── SEPARATOR ── */}
-          <div style={{ borderTop: '1px solid rgba(214,178,120,0.15)', marginTop: -8 }} />
+          <div style={{ borderTop: '1px solid rgba(214,178,120,0.15)', marginTop: -4 }} />
+
+          {/* ── EDITABLE HOTBAR ── */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 10, letterSpacing: 2, color: '#f2d9a0', fontWeight: 700, textTransform: 'uppercase' }}>
+                ⚡ EDITABLE HOTBAR (SLOTS 1–8)
+              </span>
+              <span style={{ fontSize: 9, color: '#c8b896', opacity: 0.8 }}>
+                Click slot to place/swap held item, or press 1–8 while holding an item
+              </span>
+            </div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6,
+              background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(214,178,120,0.25)',
+              borderRadius: 8, padding: 8,
+            }}>
+              {hotbar.map((slotId, idx) => {
+                const count = invCount(slotId);
+                const isSelected = game.selected === idx;
+                return (
+                  <div key={idx} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                    <div style={{ position: 'relative' }}>
+                      <SlotBox
+                        id={slotId}
+                        count={count}
+                        size={52}
+                        onClick={() => handleHotbarSlotClick(idx)}
+                        highlighted={isSelected || (held !== null && slotId === held?.id)}
+                        style={{
+                          borderColor: isSelected ? '#f2d9a0' : 'rgba(214,178,120,0.3)',
+                          boxShadow: isSelected ? '0 0 0 2px #f2d9a0, 0 0 12px rgba(242,217,160,0.4)' : 'none',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute', left: 4, top: 2, fontSize: 10, fontWeight: 700,
+                        color: '#d6b278', textShadow: '0 1px 2px #000', pointerEvents: 'none'
+                      }}>{idx + 1}</span>
+                    </div>
+                    <div style={{ fontSize: 8, color: isSelected ? '#f2d9a0' : '#c8b896', textAlign: 'center', maxWidth: 54, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {slotId > 0 ? thingName(slotId) : 'Empty'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── SEPARATOR ── */}
+          <div style={{ borderTop: '1px solid rgba(214,178,120,0.15)', marginTop: -4 }} />
 
           {/* ── BOTTOM: Inventory ── */}
           <div>
             <div style={{ fontSize: 10, letterSpacing: 2, color: '#d6b278', opacity: .7, textTransform: 'uppercase', marginBottom: 10 }}>
-              Inventory — click an item to pick it up, then click a grid slot to place it
+              Inventory — click an item to pick it up, then place into crafting grid or Hotbar
             </div>
             {playerItems.length === 0 ? (
               <div style={{ fontSize: 11, color: '#9a8a76', opacity: .7, padding: '12px 0' }}>
@@ -375,7 +474,7 @@ export default function CraftingScreen({ onClose }) {
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(58px, 1fr))',
                 gap: 5,
-                maxHeight: 240,
+                maxHeight: 180,
                 overflowY: 'auto',
                 paddingRight: 4,
               }}>
@@ -408,11 +507,9 @@ export default function CraftingScreen({ onClose }) {
             color: '#9a8a76',
             lineHeight: 1.8,
           }}>
-            <strong style={{ color: '#d6b278' }}>How to craft:</strong>
-            &nbsp;Click an item from your inventory to pick it up →
-            Click grid slots to place items →
-            When a recipe matches, click the output slot to collect.
-            &nbsp;<em style={{ color: '#c8b896' }}>Recipes are shapeless — order doesn't matter.</em>
+            <strong style={{ color: '#d6b278' }}>How to manage hotbar &amp; craft:</strong>
+            &nbsp;Click an item to pick it up → Click a Hotbar slot (1–8) or Crafting Grid slot to place/swap it.
+            &nbsp;<em style={{ color: '#c8b896' }}>Or press number keys 1–8 while holding an item to assign it directly!</em>
           </div>
         </div>
       </div>
@@ -433,9 +530,10 @@ export default function CraftingScreen({ onClose }) {
           <Swatch3D id={held.id} />
           <strong>{thingName(held.id)}</strong>
           <span style={{ color: '#d6b278' }}>×{held.count}</span>
-          <span style={{ color: '#9a8a76', fontSize: 10 }}>— click a grid slot</span>
+          <span style={{ color: '#9a8a76', fontSize: 10 }}>— click Hotbar (1–8) or Crafting Grid</span>
         </div>
       )}
     </>
   );
 }
+

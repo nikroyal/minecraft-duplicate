@@ -90,14 +90,21 @@ export function generateChunk(ch){
       const h = surfaceHeight(wx, wz);
       for(let y=0;y<=Math.max(h,SEA);y++){
         let b=AIR;
-        if(y<=h){
+        if(y===0){
+          b=30; // Bedrock / Obsidian bottom layer to prevent falling through map
+        } else if(y<=h){
           if(y===h){ b = (h<=SEA+1)?4:1; }        // sand near water, else grass
           else if(y>h-4) b=2;                       // dirt
           else b=3;                                 // stone
-        } else if(y<=SEA){ b=8; }                    // water
+        } else if(y<=SEA){
+          b=8; // water
+          if(y===SEA || x===0 || x===CHUNK-1 || z===0 || z===CHUNK-1 || y===h+1){
+            queueWater(wx, y, wz);
+          }
+        }
         
-        // carve caves
-        if(b!==AIR && b!==8 && y<h && isCave(wx,y,wz)){ b=AIR; }
+        // carve caves (keep bedrock intact)
+        if(b!==AIR && b!==8 && b!==30 && y<h && isCave(wx,y,wz)){ b=AIR; }
         
         // ores in stone
         if(b===3){
@@ -307,6 +314,37 @@ const FACES = [
 ];
 const UV_ORDER=[[0,1],[0,0],[1,0],[1,1]];
 
+// Vertex Ambient Occlusion (Smooth Lighting) calculation helper
+function calcVertexAO(wx, wy, wz, faceNormal, cornerOffset) {
+  const [nx, ny, nz] = faceNormal;
+  const [cx, cy, cz] = cornerOffset;
+
+  let dx1 = 0, dy1 = 0, dz1 = 0;
+  let dx2 = 0, dy2 = 0, dz2 = 0;
+
+  if (ny !== 0) {
+    dx1 = cx === 1 ? 1 : -1;
+    dz2 = cz === 1 ? 1 : -1;
+  } else if (nx !== 0) {
+    dy1 = cy === 1 ? 1 : -1;
+    dz2 = cz === 1 ? 1 : -1;
+  } else {
+    dx1 = cx === 1 ? 1 : -1;
+    dy2 = cy === 1 ? 1 : -1;
+  }
+
+  const s1Solid = isSolid(getBlock(wx + nx + dx1, wy + ny + dy1, wz + nz + dz1)) ? 1 : 0;
+  const s2Solid = isSolid(getBlock(wx + nx + dx2, wy + ny + dy2, wz + nz + dz2)) ? 1 : 0;
+  const cSolid  = isSolid(getBlock(wx + nx + dx1 + dx2, wy + ny + dy1 + dy2, wz + nz + dz1 + dz2)) ? 1 : 0;
+
+  if (s1Solid === 1 && s2Solid === 1) return 0.48; // Corner occlusion shadow
+  const count = s1Solid + s2Solid + cSolid;
+  if (count === 3) return 0.55;
+  if (count === 2) return 0.70;
+  if (count === 1) return 0.85;
+  return 1.0;
+}
+
 export function buildChunkMesh(ch){
   const ox=ch.cx*CHUNK, oz=ch.cz*CHUNK;
   const groups = {
@@ -340,9 +378,12 @@ export function buildChunkMesh(ch){
       if(id === 20) {
         draw = true; // Torch post
       } else if(id === 45) {
-        draw = (F.f === wallFace); // Draw only the wall-mounted face of the ladder
+        draw = (F.f === wallFace); // Ladder
       } else if(id === 49) {
-        draw = (F.f === 3 || F.f === 5); // Draw intersecting cross-planes for panes
+        draw = (F.f === 3 || F.f === 5); // Glass pane
+      } else if(id === 8) { // WATER
+        if(neigh === 8) draw = false; // Don't draw inner water-to-water faces
+        else draw = true; // Draw water face against air or solid blocks
       } else if(alpha){
         if(neigh===AIR) draw=true;
         else if(isOpaque(neigh)) draw=false;
@@ -365,13 +406,24 @@ export function buildChunkMesh(ch){
       if(bl.tint!==undefined){
         rC *= ((bl.tint>>16)&255)/255; gC *= ((bl.tint>>8)&255)/255; bC *= (bl.tint&255)/255;
       }
+      
       const uv = tileUV(tileFor(id, F.f));
+      
       for(let k=0;k<4;k++){
         const c=F.c[k];
         let px = ox+x+c[0];
         let py = y+c[1];
         let pz = oz+z+c[2];
-        if (id === 20) {
+
+        // Sloped flowing water Y height adjustment
+        if (id === 8) {
+          const dist = waterFlowDist(ox+x, y, oz+z);
+          const topNeigh = getBlock(ox+x, y+1, oz+z);
+          if (topNeigh !== 8 && c[1] === 1) {
+            const hFactor = dist === 0 ? 0.90 : Math.max(0.25, 0.88 - dist * 0.12);
+            py = y + hFactor;
+          }
+        } else if (id === 20) {
           px = ox + x + 0.4375 + c[0]*0.125;
           py = y + c[1]*0.625;
           pz = oz + z + 0.4375 + c[2]*0.125;
@@ -384,9 +436,23 @@ export function buildChunkMesh(ch){
           if (F.f === 3) pz = oz + z + 0.5;
           if (F.f === 5) px = ox + x + 0.5;
         }
+
+        // Apply Ambient Occlusion shadow per vertex
+        const aoMult = calcVertexAO(ox+x, y, oz+z, F.n, c);
+        let finalR = rC * aoMult;
+        let finalG = gC * aoMult;
+        let finalB = bC * aoMult;
+
+        if (id === 8) {
+          // Vibrant water color filter
+          finalR *= 0.35;
+          finalG *= 0.65;
+          finalB *= 0.98;
+        }
+
         g.pos.push(px, py, pz);
-        g.col.push(rC,gC,bC);
-        g.norm.push(F.n[0],F.n[1],F.n[2]);
+        g.col.push(finalR, finalG, finalB);
+        g.norm.push(F.n[0], F.n[1], F.n[2]);
         const uc=UV_ORDER[k];
         g.uv.push(uc[0]?uv.u1:uv.u0, uc[1]?uv.v1:uv.v0);
       }
@@ -408,7 +474,7 @@ export function makeMesh(g, mode){
   if(mode==="cutout"){
     opts.transparent=false; opts.alphaTest=0.5; opts.side = THREE.DoubleSide;
   } else if(mode==="alpha"){
-    opts.transparent=true; opts.opacity=0.8; opts.depthWrite=false;
+    opts.transparent=true; opts.opacity=0.65; opts.side = THREE.DoubleSide; opts.depthWrite=false;
   } else {
     opts.transparent=false;
   }
@@ -516,7 +582,7 @@ export function buildAtlas(){
       for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ px(x,y, shade(0xb08a52,0.82+rnd()*0.28)); }
       for(let y=0;y<TILE;y+=4)for(let x=0;x<TILE;x++) px(x,y, shade(0x6b5330,1));
       for(let x=3;x<TILE;x+=6)for(let y=0;y<TILE;y++) px(x,y, shade(0x6b5330,1)); },
-    water(px){ const rnd=trng(81); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const w=(Math.sin((x+y)*0.9)+1)/2; px(x,y, shade(0x3b6ea5,0.8+w*0.3+rnd()*0.05)); } },
+    water(px){ const rnd=trng(81); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const w=(Math.sin((x+y)*0.8)+1)/2; px(x,y, shade(0x2970da,0.85+w*0.25+rnd()*0.05)); } },
     glass(px){ for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const edge=(x===0||y===0||x===TILE-1||y===TILE-1); px(x,y, edge? shade(0xbfe3ef,1) : "rgba(191,227,239,0.15)"); }
       for(let i=0;i<TILE;i++){ px(i,i,"rgba(255,255,255,0.4)"); } },
     brick(px){ const rnd=trng(101);
@@ -803,13 +869,13 @@ const WATER = 8;
 const MAX_FLOW = 5;
 const flowDist = {};
 const waterActive = new Set();
-export const WATER_TICK = 0.22;
+export const WATER_TICK = 0.18;
 
 export function wkey(x,y,z){ return x+","+y+","+z; }
 export function queueWater(x,y,z){ waterActive.add(wkey(x,y,z)); }
 
 export function disturbWater(x,y,z){
-  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+  for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++){
     const b=getBlock(x+dx,y+dy,z+dz);
     if(b===WATER || b===AIR) queueWater(x+dx,y+dy,z+dz);
   }
@@ -831,20 +897,24 @@ export function tickWater(){
   const process=[...waterActive];
   waterActive.clear();
   const changed=new Set();
+  
   for(const k of process){
     const [x,y,z]=k.split(",").map(Number);
     const here=getBlock(x,y,z);
+    
     if(here===WATER){
       const dist=waterFlowDist(x,y,z);
       
-      // Verify if flowing water (dist > 0) is still fed from above or adjacent lower-dist water
+      // Decay check for flowing water (dist > 0)
       if (dist > 0) {
         let isFed = false;
-        if (getBlock(x, y+1, z) === WATER) isFed = true;
-        else {
+        if (getBlock(x, y+1, z) === WATER) {
+          isFed = true;
+        } else {
           for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
             if (getBlock(x+dx, y, z+dz) === WATER && waterFlowDist(x+dx, y, z+dz) < dist) {
-              isFed = true; break;
+              isFed = true;
+              break;
             }
           }
         }
@@ -857,12 +927,21 @@ export function tickWater(){
         }
       }
 
-      if(y > 0 && getBlock(x,y-1,z)===AIR){
-        setWater(x,y-1,z, Math.max(0, dist-2)); changed.add(wkey(x,y-1,z)); queueWater(x,y-1,z);
-      } else if(dist<MAX_FLOW){
+      // Flow down into air or lower water
+      const below = getBlock(x, y-1, z);
+      if(y > 0 && (below === AIR || (below === WATER && waterFlowDist(x, y-1, z) > 0))){
+        setWater(x, y-1, z, 0); // Vertical falling stream acts as source
+        changed.add(wkey(x, y-1, z));
+        queueWater(x, y-1, z);
+      }
+      // Otherwise flow horizontally if dist < MAX_FLOW
+      else if(dist < MAX_FLOW){
         for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
-          if(getBlock(x+dx,y,z+dz)===AIR){
-            setWater(x+dx,y,z+dz,dist+1); changed.add(wkey(x+dx,y,z+dz)); queueWater(x+dx,y,z+dz);
+          const nb = getBlock(x+dx, y, z+dz);
+          if(nb === AIR){
+            setWater(x+dx, y, z+dz, dist + 1);
+            changed.add(wkey(x+dx, y, z+dz));
+            queueWater(x+dx, y, z+dz);
           }
         }
       }

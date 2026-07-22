@@ -882,13 +882,17 @@ kbd, .m-key {
   background: var(--gold);
   transition: width 0.15s ease;
 }
+.inv-grid, .recipe-list, .block-list, .manual-body, .leaderboard-container, .chest-grid {
+  touch-action: pan-y !important;
+}
+
 .output-cell {
   border: 2px solid var(--gold-bright) !important;
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
 }
 .active-item-name, #activeItemName {
   position: fixed;
-  bottom: 90px;
+  bottom: 108px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(10, 8, 6, 0.85);
@@ -904,7 +908,7 @@ kbd, .m-key {
 }
 .achievement-popup p {
   margin: 2px 0 0 0;
-  font-size: 9px;
+  font-size: 10px;
   color: #c8b896;
 }
 

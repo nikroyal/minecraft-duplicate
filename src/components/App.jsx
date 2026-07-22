@@ -192,7 +192,7 @@ export default function App() {
           {uiState.craftOpen && (
             <div style={{
               position: 'fixed', inset: 0, zIndex: 35,
-              display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+              display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center',
               background: 'rgba(6,4,3,0.85)', backdropFilter: 'blur(6px)',
               padding: '20px 12px',
               gap: 18,

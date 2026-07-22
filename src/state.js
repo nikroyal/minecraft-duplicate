@@ -32,6 +32,11 @@ export const player = {
   diedTonight: false,
   nightSurvivorAwarded: false,
   distanceWalked: 0,
+  xp: 0,
+  level: 0,
+  sprinting: false,
+  spawnPoint: null,
+  bowCharge: 0,
   avatar: {
     headType: "steve",
     shirtColor: "#008080",
@@ -58,6 +63,9 @@ export const game = {
   selected: 0,
   mobs: [],
   particles: [],
+  xpOrbs: [],
+  projectiles: [],
+  primedTnt: [],
 };
 
 // Global WebGL refs
@@ -132,9 +140,17 @@ export function resetGameState() {
   player.diedTonight = false;
   player.nightSurvivorAwarded = false;
   player.distanceWalked = 0;
+  player.xp = 0;
+  player.level = 0;
+  player.sprinting = false;
+  player.spawnPoint = null;
+  player.bowCharge = 0;
   
   game.mobs.length = 0;
   game.particles.length = 0;
+  if (game.xpOrbs) game.xpOrbs.length = 0;
+  if (game.projectiles) game.projectiles.length = 0;
+  if (game.primedTnt) game.primedTnt.length = 0;
   game.timeOfDay = 0.3;
   game.running = false;
   touch.reset();

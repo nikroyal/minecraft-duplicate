@@ -9,22 +9,17 @@ const FUELS = { 11: 80, 101: 80, 120: 80, 5: 15, 22: 15, 23: 15, 7: 15, 31: 15, 
 const SMELT_MAP = { 12: 102, 13: 103, 14: 104, 4: 9, 15: 3, 133: 134, 28: 36, 23: 120, 3: 40 };
 
 export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSave }) {
-  world.furnaces = world.furnaces || {};
-  if (activeFurnaceCoords && !world.furnaces[activeFurnaceCoords]) {
-    world.furnaces[activeFurnaceCoords] = {
-      inputId: 0, inputCount: 0,
-      fuelId: 0, fuelCount: 0,
-      outputId: 0, outputCount: 0,
-      burnTime: 0, maxBurnTime: 0,
-      smeltProgress: 0
-    };
-  }
-
-  const furnace = (activeFurnaceCoords && world.furnaces[activeFurnaceCoords]) 
-    ? world.furnaces[activeFurnaceCoords]
-    : { inputId: 0, inputCount: 0, fuelId: 0, fuelCount: 0, outputId: 0, outputCount: 0, burnTime: 0, maxBurnTime: 0, smeltProgress: 0 };
-
   useEffect(() => {
+    world.furnaces = world.furnaces || {};
+    if (activeFurnaceCoords && !world.furnaces[activeFurnaceCoords]) {
+      world.furnaces[activeFurnaceCoords] = {
+        inputId: 0, inputCount: 0,
+        fuelId: 0, fuelCount: 0,
+        outputId: 0, outputCount: 0,
+        burnTime: 0, maxBurnTime: 0,
+        smeltProgress: 0
+      };
+    }
     const handleKeyDown = (e) => {
       if (e.code === "Escape" || e.code === "KeyE") {
         onClose();
@@ -32,7 +27,11 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [activeFurnaceCoords, onClose]);
+
+  const furnace = (activeFurnaceCoords && world.furnaces && world.furnaces[activeFurnaceCoords]) 
+    ? world.furnaces[activeFurnaceCoords]
+    : { inputId: 0, inputCount: 0, fuelId: 0, fuelCount: 0, outputId: 0, outputCount: 0, burnTime: 0, maxBurnTime: 0, smeltProgress: 0 };
 
   const ids = Object.keys(inventory)
     .map(Number)
@@ -176,7 +175,7 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
 
             {/* Output */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '9px', color: '#gold', textTransform: 'uppercase', fontWeight: 'bold' }}>Smelt Output</span>
+              <span style={{ fontSize: '9px', color: 'var(--gold)', textTransform: 'uppercase', fontWeight: 'bold' }}>Smelt Output</span>
               <div className="inv-cell clickable output-cell" onClick={handleTakeOutput} style={{ width: '64px', height: '64px', border: '2px solid var(--gold)' }}>
                 {furnace.outputId > 0 ? (
                   <>

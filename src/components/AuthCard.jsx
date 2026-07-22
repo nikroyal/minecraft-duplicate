@@ -18,8 +18,8 @@ export default function AuthCard({ authStatus }) {
     loginWithEmail(email.trim(), password)
       .catch(err => {
         showError(err.message);
-        setLoading(false);
-      });
+      })
+      .finally(() => setLoading(false));
   };
 
   const handleRegister = () => {
@@ -29,8 +29,8 @@ export default function AuthCard({ authStatus }) {
     signupWithEmail(email.trim(), password)
       .catch(err => {
         showError(err.message);
-        setLoading(false);
-      });
+      })
+      .finally(() => setLoading(false));
   };
 
   return (

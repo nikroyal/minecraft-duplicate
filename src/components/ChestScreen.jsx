@@ -6,14 +6,11 @@ import { playPlaceSound } from '../audio.js';
 import Swatch3D from './Swatch3D.jsx';
 
 export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }) {
-  world.chests = world.chests || {};
-  if (activeChestCoords && !world.chests[activeChestCoords]) {
-    world.chests[activeChestCoords] = Array.from({ length: 27 }, () => ({ id: 0, count: 0 }));
-  }
-  
-  const chest = (activeChestCoords && world.chests[activeChestCoords]) ? world.chests[activeChestCoords] : [];
-  
   useEffect(() => {
+    world.chests = world.chests || {};
+    if (activeChestCoords && !world.chests[activeChestCoords]) {
+      world.chests[activeChestCoords] = Array.from({ length: 27 }, () => ({ id: 0, count: 0 }));
+    }
     const handleKeyDown = (e) => {
       if (e.code === "Escape" || e.code === "KeyE") {
         onClose();
@@ -21,7 +18,9 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [activeChestCoords, onClose]);
+
+  const chest = (activeChestCoords && world.chests && world.chests[activeChestCoords]) ? world.chests[activeChestCoords] : [];
 
   // Get active inventory IDs
   const ids = Object.keys(inventory)

@@ -5,16 +5,18 @@ import { getBlock, triggerWorldExplosion } from './world.js';
 import { 
   hurtPlayer, addItem, heldTool, collisionSolid, eyePos, lookDir 
 } from './player.js';
+import { spawnItemDrop, spawnXpOrbs, spawnProjectile } from './main.js';
 import { toast, scheduleSave } from './ui.js';
 import { playHissSound, stopHissSound, playExplodeSound, playHitSound, playPigSound, playSheepSound, playZombieSound } from './audio.js';
 
 const GRAV = -26;
 
 export const MOB_TYPES = {
-  pig:   { name:"Pig",   color:0xe89090, w:0.9, h:0.9, hp:8,  hostile:false, drop:133, dropN:2, speed:1.8 },
-  sheep: { name:"Sheep", color:0xe8e8e0, w:0.9, h:1.1, hp:8,  hostile:false, drop:50,  dropN:1, speed:1.6 },
-  zombie:{ name:"Zombie",color:0x4a7a4a, w:0.6, h:1.8, hp:14, hostile:true,  drop:133, dropN:1, speed:2.6, dmg:3 },
-  creeper:{ name:"Creeper",color:0x2e8b57, w:0.6, h:1.7, hp:16, hostile:true,  drop:101, dropN:1, speed:2.4, dmg:0 }
+  pig:      { name:"Pig",      color:0xe89090, w:0.9, h:0.9, hp:8,  hostile:false, drop:133, dropN:2, speed:1.8 },
+  sheep:    { name:"Sheep",    color:0xe8e8e0, w:0.9, h:1.1, hp:8,  hostile:false, drop:50,  dropN:1, speed:1.6 },
+  zombie:   { name:"Zombie",   color:0x4a7a4a, w:0.6, h:1.8, hp:14, hostile:true,  drop:133, dropN:1, speed:2.6, dmg:3 },
+  creeper:  { name:"Creeper",  color:0x2e8b57, w:0.6, h:1.7, hp:16, hostile:true,  drop:148, dropN:2, speed:2.4, dmg:0 },
+  skeleton: { name:"Skeleton", color:0xd0d0d0, w:0.6, h:1.8, hp:16, hostile:true,  drop:147, dropN:3, speed:2.2, dmg:2 }
 };
 
 const MAX_MOBS = 14;
@@ -111,6 +113,37 @@ export function makeMobMesh(type){
       leg.position.set(dx, 0.2, dz);
       group.add(leg);
     }
+  } else if(type === "skeleton"){
+    // Skeleton Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.75, 0.25), mat);
+    body.position.set(0, 1.075, 0);
+    group.add(body);
+    
+    // Head
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), mat);
+    head.position.set(0, 1.7, 0);
+    group.add(head);
+    
+    // 2 Thin Arms
+    for(let dx of [-0.32, 0.32]){
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.65, 0.12), mat);
+      arm.position.set(dx, 1.1, -0.2);
+      arm.rotation.x = -Math.PI / 3;
+      group.add(arm);
+    }
+    
+    // Bow mesh in hand
+    const bowMat = new THREE.MeshLambertMaterial({ color: 0x9a7b4a });
+    const bowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.08), bowMat);
+    bowMesh.position.set(0.35, 1.0, -0.4);
+    group.add(bowMesh);
+
+    // 2 Thin Legs
+    for(let dx of [-0.14, 0.14]){
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), mat);
+      leg.position.set(dx, 0.35, 0);
+      group.add(leg);
+    }
   }
   
   return group;
@@ -175,6 +208,7 @@ export function spawnMob(type, x, y, z){
     fuseTimer: 0,
     attackCd: 0,
     hurtFlash: 0,
+    shootCd: 0,
     animPhase: Math.random() * 100,
     nextVoiceTime: performance.now() + 10000 + Math.random() * 15000,
     hitWall: false
@@ -185,7 +219,7 @@ export function spawnMob(type, x, y, z){
 
 export function trySpawnMobs(){
   if(game.mobs.length >= MAX_MOBS) return;
-  const types = ["pig", "sheep", "zombie", "creeper"];
+  const types = ["pig", "sheep", "zombie", "creeper", "skeleton"];
   const type = types[Math.floor(Math.random() * types.length)];
   const def = MOB_TYPES[type];
   
@@ -251,11 +285,16 @@ export function updateMobs(dt){
     let wishX = 0, wishZ = 0;
     
     if(m.def.hostile && distToP < 16 && !player.dead){
-      // Chase player
       const dx = px - m.pos.x, dz = pz - m.pos.z;
       m.yaw = Math.atan2(-dx, -dz);
-      wishX = -Math.sin(m.yaw);
-      wishZ = -Math.cos(m.yaw);
+      if (m.type === "skeleton" && distToP < 8.0) {
+        // Skeleton backs up or maintains distance
+        wishX = Math.sin(m.yaw);
+        wishZ = Math.cos(m.yaw);
+      } else {
+        wishX = -Math.sin(m.yaw);
+        wishZ = -Math.cos(m.yaw);
+      }
     } else {
       // Wander
       m.wanderTimer -= dt;
@@ -273,6 +312,18 @@ export function updateMobs(dt){
       }
     }
     
+    // Skeleton shooting AI
+    if (m.type === "skeleton" && distToP < 16 && !player.dead) {
+      m.shootCd = (m.shootCd || 2.0) - dt;
+      if (m.shootCd <= 0) {
+        m.shootCd = 2.2 + Math.random() * 0.8;
+        const mobEye = m.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
+        const pTarget = player.pos.clone().add(new THREE.Vector3(0, 1.0, 0));
+        const arrDir = pTarget.sub(mobEye).normalize();
+        spawnProjectile(mobEye.x, mobEye.y, mobEye.z, arrDir, 18, false);
+      }
+    }
+
     // Jump over obstacles when moving
     m.hitWall = false;
     if(m.onGround && (wishX !== 0 || wishZ !== 0)){
@@ -336,7 +387,7 @@ export function updateMobs(dt){
       m.nextVoiceTime = now + 10000 + Math.random() * 15000;
       if(m.type === "pig") playPigSound();
       else if(m.type === "sheep") playSheepSound();
-      else if(m.type === "zombie") playZombieSound();
+      else if(m.type === "zombie" || m.type === "skeleton") playZombieSound();
     }
   }
 }
@@ -386,6 +437,13 @@ export function attackMob(){
   
   const tool = heldTool();
   let dmg = 1;
+  let isCrit = false;
+  
+  // Critical Hit check (player falling and not on ground)
+  if (player.vel.y < -0.5 && !player.onGround && !player.flying) {
+    isCrit = true;
+  }
+
   if(tool){
     if(tool.tool === "sword") dmg = 3 + (tool.tier || 1) * 2;
     else if(tool.tool === "axe") dmg = 2 + (tool.tier || 1);
@@ -399,6 +457,11 @@ export function attackMob(){
     }
   }
   
+  if (isCrit) {
+    dmg = Math.floor(dmg * 1.5);
+    toast("CRITICAL HIT!");
+  }
+
   best.hp -= dmg;
   best.hurtFlash = 0.2;
   playHitSound();
@@ -413,8 +476,9 @@ export function attackMob(){
   
   if(best.hp <= 0){
     if(best.def.drop && game.survival){
-      addItem(best.def.drop, best.def.dropN || 1);
-      toast(`${best.def.name} defeated. Got +${best.def.dropN || 1} ${thingName(best.def.drop)}!`);
+      spawnItemDrop(best.def.drop, best.def.dropN || 1, best.pos.x, best.pos.y + 0.5, best.pos.z);
+      spawnXpOrbs(best.pos.x, best.pos.y + 0.5, best.pos.z, Math.floor(Math.random() * 3) + 3);
+      toast(`${best.def.name} defeated!`);
     } else {
       toast(`${best.def.name} defeated`);
     }

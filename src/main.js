@@ -29,6 +29,270 @@ import {
 } from './ui.js';
 import { playPlaceSound, playMineSound } from './audio.js';
 
+// ---- 3D Item Drops System ----
+export const itemDrops = [];
+
+export function spawnItemDrop(id, count, x, y, z) {
+  if (!id || id <= 0 || count <= 0) return;
+  const col = thingColor(id);
+  const placeable = isPlaceable(id);
+  const geo = placeable 
+    ? new THREE.BoxGeometry(0.24, 0.24, 0.24)
+    : new THREE.BoxGeometry(0.08, 0.08, 0.35);
+  const mat = new THREE.MeshLambertMaterial({ color: col });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y + 0.2, z);
+  if (webgl.scene) webgl.scene.add(mesh);
+
+  const drop = {
+    id, count, mesh,
+    pos: new THREE.Vector3(x, y + 0.2, z),
+    vel: new THREE.Vector3((Math.random() - 0.5) * 1.5, 2.5, (Math.random() - 0.5) * 1.5),
+    spawnTime: performance.now(),
+  };
+  itemDrops.push(drop);
+}
+
+export function updateItemDrops(dt) {
+  if (!webgl.scene || itemDrops.length === 0) return;
+  const now = performance.now();
+  const playerTarget = player.pos.clone().add(new THREE.Vector3(0, 0.8, 0));
+
+  for (let i = itemDrops.length - 1; i >= 0; i--) {
+    const d = itemDrops[i];
+    d.mesh.rotation.y += dt * 3.0;
+
+    const dist = d.pos.distanceTo(playerTarget);
+    if (dist < 2.4 && now - d.spawnTime > 400 && !player.dead) {
+      d.pos.lerp(playerTarget, dt * 7.5);
+      d.mesh.position.copy(d.pos);
+      if (dist < 0.65) {
+        addItem(d.id, d.count);
+        toast(`Picked up +${d.count} ${thingName(d.id)}`);
+        webgl.scene.remove(d.mesh);
+        d.mesh.geometry.dispose();
+        d.mesh.material.dispose();
+        itemDrops.splice(i, 1);
+        if (reactBridge.updateUI) reactBridge.updateUI();
+        continue;
+      }
+    } else {
+      d.vel.y += -22 * dt; // Gravity
+      d.pos.addScaledVector(d.vel, dt);
+      if (isSolid(getBlock(Math.floor(d.pos.x), Math.floor(d.pos.y), Math.floor(d.pos.z)))) {
+        d.vel.set(0, 0, 0);
+      }
+      d.mesh.position.copy(d.pos);
+    }
+  }
+}
+
+// ---- XP Orbs System ----
+const xpOrbGeo = new THREE.SphereGeometry(0.12, 6, 6);
+const xpOrbMat = new THREE.MeshBasicMaterial({ color: 0x80ff20 });
+
+export function spawnXpOrbs(x, y, z, count = 3) {
+  for (let i = 0; i < count; i++) {
+    const mesh = new THREE.Mesh(xpOrbGeo, xpOrbMat);
+    mesh.position.set(x + (Math.random() - 0.5) * 0.5, y + 0.2, z + (Math.random() - 0.5) * 0.5);
+    if (webgl.scene) webgl.scene.add(mesh);
+    game.xpOrbs.push({
+      mesh,
+      pos: mesh.position.clone(),
+      vel: new THREE.Vector3((Math.random() - 0.5) * 2, 2.5 + Math.random() * 2, (Math.random() - 0.5) * 2),
+      spawnTime: performance.now(),
+    });
+  }
+}
+
+export function updateXpOrbs(dt) {
+  if (!webgl.scene || game.xpOrbs.length === 0) return;
+  const pTarget = player.pos.clone().add(new THREE.Vector3(0, 0.9, 0));
+  const now = performance.now();
+
+  for (let i = game.xpOrbs.length - 1; i >= 0; i--) {
+    const orb = game.xpOrbs[i];
+    orb.mesh.rotation.y += dt * 5.0;
+
+    const dist = orb.pos.distanceTo(pTarget);
+    if (dist < 3.2 && now - orb.spawnTime > 300 && !player.dead) {
+      orb.pos.lerp(pTarget, dt * 9.0);
+      orb.mesh.position.copy(orb.pos);
+      if (dist < 0.65) {
+        player.xp = (player.xp || 0) + 1;
+        const levelReq = ((player.level || 0) + 1) * 10;
+        if (player.xp >= levelReq) {
+          player.level = (player.level || 0) + 1;
+          toast(`🌟 LEVEL UP! You are now Level ${player.level}!`);
+          unlockAchievement(10, "Experience Master", "Reach Level 1 or higher.");
+        }
+        webgl.scene.remove(orb.mesh);
+        game.xpOrbs.splice(i, 1);
+        if (reactBridge.updateUI) reactBridge.updateUI();
+        continue;
+      }
+    } else {
+      orb.vel.y += -18 * dt;
+      orb.pos.addScaledVector(orb.vel, dt);
+      if (isSolid(getBlock(Math.floor(orb.pos.x), Math.floor(orb.pos.y), Math.floor(orb.pos.z)))) {
+        orb.vel.set(0, 0, 0);
+      }
+      orb.mesh.position.copy(orb.pos);
+    }
+  }
+}
+
+// ---- Projectile System (Arrows) ----
+const arrowGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.65);
+arrowGeo.rotateX(Math.PI / 2);
+const arrowMat = new THREE.MeshLambertMaterial({ color: 0x9a7b4a });
+
+export function spawnProjectile(x, y, z, dir, speed = 22, isPlayer = true) {
+  const mesh = new THREE.Mesh(arrowGeo, arrowMat);
+  mesh.position.set(x, y, z);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+  if (webgl.scene) webgl.scene.add(mesh);
+
+  game.projectiles.push({
+    mesh,
+    pos: new THREE.Vector3(x, y, z),
+    vel: dir.clone().multiplyScalar(speed),
+    isPlayer,
+    stuck: false,
+    life: 0,
+  });
+}
+
+export function updateProjectiles(dt) {
+  if (!webgl.scene || game.projectiles.length === 0) return;
+
+  for (let i = game.projectiles.length - 1; i >= 0; i--) {
+    const proj = game.projectiles[i];
+    proj.life += dt;
+    if (proj.life > 10) {
+      webgl.scene.remove(proj.mesh);
+      proj.mesh.geometry.dispose();
+      game.projectiles.splice(i, 1);
+      continue;
+    }
+
+    if (proj.stuck) continue;
+
+    proj.vel.y += -12 * dt; // Gravity
+    const step = proj.vel.clone().multiplyScalar(dt);
+    const nextPos = proj.pos.clone().add(step);
+
+    // Collision check against blocks
+    const bx = Math.floor(nextPos.x), by = Math.floor(nextPos.y), bz = Math.floor(nextPos.z);
+    if (isSolid(getBlock(bx, by, bz))) {
+      proj.stuck = true;
+      proj.pos.copy(nextPos);
+      proj.mesh.position.copy(proj.pos);
+      continue;
+    }
+
+    // Collision check against entities
+    if (proj.isPlayer) {
+      for (const m of game.mobs) {
+        if (m.pos.distanceTo(nextPos) < m.def.w + 0.3) {
+          m.hp -= 5;
+          m.hurtFlash = 0.2;
+          playHitSound();
+          if (m.hp <= 0) {
+            if (m.def.drop && game.survival) {
+              spawnItemDrop(m.def.drop, m.def.dropN || 1, m.pos.x, m.pos.y + 0.5, m.pos.z);
+              spawnXpOrbs(m.pos.x, m.pos.y + 0.5, m.pos.z, 4);
+              toast(`${m.def.name} shot down!`);
+            }
+            const idx = game.mobs.indexOf(m);
+            if (idx >= 0) removeMob(idx);
+          }
+          webgl.scene.remove(proj.mesh);
+          proj.mesh.geometry.dispose();
+          game.projectiles.splice(i, 1);
+          break;
+        }
+      }
+    } else { // Hostile arrow from Skeleton
+      if (player.pos.distanceTo(nextPos) < 1.0 && !player.dead) {
+        hurtPlayer(3, "skeleton");
+        webgl.scene.remove(proj.mesh);
+        proj.mesh.geometry.dispose();
+        game.projectiles.splice(i, 1);
+        continue;
+      }
+    }
+
+    proj.pos.copy(nextPos);
+    proj.mesh.position.copy(proj.pos);
+    proj.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), proj.vel.clone().normalize());
+  }
+}
+
+// ---- Primed TNT System ----
+const tntGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
+
+export function spawnPrimedTnt(x, y, z) {
+  const tntMat = new THREE.MeshLambertMaterial({ color: 0xd83030 });
+  const mesh = new THREE.Mesh(tntGeo, tntMat);
+  mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
+  if (webgl.scene) webgl.scene.add(mesh);
+
+  game.primedTnt.push({
+    mesh,
+    pos: new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5),
+    fuse: 3.0,
+  });
+}
+
+export function updatePrimedTnt(dt) {
+  if (!webgl.scene || game.primedTnt.length === 0) return;
+  const now = performance.now();
+
+  for (let i = game.primedTnt.length - 1; i >= 0; i--) {
+    const tnt = game.primedTnt[i];
+    tnt.fuse -= dt;
+
+    // Pulsing scale & flashing white effect
+    const pulse = 1.0 + Math.sin(tnt.fuse * 14) * 0.08;
+    tnt.mesh.scale.setScalar(pulse);
+    
+    if (Math.floor(now / 100) % 2 === 0) {
+      tnt.mesh.material.color.setHex(0xffffff);
+    } else {
+      tnt.mesh.material.color.setHex(0xd83030);
+    }
+
+    if (tnt.fuse <= 0) {
+      triggerWorldExplosion(tnt.pos.x, tnt.pos.y, tnt.pos.z, 4.0, scheduleSave);
+      playExplodeSound();
+      webgl.scene.remove(tnt.mesh);
+      tnt.mesh.geometry.dispose();
+      tnt.mesh.material.dispose();
+      game.primedTnt.splice(i, 1);
+    }
+  }
+}
+
+// ---- Procedural Clouds ----
+export function createClouds() {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.82 });
+  const geo = new THREE.BoxGeometry(16, 4, 16);
+
+  for (let x = -8; x <= 8; x++) {
+    for (let z = -8; z <= 8; z++) {
+      if ((Math.sin(x * 12.3 + z * 4.5) + 1) / 2 > 0.4) {
+        const cloud = new THREE.Mesh(geo, mat);
+        cloud.position.set(x * 24, 38, z * 24);
+        group.add(cloud);
+      }
+    }
+  }
+  webgl.scene.add(group);
+  webgl.cloudMesh = group;
+}
+
 // ---- Break progress state ----
 export const mining = { held: false, x: 0, y: 0, z: 0, id: 0, progress: 0, active: false };
 
@@ -237,13 +501,13 @@ function completeMine(x, y, z, id){
     delete crops[key];
     if (id === 92) {
       if (game.survival) {
-        addItem(136, 1); // Wheat
-        addItem(138, Math.floor(Math.random() * 3) + 1); // 1-3 seeds
+        spawnItemDrop(136, 1, x + 0.5, y + 0.5, z + 0.5); // Wheat
+        spawnItemDrop(138, Math.floor(Math.random() * 3) + 1, x + 0.5, y + 0.5, z + 0.5); // Seeds
       }
       unlockAchievement(8, "Bountiful Harvest", "Harvest fully grown ripe wheat.");
     } else {
       if (game.survival) {
-        addItem(138, 1); // return seed
+        spawnItemDrop(138, 1, x + 0.5, y + 0.5, z + 0.5); // return seed
       }
     }
     updateAfterEdit(x, y, z);
@@ -252,10 +516,10 @@ function completeMine(x, y, z, id){
   
   if(id === 6){ // Leaves
     const r = Math.random();
-    if(r < 0.10) addItem(130, 1);
-    else if(r < 0.18) addItem(131, 1);
-    else if(r < 0.30) addItem(100, 1);
-    else if(r < 0.40) addItem(138, 1); // Leaves drop seeds too!
+    if(r < 0.10) spawnItemDrop(130, 1, x + 0.5, y + 0.5, z + 0.5);
+    else if(r < 0.18) spawnItemDrop(131, 1, x + 0.5, y + 0.5, z + 0.5);
+    else if(r < 0.30) spawnItemDrop(100, 1, x + 0.5, y + 0.5, z + 0.5);
+    else if(r < 0.40) spawnItemDrop(138, 1, x + 0.5, y + 0.5, z + 0.5); // Leaves drop seeds too!
     updateAfterEdit(x, y, z);
     return;
   }
@@ -281,7 +545,12 @@ function completeMine(x, y, z, id){
     unlockAchievement(9, "Diamonds!", "Find and mine a rare Diamond Ore.");
   }
   
-  if(game.survival) addItem(id, 1);
+  // Ore mining XP Orbs drop
+  if (id === 11 || id === 12 || id === 13 || id === 14) {
+    spawnXpOrbs(x + 0.5, y + 0.5, z + 0.5, Math.floor(Math.random() * 3) + 2);
+  }
+
+  if(game.survival) spawnItemDrop(id, 1, x + 0.5, y + 0.5, z + 0.5);
   updateAfterEdit(x, y, z);
 }
 
@@ -393,8 +662,45 @@ export function placeBlock(){
     openFurnace(r.hit[0], r.hit[1], r.hit[2]);
     return;
   }
+  if(hitBlockId === 56){ // TNT Block right-click ignite
+    spawnPrimedTnt(r.hit[0], r.hit[1], r.hit[2]);
+    setBlock(r.hit[0], r.hit[1], r.hit[2], 0, true, scheduleSave);
+    updateAfterEdit(r.hit[0], r.hit[1], r.hit[2]);
+    playHissSound();
+    toast("TNT Primed!");
+    return;
+  }
+  if(hitBlockId === 57){ // Bed right-click sleep
+    const isNightTime = game.timeOfDay < 0.22 || game.timeOfDay > 0.78;
+    if (isNightTime) {
+      game.timeOfDay = 0.30; // Dawn
+      player.health = Math.min(20, player.health + 6);
+      player.hunger = Math.min(20, player.hunger + 6);
+      player.spawnPoint = new THREE.Vector3(r.hit[0] + 0.5, r.hit[1] + 1.1, r.hit[2] + 0.5);
+      toast("Passed the night — Respawn point set!");
+      updateStatsHUD();
+    } else {
+      toast("You can only sleep at night");
+    }
+    return;
+  }
 
   const heldId = hotbar[game.selected];
+
+  // Ranged Bow Firing
+  if (heldId === 146) {
+    if (invCount(147) > 0 || !game.survival) {
+      if (game.survival) removeItem(147, 1);
+      const eyeP = eyePos();
+      const lookD = lookDir();
+      spawnProjectile(eyeP.x, eyeP.y, eyeP.z, lookD, 24, true);
+      toast("Arrow Fired!");
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    } else {
+      toast("Out of Arrows!");
+    }
+    return;
+  }
   
   // 1. Hoe Interaction (Tilling dirt/grass to farmland)
   if (heldId > 0 && ITEMS[heldId] && ITEMS[heldId].tool === "hoe") {
@@ -504,6 +810,10 @@ function loop(now){
     updateMobs(dt);
     tickFurnaces(dt);
     tickCrops(dt);
+    updateItemDrops(dt);
+    updateXpOrbs(dt);
+    updateProjectiles(dt);
+    updatePrimedTnt(dt);
   }
   
   updateChunkLoading();
@@ -514,12 +824,67 @@ function loop(now){
   game.waterTimer += dt;
   if(game.waterTimer >= WATER_TICK){ game.waterTimer = 0; tickWater(); }
 
-  // Camera tracking with F5 modes and block collision safety
+  // Dynamic Sprinting FOV Stretch interpolation
+  if (webgl.camera) {
+    const targetFov = player.sprinting ? 84 : 72;
+    webgl.camera.fov += (targetFov - webgl.camera.fov) * Math.min(1, dt * 8.0);
+    webgl.camera.updateProjectionMatrix();
+  }
+
+  // Drifting clouds animation
+  if (webgl.cloudMesh) {
+    webgl.cloudMesh.position.x += dt * 1.5;
+    if (webgl.cloudMesh.position.x > 140) webgl.cloudMesh.position.x = -140;
+  }
+
+  // Ambient torch/furnace particles
+  if (Math.random() < 0.20 && game.running) {
+    const px = Math.floor(player.pos.x) + (Math.floor(Math.random() * 16) - 8);
+    const py = Math.floor(player.pos.y) + (Math.floor(Math.random() * 10) - 5);
+    const pz = Math.floor(player.pos.z) + (Math.floor(Math.random() * 16) - 8);
+    const b = getBlock(px, py, pz);
+    if (b === 20 || b === 42 || b === 21) {
+      spawnDust(px, py + 0.4, pz, b);
+    }
+  }
+
+  // Underwater screen overlay & fog adjustment
+  const headY = Math.floor(player.pos.y + player.eye);
+  const headBlock = getBlock(Math.floor(player.pos.x), headY, Math.floor(player.pos.z));
+  const isUnderwater = (headBlock === 8);
+
+  let uEl = document.getElementById("underwaterOverlay");
+  if (!uEl && typeof document !== "undefined") {
+    uEl = document.createElement("div");
+    uEl.id = "underwaterOverlay";
+    uEl.style.cssText = "position:fixed;inset:0;z-index:7;pointer-events:none;background:rgba(20,80,180,0.36);backdrop-filter:blur(1px);opacity:0;transition:opacity 0.2s;";
+    document.body.appendChild(uEl);
+  }
+  if (uEl) {
+    uEl.style.opacity = isUnderwater ? "1" : "0";
+  }
+  if (isUnderwater) {
+    webgl.scene.fog.color.setHex(0x103060);
+    webgl.scene.fog.near = 1;
+    webgl.scene.fog.far = 14;
+  } else {
+    webgl.scene.fog.near = RENDER_DIST*16*0.55;
+    webgl.scene.fog.far = RENDER_DIST*16*0.95;
+  }
+
+  // Camera tracking with F5 modes, View Bobbing, and block collision safety
   const dir = lookDir();
   
   if (player.cameraMode === 0) {
-    // First-Person
-    webgl.camera.position.set(player.pos.x, player.pos.y + 1.6, player.pos.z);
+    // First-Person with View Bobbing
+    const speed2D = Math.hypot(player.vel.x, player.vel.z);
+    const bobFreq = player.sprinting ? 14 : 9;
+    const bobAmp = player.sprinting ? 0.06 : 0.03;
+    const bobY = (player.onGround && speed2D > 0.5 && !player.flying)
+      ? Math.sin(performance.now() * 0.001 * bobFreq) * bobAmp
+      : 0;
+
+    webgl.camera.position.set(player.pos.x, player.pos.y + 1.6 + bobY, player.pos.z);
     webgl.camera.lookAt(webgl.camera.position.x + dir.x, webgl.camera.position.y + dir.y, webgl.camera.position.z + dir.z);
     if (webgl.playerMesh) webgl.playerMesh.visible = false;
     if (webgl.heldGroup) webgl.heldGroup.visible = true;
@@ -681,6 +1046,9 @@ export function bootGame() {
   webgl.moonMesh = new THREE.Mesh(moonGeo, moonMat);
   webgl.scene.add(webgl.moonMesh);
 
+  // Procedural Clouds
+  createClouds();
+
   // Highlight Box wireframe setup
   const hlGeo = new THREE.BoxGeometry(1.002, 1.002, 1.002);
   const hlEdges = new THREE.EdgesGeometry(hlGeo);
@@ -821,7 +1189,15 @@ export function bootGame() {
       updateHUD();
     }
     if(e.code === "KeyQ"){
-      eatSelected();
+      const heldId = hotbar[game.selected];
+      if(heldId > 0 && invCount(heldId) > 0){
+        removeItem(heldId, 1);
+        const eyeP = eyePos();
+        const lDir = lookDir();
+        spawnItemDrop(heldId, 1, eyeP.x + lDir.x * 0.8, eyeP.y + lDir.y * 0.8, eyeP.z + lDir.z * 0.8);
+        toast(`Dropped 1 ${thingName(heldId)}`);
+        updateHeldItemMesh();
+      }
     }
     // hotbar numbers 1..8
     if(e.code.startsWith("Digit")){

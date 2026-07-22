@@ -4,6 +4,8 @@ import { thingName, BLOCKS, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
 import Swatch3D from './Swatch3D.jsx';
 
+import { selectSlot } from '../ui.js';
+
 export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsStr, clockStr }) {
   const activeSelected = selectedSlot !== undefined ? selectedSlot : game.selected;
   const hp = Math.max(0, player.health);
@@ -25,7 +27,7 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
     return '⚪';
   });
 
-  const selectedId = hotbar[game.selected];
+  const selectedId = hotbar[activeSelected];
 
   // Determine day/night icon from timeOfDay (0–1 cycle)
   const timeOfDay = game.timeOfDay || 0.3;
@@ -85,8 +87,8 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
       </div>
 
       {/* Target Block HUD */}
-      <div id="targetHud" className="target-hud" style={{ display: 'none' }}>
-        <span id="targetName">Air</span>
+      <div id="targetHud" className={`target-hud ${targetBlockName ? 'visible' : ''}`} style={{ display: targetBlockName ? 'block' : 'none' }}>
+        <span id="targetName">{targetBlockName || 'Air'}</span>
       </div>
 
       {/* Survival Health & Hunger Overlay */}
@@ -101,6 +103,47 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
             {hungers.map((h, i) => (
               <span key={i} className="unit">{h}</span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* XP Level Bar & Level Number */}
+      {game.survival && (
+        <div style={{
+          position: 'fixed',
+          bottom: '72px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '2px',
+          zIndex: 110,
+          pointerEvents: 'none',
+        }}>
+          <span style={{
+            fontSize: '15px',
+            fontFamily: '"Minecraft", monospace',
+            fontWeight: 800,
+            color: '#80ff20',
+            textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000',
+          }}>
+            {player.level}
+          </span>
+          <div style={{
+            width: '320px',
+            height: '6px',
+            background: 'rgba(0,0,0,0.6)',
+            border: '1px solid #1a3a08',
+            borderRadius: '3px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${Math.min(100, Math.max(0, (((player.xp || 0) % (((player.level || 0) + 1) * 10)) / (((player.level || 0) + 1) * 10)) * 100))}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #55ff55, #80ff20)',
+              boxShadow: '0 0 4px #80ff20',
+            }} />
           </div>
         </div>
       )}
@@ -122,7 +165,12 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           else if (durPercent < 60) barColor = '#ffcc00';
 
           return (
-            <div key={index} className={`slot ${isSelected ? 'active' : ''}`}>
+            <div
+              key={index}
+              className={`slot ${isSelected ? 'active' : ''}`}
+              onClick={() => selectSlot(index)}
+              style={{ cursor: 'pointer' }}
+            >
               <span className="key">{index + 1}</span>
               {id > 0 && (count > 0 || !game.survival) ? (
                 <>
