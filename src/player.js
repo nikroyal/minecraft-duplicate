@@ -182,10 +182,19 @@ export function updatePlayer(dt){
     }
   }
 
-  // Water check
-  const inWater = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z)) === 8;
-  if (inWater) {
+  // Water check & physics
+  const feetBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z));
+  const headBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + player.eye), Math.floor(player.pos.z));
+  const inWater = (feetBlock === 8 || headBlock === 8);
+
+  if (inWater && !player.flying) {
     player.fallPeak = player.pos.y; // Negate fall damage in water
+    if (player.vel.y < -3.5) player.vel.y = -3.5; // Cap downward sinking speed
+    player.vel.x *= 0.85;
+    player.vel.z *= 0.85;
+    if (!blockInput && (keys["Space"] || touch.jump)) {
+      player.vel.y = Math.min(player.vel.y + 16 * dt, 4.5); // Swimming up
+    }
   }
 
   // Fall damage tracking

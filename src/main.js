@@ -877,6 +877,8 @@ function loop(now){
     webgl.scene.fog.near = 1;
     webgl.scene.fog.far = 14;
   } else {
+    const s = skyState(game.timeOfDay);
+    webgl.scene.fog.color.copy(s.sky);
     webgl.scene.fog.near = RENDER_DIST*16*0.55;
     webgl.scene.fog.far = RENDER_DIST*16*0.95;
   }

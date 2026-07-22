@@ -88,7 +88,10 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
 
       {/* Target Block HUD */}
       <div id="targetHud" className={`target-hud ${targetBlockName ? 'visible' : ''}`} style={{ display: targetBlockName ? 'block' : 'none' }}>
-        <span id="targetName">{targetBlockName || 'Air'}</span>
+        <span id="targetName">
+          <span style={{ opacity: 0.65, fontSize: '10px', letterSpacing: '1px', marginRight: '5px' }}>TARGET:</span>
+          {targetBlockName}
+        </span>
       </div>
 
       {/* Survival Health & Hunger Overlay */}

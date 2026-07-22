@@ -386,8 +386,8 @@ export function buildChunkMesh(ch){
       } else if(id === 49) {
         draw = (F.f === 3 || F.f === 5); // Glass pane
       } else if(id === 8) { // WATER
-        if(neigh === 8) draw = false; // Don't draw inner water-to-water faces
-        else draw = true; // Draw water face against air or solid blocks
+        if(neigh === 8 || isOpaque(neigh)) draw = false; // Don't draw inner water-to-water faces or faces touching solid opaque terrain
+        else draw = true; // Draw water face against air or non-water transparent blocks
       } else if(alpha){
         if(neigh===AIR) draw=true;
         else if(isOpaque(neigh)) draw=false;
@@ -478,7 +478,7 @@ export function makeMesh(g, mode){
   if(mode==="cutout"){
     opts.transparent=false; opts.alphaTest=0.5; opts.side = THREE.DoubleSide;
   } else if(mode==="alpha"){
-    opts.transparent=true; opts.opacity=0.65; opts.side = THREE.DoubleSide; opts.depthWrite=false;
+    opts.transparent=true; opts.opacity=0.65; opts.side = THREE.DoubleSide; opts.depthWrite=true;
   } else {
     opts.transparent=false;
   }
@@ -495,9 +495,9 @@ export function updateChunkMesh(ch){
   ch.opaqueMesh=makeMesh(g.opaque,"opaque");
   ch.cutoutMesh=makeMesh(g.cutout,"cutout");
   ch.alphaMesh =makeMesh(g.alpha,"alpha");
-  if(ch.opaqueMesh) webgl.scene.add(ch.opaqueMesh);
-  if(ch.cutoutMesh) webgl.scene.add(ch.cutoutMesh);
-  if(ch.alphaMesh)  webgl.scene.add(ch.alphaMesh);
+  if(ch.opaqueMesh) { ch.opaqueMesh.renderOrder = 0; webgl.scene.add(ch.opaqueMesh); }
+  if(ch.cutoutMesh) { ch.cutoutMesh.renderOrder = 1; webgl.scene.add(ch.cutoutMesh); }
+  if(ch.alphaMesh)  { ch.alphaMesh.renderOrder = 2; webgl.scene.add(ch.alphaMesh); }
   ch.dirty=false;
 }
 
