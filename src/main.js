@@ -810,6 +810,47 @@ export function placeBlock(){
     }
   }
 
+  // ─── Bucket special case: intercept before isPlaceable check ───
+  if (heldId === 144 || heldId === 145) {
+    if (heldId === 145) {
+      // Water Bucket: place water source at prev (air) cell
+      const [bx, by, bz] = r.prev;
+      const cur = getBlock(bx, by, bz);
+      if (cur === 0 || cur === 9) {
+        setBlock(bx, by, bz, 8, true, scheduleSave);
+        setWater(bx, by, bz, 0); // source water
+        if (game.survival) {
+          removeItem(145, 1);     // consume water bucket
+          addItem(144, 1);        // return empty bucket
+        }
+        playPlaceSound(8);
+        updateAfterEdit(bx, by, bz);
+        disturbWater(bx, by, bz);
+        if (reactBridge.updateUI) reactBridge.updateUI();
+      } else {
+        toast("Can\'t place water here");
+      }
+    } else {
+      // Empty Bucket: pick up water source at hit cell
+      const [hx, hy, hz] = r.hit;
+      const hitId = getBlock(hx, hy, hz);
+      if (hitId === 8) {
+        setBlock(hx, hy, hz, 0, true, scheduleSave);
+        if (game.survival) {
+          removeItem(144, 1);     // consume empty bucket
+          addItem(145, 1);        // get water bucket
+        }
+        playPlaceSound(8);
+        updateAfterEdit(hx, hy, hz);
+        disturbWater(hx, hy, hz);
+        if (reactBridge.updateUI) reactBridge.updateUI();
+      } else {
+        toast("No water source here");
+      }
+    }
+    return;
+  }
+
   const [x, y, z] = r.prev;
   
   if(!isPlaceable(heldId)){ toast(`${thingName(heldId)} can't be placed`); return; }
@@ -875,13 +916,15 @@ function loop(now){
     updatePrimedTnt(dt);
   }
   
-  updateChunkLoading();
-  processGenBudget();
-  updateParticles(dt);
-  updateDayNight(dt);
-  
-  game.waterTimer += dt;
-  if(game.waterTimer >= WATER_TICK){ game.waterTimer = 0; tickWater(); }
+  // Paused flag guards: these world-simulation ticks should stop while game is paused
+  if (!game.paused) {
+    updateChunkLoading();
+    processGenBudget();
+    updateParticles(dt);
+    updateDayNight(dt);
+    game.waterTimer += dt;
+    if(game.waterTimer >= WATER_TICK){ game.waterTimer = 0; tickWater(); }
+  }
 
   // Update Water Shader Uniforms
   if (webgl.waterMat && webgl.waterMat.uniforms) {
@@ -901,7 +944,8 @@ function loop(now){
 
   // Dynamic Sprinting FOV Stretch interpolation
   if (webgl.camera) {
-    const targetFov = player.sprinting ? 84 : 72;
+    // Always reset sprint FOV while paused so it doesn't stay stretched
+    const targetFov = (!game.paused && player.sprinting) ? 84 : 72;
     webgl.camera.fov += (targetFov - webgl.camera.fov) * Math.min(1, dt * 8.0);
     webgl.camera.updateProjectionMatrix();
   }
@@ -912,8 +956,8 @@ function loop(now){
     if (webgl.cloudMesh.position.x > 140) webgl.cloudMesh.position.x = -140;
   }
 
-  // Ambient torch/furnace particles
-  if (Math.random() < 0.20 && game.running) {
+  // Ambient torch/furnace particles (skip while paused)
+  if (Math.random() < 0.20 && game.running && !game.paused) {
     const px = Math.floor(player.pos.x) + (Math.floor(Math.random() * 16) - 8);
     const py = Math.floor(player.pos.y) + (Math.floor(Math.random() * 10) - 5);
     const pz = Math.floor(player.pos.z) + (Math.floor(Math.random() * 16) - 8);
@@ -1056,7 +1100,7 @@ function loop(now){
     }
   }
 
-  if(game.running){
+  if(game.running && !game.paused){
     const r = raycastVoxel(6);
     if(r){ 
       webgl.highlight.visible = true; 
@@ -1364,9 +1408,18 @@ export function bootGame() {
     if (reactBridge.updateUI) reactBridge.updateUI();
   });
 
-  // Prevent right-click browser context menu from stealing right-click events
-  webgl.renderer.domElement.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
+  // Prevent right-click browser context menu on all document (not just canvas)
+  document.addEventListener("contextmenu", (e) => {
+    if (game.running) e.preventDefault();
+  });
+
+  // Clear mining on pointer lock loss
+  document.addEventListener("pointerlockchange", () => {
+    if (!document.pointerLockElement) {
+      mining.held = false;
+      mining.active = false;
+      hideCrack();
+    }
   });
 
   // Action listeners (left/right click)
@@ -1495,9 +1548,9 @@ export function bootGame() {
     keys[e.code] = false;
   });
 
-  // Scroll wheel to change selected slot
+  // Scroll wheel to change selected slot (blocked while paused or menu open)
   window.addEventListener("wheel", (e) => {
-    if(document.pointerLockElement !== webgl.renderer.domElement || isMenuOpen()) return;
+    if(document.pointerLockElement !== webgl.renderer.domElement || isMenuOpen() || game.paused) return;
     let s = game.selected + Math.sign(e.deltaY);
     if(s < 0) s = 7;
     if(s > 7) s = 0;

@@ -7,7 +7,7 @@ import {
 import { getBlock, getChunk } from './world.js';
 import { 
   flashDamage, updateStatsHUD, showDeathScreen, hideDeathScreen, toast, refreshCounts,
-  isMenuOpen, unlockAchievement
+  isMenuOpen, unlockAchievement, closeAllMenus
 } from './ui.js';
 import { playHitSound, playFootstepSound } from './audio.js';
 
@@ -493,7 +493,15 @@ export function updateSurvival(dt){
 export function playerDie(cause){
   player.dead = true;
   player.diedTonight = true;
-  game.running = false;
+  // Close any open menus so they don't overlay the death screen
+  closeAllMenus();
+  // Use game.paused instead of game.running=false so the HUD and death screen
+  // stay mounted (game.running=false would show the lobby overlay instead).
+  game.paused = true;
+  // Clear all key/movement state so no stuck inputs survive death
+  Object.keys(keys).forEach(k => keys[k] = false);
+  player.sprinting = false;
+  player.vel.set(0, 0, 0);
   if(document.pointerLockElement) document.exitPointerLock();
   showDeathScreen(cause);
 }
@@ -504,11 +512,20 @@ export function respawnPlayer(){
   player.hunger = 20;
   player.hungerTimer = 0; player.regenTimer = 0; player.starveTimer = 0; player.invuln = 1.5;
   player.vel.set(0, 0, 0);
+  player.sprinting = false;
   spawnPlayer();
   
   updateStatsHUD();
   hideDeathScreen();
-  game.running = true;
+  game.paused = false; // Unpause before re-acquiring pointer lock
+  // Re-acquire pointer lock so controls work immediately after respawn
+  setTimeout(() => {
+    try {
+      const promise = document.getElementById('game')?.requestPointerLock();
+      if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+    } catch(e){}
+  }, 100);
+  if (reactBridge.updateUI) reactBridge.updateUI();
 }
 
 export function invCount(id){ return inventory[id] || 0; }

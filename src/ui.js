@@ -45,8 +45,19 @@ export function unlockAchievement(id, name, desc) {
 export function getCraftOpen() { return uiState.craftOpen; }
 export function isMenuOpen() { return uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen; }
 
-export function openCraft() {
+export function closeAllMenus() {
+  uiState.craftOpen = false;
+  uiState.chestOpen = false;
+  uiState.furnaceOpen = false;
+  uiState.activeChestCoords = null;
+  uiState.activeFurnaceCoords = null;
   Object.keys(keys).forEach(k => keys[k] = false);
+  player.sprinting = false;
+  if (reactBridge.updateUI) reactBridge.updateUI();
+}
+
+export function openCraft() {
+  closeAllMenus();
   uiState.craftOpen = true;
   if(document.pointerLockElement) document.exitPointerLock();
   if (reactBridge.updateUI) reactBridge.updateUI();
@@ -54,9 +65,11 @@ export function openCraft() {
 
 export function closeCraft() {
   uiState.craftOpen = false;
+  Object.keys(keys).forEach(k => keys[k] = false);
+  player.sprinting = false;
   if(!touch.isTouch && game.running) {
     try {
-      const promise = webgl.renderer.domElement.requestPointerLock();
+      const promise = webgl.renderer.domElement ? webgl.renderer.domElement.requestPointerLock() : document.getElementById('game')?.requestPointerLock();
       if (promise && typeof promise.catch === 'function') promise.catch(() => {});
     } catch(e){}
   }
@@ -64,7 +77,7 @@ export function closeCraft() {
 }
 
 export function openChest(x, y, z) {
-  Object.keys(keys).forEach(k => keys[k] = false);
+  closeAllMenus();
   uiState.chestOpen = true;
   uiState.activeChestCoords = `${x},${y},${z}`;
   world.chests = world.chests || {};
@@ -76,7 +89,7 @@ export function openChest(x, y, z) {
 }
 
 export function openFurnace(x, y, z) {
-  Object.keys(keys).forEach(k => keys[k] = false);
+  closeAllMenus();
   uiState.furnaceOpen = true;
   uiState.activeFurnaceCoords = `${x},${y},${z}`;
   world.furnaces = world.furnaces || {};
@@ -115,7 +128,8 @@ export function showDeathScreen(cause) {
 export function hideDeathScreen() { if (reactBridge.updateUI) reactBridge.updateUI(); }
 
 export function selectSlot(n) {
-  game.selected = n;
+  if (typeof n !== 'number' || isNaN(n)) return;
+  game.selected = Math.max(0, Math.min(7, Math.floor(n)));
   const main = import('./main.js');
   main.then(m => {
     if (m.updateHeldItemMesh) m.updateHeldItemMesh();
