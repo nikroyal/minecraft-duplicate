@@ -156,6 +156,7 @@ export default function App() {
   const showOverlay = !game.running && authStatus !== 'connecting';
   const showAuth = showOverlay && authStatus === 'logged_out';
   const showLobby = showOverlay && (authStatus === 'logged_in' || authStatus === 'unconfigured');
+  const showPaused = game.running && game.paused && !uiState.craftOpen && !uiState.chestOpen && !uiState.furnaceOpen;
 
   return (
     <>
@@ -170,6 +171,7 @@ export default function App() {
               scheduleSave={scheduleSave}
               onStartGame={() => {
                 game.running = true;
+                game.paused = false;
                 initAudio();
                 forceUpdate();
                 setTimeout(() => {
@@ -184,6 +186,41 @@ export default function App() {
         </div>
       )}
 
+      {/* PAUSE OVERLAY — shown when Escape/focus loss exits pointer lock mid-game */}
+      {showPaused && (
+        <div
+          onClick={() => {
+            game.paused = false;
+            try {
+              const promise = document.getElementById('game')?.requestPointerLock();
+              if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+            } catch(e){}
+            forceUpdate();
+          }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+        >
+          <div style={{
+            background: 'rgba(20,15,10,0.95)',
+            border: '2px solid rgba(214,178,120,0.4)',
+            borderRadius: 12,
+            padding: '32px 48px',
+            textAlign: 'center',
+            boxShadow: '0 20px 80px rgba(0,0,0,0.8)',
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>⏸</div>
+            <div style={{ color: '#f2d9a0', fontSize: 22, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>PAUSED</div>
+            <div style={{ color: '#a89060', fontSize: 13, letterSpacing: 1 }}>Click anywhere to resume</div>
+            <div style={{ color: '#786040', fontSize: 11, marginTop: 6 }}>Press E to open inventory • Escape to pause</div>
+          </div>
+        </div>
+      )}
+
       {/* IN-GAME ELEMENTS */}
       {game.running && (
         <>
@@ -194,6 +231,7 @@ export default function App() {
             coordsStr={coordsStr}
             clockStr={clockStr}
           />
+
 
           {/* ── Crafting Screen (new grid-based) ── */}
           {uiState.craftOpen && (

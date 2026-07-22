@@ -53,6 +53,7 @@ inventory[3] = 16; // Seed stone count for hotbar slot 7
 
 export const game = {
   running: false,
+  paused: false,  // true when pointer lock lost without a menu (Escape, focus loss)
   survival: true,
   timeOfDay: 0.3, // 0..1 (noonish, night is <0.24 or >0.78)
   pointerLocked: false,

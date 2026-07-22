@@ -862,7 +862,7 @@ function loop(now){
   game.lastTime = now;
   if(dt > 0.1) dt = 0.1;
 
-  if(game.running){
+  if(game.running && !game.paused){
     updatePlayer(dt);
     updateMining(dt);
     updateSurvival(dt);
@@ -1349,32 +1349,49 @@ export function bootGame() {
 
   document.addEventListener("pointerlockchange", () => {
     game.pointerLocked = (document.pointerLockElement === webgl.renderer.domElement);
+    // IMPORTANT: Do NOT set game.running = false here.
+    // The browser exits pointer lock when:
+    //   a) User presses Escape (should just pause/show resume prompt, not kill session)
+    //   b) A menu opens and calls exitPointerLock() (menu handles its own state)
+    //   c) Window loses focus (should pause, not kill session)
+    // We track pointerLocked separately and show a "click to resume" overlay
+    // when lock is lost unexpectedly (no menu open, not dead).
     if (!game.pointerLocked && !isMenuOpen() && !player.dead && game.running) {
-      game.running = false;
-      if (reactBridge.updateUI) reactBridge.updateUI();
+      game.paused = true; // Pause physics/input, show resume overlay
+    } else if (game.pointerLocked) {
+      game.paused = false; // Lock regained - resume
     }
+    if (reactBridge.updateUI) reactBridge.updateUI();
+  });
+
+  // Prevent right-click browser context menu from stealing right-click events
+  webgl.renderer.domElement.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
   });
 
   // Action listeners (left/right click)
   webgl.renderer.domElement.addEventListener("mousedown", (e) => {
+    e.preventDefault(); // Prevent focus-related issues
     if(player.dead) return;
     if(document.pointerLockElement !== webgl.renderer.domElement){
-      if(!touch.isTouch && game.running) {
+      // Click on canvas when pointer not locked: re-acquire lock
+      if(!touch.isTouch && game.running && !isMenuOpen()) {
+        game.paused = false;
         try {
           const promise = document.getElementById('game')?.requestPointerLock();
           if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-        } catch(e){}
+        } catch(err){}
       }
       return;
     }
     if(getCraftOpen() || isMenuOpen()) return;
-    
+
     if(e.button === 0){ // Left Click: mine / attack
       if(player.swingProgress === 0) player.swingProgress = 0.01;
       if(!attackMob()){
         mining.held = true;
       }
-    } else if(e.button === 2){ // Right Click: place
+    } else if(e.button === 2){ // Right Click: place block / interact
       placeBlock();
     }
   });
@@ -1416,7 +1433,18 @@ export function bootGame() {
       return;
     }
 
+    // Escape while in-game: pause (browser will also exit pointer lock)
+    if(e.code === "Escape") {
+      e.preventDefault(); // Don't let browser handle Escape further
+      // game.paused will be set by pointerlockchange handler
+      // Just ensure keys are cleared
+      Object.keys(keys).forEach(k => keys[k] = false);
+      return;
+    }
+
     if(player.dead || !game.running) return;
+    // Don't process game keys while paused and not locked
+    if(game.paused && !document.pointerLockElement) return;
 
     if(e.code === "KeyE"){
       e.preventDefault();
