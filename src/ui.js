@@ -18,6 +18,8 @@ export function setFurnaceOpen(v) { uiState.furnaceOpen = v; }
 export function setActiveChestCoords(v) { uiState.activeChestCoords = v; }
 export function setActiveFurnaceCoords(v) { uiState.activeFurnaceCoords = v; }
 
+import { playAchievementSound } from './audio.js';
+
 export let activeAchievementNotification = null;
 export function unlockAchievement(id, name, desc) {
   if (achievements[id]) return;
@@ -25,27 +27,7 @@ export function unlockAchievement(id, name, desc) {
   activeAchievementNotification = { id, name, desc };
   
   // Play higher success chime sound using Web Audio
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    // Minecraft style leveling up ding chime sequence
-    osc.type = "sine";
-    const now = ctx.currentTime;
-    osc.frequency.setValueAtTime(523.25, now); // C5
-    osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-    osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
-    osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
-    
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-    
-    osc.start(now);
-    osc.stop(now + 0.6);
-  } catch(e){}
+  playAchievementSound();
 
   if (reactBridge.updateUI) reactBridge.updateUI();
   

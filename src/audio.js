@@ -360,3 +360,30 @@ export function playZombieSound() {
 
   setTimeout(() => safeDisconnect(osc, gain, filter), 800);
 }
+
+export function playAchievementSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = "sine";
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(523.25, now);
+    osc.frequency.setValueAtTime(659.25, now + 0.08);
+    osc.frequency.setValueAtTime(783.99, now + 0.16);
+    osc.frequency.setValueAtTime(1046.50, now + 0.24);
+    
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    
+    osc.start(now);
+    osc.stop(now + 0.6);
+    osc.onended = () => {
+      safeDisconnect(osc, gain);
+    };
+  } catch(e){}
+}

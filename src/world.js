@@ -28,7 +28,11 @@ export class Chunk {
   getLight(x,y,z){
     if(y<0) return 0;
     if(y>=HEIGHT) return MAX_LIGHT;
-    if(x<0||x>=CHUNK||z<0||z>=CHUNK) return MAX_LIGHT;
+    if(x<0||x>=CHUNK||z<0||z>=CHUNK) {
+      const wx = this.cx * CHUNK + x;
+      const wz = this.cz * CHUNK + z;
+      return getLightGlobal(wx, y, wz);
+    }
     return this.light[this.idx(x,y,z)];
   }
   setLight(x,y,z,v){
@@ -420,7 +424,7 @@ export function buildChunkMesh(ch){
           const dist = waterFlowDist(ox+x, y, oz+z);
           const topNeigh = getBlock(ox+x, y+1, oz+z);
           if (topNeigh !== 8 && c[1] === 1) {
-            const hFactor = dist === 0 ? 0.90 : Math.max(0.25, 0.88 - dist * 0.12);
+            const hFactor = dist === 0 ? 1.0 : Math.max(0.25, 0.88 - dist * 0.12);
             py = y + hFactor;
           }
         } else if (id === 20) {
@@ -929,8 +933,8 @@ export function tickWater(){
 
       // Flow down into air or lower water
       const below = getBlock(x, y-1, z);
-      if(y > 0 && (below === AIR || (below === WATER && waterFlowDist(x, y-1, z) > 0))){
-        setWater(x, y-1, z, 0); // Vertical falling stream acts as source
+      if(y > 0 && (below === AIR || (below === WATER && waterFlowDist(x, y-1, z) > 1))){
+        setWater(x, y-1, z, 1); // Vertical falling stream
         changed.add(wkey(x, y-1, z));
         queueWater(x, y-1, z);
       }

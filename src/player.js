@@ -52,7 +52,7 @@ export function collidesAt(px, py, pz){
   const hw = 0.6 / 2, h = 1.8; // player width 0.6, height 1.8
   const minX = Math.floor(px - hw + 1e-5);
   const maxX = Math.floor(px + hw - 1e-5);
-  const minY = Math.floor(py);
+  const minY = Math.floor(py + 1e-5);
   const maxY = Math.floor(py + h - 1e-5); // Fix 2-block ceiling AABB trap!
   const minZ = Math.floor(pz - hw + 1e-5);
   const maxZ = Math.floor(pz + hw - 1e-5);
@@ -82,11 +82,20 @@ export function moveAxis(axis, amount){
         p.y += step;
       } else {
         if(step < 0) {
-          // Verify collision face is below player feet before setting onGround
+          // Verify any block below player feet footprint before setting onGround
+          const hw = 0.6 / 2;
+          const minX = Math.floor(p.x - hw + 1e-5);
+          const maxX = Math.floor(p.x + hw - 1e-5);
+          const minZ = Math.floor(p.z - hw + 1e-5);
+          const maxZ = Math.floor(p.z + hw - 1e-5);
           const footY = Math.floor(p.y);
-          if (collisionSolid(Math.floor(p.x), footY - 1, Math.floor(p.z))) {
-            player.onGround = true;
+          let groundHit = false;
+          for (let x = minX; x <= maxX; x++) {
+            for (let z = minZ; z <= maxZ; z++) {
+              if (collisionSolid(x, footY - 1, z)) groundHit = true;
+            }
           }
+          if (groundHit) player.onGround = true;
         }
         player.vel.y = 0;
         break;

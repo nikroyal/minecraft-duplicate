@@ -346,7 +346,9 @@ export function updateMobs(dt){
     mobMoveAxis(m, "y", m.vel.y * dt);
     
     m.mesh.position.copy(m.pos);
-    m.mesh.rotation.y = m.yaw || 0;
+    if (m.yaw !== null && m.yaw !== undefined) {
+      m.mesh.rotation.y = m.yaw;
+    }
     
     // Creeper explosion logic
     if(m.type === "creeper" && distToP < 3.2 && !player.dead){
@@ -361,8 +363,9 @@ export function updateMobs(dt){
       if(m.fuseTimer >= 1.5){
         playExplodeSound();
         triggerWorldExplosion(m.pos.x, m.pos.y, m.pos.z, 3.5, scheduleSave);
-        if(distToP < 4.5){
-          const dmg = Math.floor(18 * (1 - distToP / 4.5));
+        const curDistToP = m.pos.distanceTo(player.pos);
+        if(curDistToP < 4.5){
+          const dmg = Math.max(1, Math.ceil(24 * (1 - curDistToP / 4.5)));
           hurtPlayer(dmg, "creeper");
         }
         removeMob(i);

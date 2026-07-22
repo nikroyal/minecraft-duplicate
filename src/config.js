@@ -236,7 +236,7 @@ export function thingColor(id, face=0){
   if(it) return it.color||0x888888;
   return 0x888888;
 }
-export function isPlaceable(id){ return Boolean(BLOCKS[id] && id < 90); }
+export function isPlaceable(id){ return Boolean(BLOCKS[id]); }
 export function isTool(id){ return Boolean(ITEMS[id] && ITEMS[id].tool); }
 
 // ---- Recipes ----------------------------------------------------------------
@@ -268,8 +268,8 @@ export const RECIPES = [];
   R({40:4},16,4,"Stone Brick (smooth)","4 Smooth Stone → 4 Bricks");
   
   const polish=[[24,33,"Granite"],[25,34,"Andesite"],[26,35,"Diorite"]];
-  for(const [raw,pol,label] of polish)
-    R({[raw]:4}, pol, 4, `Polished ${label}`, `4 ${label} → 4 Polished`);
+  for(const [b,p,label] of polish)
+    R({[b]:4}, p, 4, `Polished ${label}`, `4 ${label} → 4 Polished`);
 
   R({4:4},18,4,"Sandstone","4 Sand → 4 Sandstone");
   R({18:4},39,4,"Chiseled Sandstone","4 Sandstone → 4 Chiseled");

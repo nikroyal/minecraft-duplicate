@@ -882,7 +882,7 @@ kbd, .m-key {
   background: var(--gold);
   transition: width 0.15s ease;
 }
-.inv-grid, .recipe-list, .block-list, .manual-body, .leaderboard-container, .chest-grid {
+.inv-grid, .recipe-list, .block-list, .manual-body, .leaderboard-container, .chest-grid, .craft-body, .tab-panel, .chest-card, .craft-panel, .cloud-panel, .modal-card, .card {
   touch-action: pan-y !important;
 }
 

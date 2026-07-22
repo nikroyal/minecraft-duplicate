@@ -122,6 +122,7 @@ export function updateXpOrbs(dt) {
         player.xp = (player.xp || 0) + 1;
         const levelReq = ((player.level || 0) + 1) * 10;
         if (player.xp >= levelReq) {
+          player.xp -= levelReq;
           player.level = (player.level || 0) + 1;
           toast(`🌟 LEVEL UP! You are now Level ${player.level}!`);
           unlockAchievement(10, "Experience Master", "Reach Level 1 or higher.");
@@ -171,7 +172,6 @@ export function updateProjectiles(dt) {
     proj.life += dt;
     if (proj.life > 10) {
       webgl.scene.remove(proj.mesh);
-      proj.mesh.geometry.dispose();
       game.projectiles.splice(i, 1);
       continue;
     }
@@ -194,7 +194,7 @@ export function updateProjectiles(dt) {
     // Collision check against entities
     if (proj.isPlayer) {
       for (const m of game.mobs) {
-        if (m.pos.distanceTo(nextPos) < m.def.w + 0.3) {
+        if (m.pos.distanceTo(nextPos) < m.def.w + 0.5) {
           m.hp -= 5;
           m.hurtFlash = 0.2;
           playHitSound();
@@ -208,16 +208,14 @@ export function updateProjectiles(dt) {
             if (idx >= 0) removeMob(idx);
           }
           webgl.scene.remove(proj.mesh);
-          proj.mesh.geometry.dispose();
           game.projectiles.splice(i, 1);
           break;
         }
       }
     } else { // Hostile arrow from Skeleton
-      if (player.pos.distanceTo(nextPos) < 1.0 && !player.dead) {
+      if (player.pos.distanceTo(nextPos) < 1.4 && !player.dead) {
         hurtPlayer(3, "skeleton");
         webgl.scene.remove(proj.mesh);
-        proj.mesh.geometry.dispose();
         game.projectiles.splice(i, 1);
         continue;
       }
@@ -266,9 +264,20 @@ export function updatePrimedTnt(dt) {
     if (tnt.fuse <= 0) {
       triggerWorldExplosion(tnt.pos.x, tnt.pos.y, tnt.pos.z, 4.0, scheduleSave);
       playExplodeSound();
+      const pDist = tnt.pos.distanceTo(player.pos);
+      if (pDist < 5.0) {
+        const tntDmg = Math.max(1, Math.ceil(20 * (1 - pDist / 5.0)));
+        hurtPlayer(tntDmg, "tnt");
+      }
+      for (const m of game.mobs) {
+        const mDist = tnt.pos.distanceTo(m.pos);
+        if (mDist < 5.0) {
+          m.hp -= Math.max(1, Math.ceil(25 * (1 - mDist / 5.0)));
+          m.hurtFlash = 0.3;
+        }
+      }
       webgl.scene.remove(tnt.mesh);
-      tnt.mesh.geometry.dispose();
-      tnt.mesh.material.dispose();
+      if (tnt.mesh.material) tnt.mesh.material.dispose();
       game.primedTnt.splice(i, 1);
     }
   }
