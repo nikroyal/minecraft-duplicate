@@ -202,6 +202,38 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           {thingName(selectedId)}
         </div>
       )}
+
+      {/* Physics Debug Telemetry Panel (F3 Toggle) */}
+      {typeof window !== 'undefined' && window.__physicsDebug && window.__physicsTelemetry && (
+        <div style={{
+          position: 'fixed',
+          top: '70px',
+          left: '14px',
+          background: 'rgba(10, 15, 25, 0.88)',
+          border: '1px solid #4cd964',
+          borderRadius: '6px',
+          padding: '10px 14px',
+          color: '#e0f0ff',
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          lineHeight: '1.5',
+          zIndex: 9999,
+          pointerEvents: 'none',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+        }}>
+          <div style={{ color: '#4cd964', fontWeight: 'bold', marginBottom: '4px', borderBottom: '1px solid #333' }}>
+            ⚡ PHYSICS DEBUG (F3)
+          </div>
+          <div><strong>Grounded:</strong> <span style={{ color: window.__physicsTelemetry.grounded ? '#4cd964' : '#ff3b30' }}>{window.__physicsTelemetry.grounded ? 'TRUE (ON GROUND)' : 'FALSE (AIRBORNE)'}</span></div>
+          <div><strong>Vertical Vel (Y):</strong> {window.__physicsTelemetry.velY} m/s</div>
+          <div><strong>Position:</strong> ({window.__physicsTelemetry.posX}, {window.__physicsTelemetry.posY}, {window.__physicsTelemetry.posZ})</div>
+          <div><strong>In Water:</strong> {window.__physicsTelemetry.inWater ? 'YES' : 'NO'} | <strong>Flying:</strong> {window.__physicsTelemetry.flying ? 'YES' : 'NO'}</div>
+          <div><strong>Camera Sync:</strong> <span style={{ color: '#4cd964' }}>{window.__physicsTelemetry.cameraSync}</span></div>
+          <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#ffcc00' }}>
+            <strong>Colliders ({window.__physicsTelemetry.collidersCount}):</strong> {window.__physicsTelemetry.collidersList}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

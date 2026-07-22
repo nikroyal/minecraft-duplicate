@@ -15,7 +15,8 @@ import {
 import { 
   spawnPlayer, collidesAt, moveAxis, updatePlayer, hurtPlayer, healPlayer, 
   feedPlayer, eatSelected, updateSurvival, playerDie, respawnPlayer, 
-  invCount, addItem, removeItem, heldTool, heldItem, unstick, eyePos, lookDir 
+  invCount, addItem, removeItem, heldTool, heldItem, unstick, eyePos, lookDir,
+  getIntersectingColliders
 } from './player.js';
 import { 
   MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob 
@@ -1064,6 +1065,66 @@ function loop(now){
     }
   }
 
+  // ── Physics Debug Overlay System (3D Wireframes & Telemetry) ──
+  if (typeof window !== 'undefined' && window.__physicsDebug) {
+    if (!webgl.debugGroup) {
+      webgl.debugGroup = new THREE.Group();
+      webgl.scene.add(webgl.debugGroup);
+      
+      // Player AABB Wireframe Box
+      const pBoxGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6);
+      const pBoxMat = new THREE.MeshBasicMaterial({ color: 0xff3333, wireframe: true });
+      webgl.debugPlayerBox = new THREE.Mesh(pBoxGeo, pBoxMat);
+      webgl.debugGroup.add(webgl.debugPlayerBox);
+
+      // Contact Boxes Group
+      webgl.debugContactsGroup = new THREE.Group();
+      webgl.debugGroup.add(webgl.debugContactsGroup);
+    }
+    webgl.debugGroup.visible = true;
+
+    // Update Player Box Position
+    webgl.debugPlayerBox.position.set(player.pos.x, player.pos.y + 0.9, player.pos.z);
+
+    // Update Contact Boxes
+    while (webgl.debugContactsGroup.children.length > 0) {
+      const c = webgl.debugContactsGroup.children[0];
+      webgl.debugContactsGroup.remove(c);
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    }
+
+    const colliders = getIntersectingColliders(player.pos.x, player.pos.y, player.pos.z);
+    for (const col of colliders) {
+      const geo = new THREE.BoxGeometry(1.002, 1.002, 1.002);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, wireframe: true });
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(col.x + 0.5, col.y + 0.5, col.z + 0.5);
+      webgl.debugContactsGroup.add(m);
+    }
+
+    // Telemetry data
+    const feetB = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z));
+    const headB = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + player.eye), Math.floor(player.pos.z));
+    const inWater = (feetB === 8 || headB === 8);
+    const cameraSync = (Math.abs(webgl.camera.position.x - player.pos.x) < 0.05 && Math.abs(webgl.camera.position.z - player.pos.z) < 0.05) ? "SYNC OK" : "DRIFT WARNING";
+
+    window.__physicsTelemetry = {
+      grounded: player.onGround,
+      velY: player.vel.y.toFixed(2),
+      posX: player.pos.x.toFixed(2),
+      posY: player.pos.y.toFixed(2),
+      posZ: player.pos.z.toFixed(2),
+      inWater,
+      flying: player.flying,
+      collidersCount: colliders.length,
+      collidersList: colliders.map(c => `${c.name} [${c.x},${c.y},${c.z}]`).join(", ") || "None",
+      cameraSync,
+    };
+  } else if (webgl.debugGroup) {
+    webgl.debugGroup.visible = false;
+  }
+
   webgl.renderer.render(webgl.scene, webgl.camera);
 
   // FPS ticker — update via reactBridge instead of direct DOM
@@ -1258,6 +1319,14 @@ export function bootGame() {
       return;
     }
     
+    // Toggle Physics Debug Overlay on F3
+    if(e.code === "F3"){
+      e.preventDefault();
+      window.__physicsDebug = !window.__physicsDebug;
+      toast(`Physics Debug: ${window.__physicsDebug ? "ON" : "OFF"}`);
+      if (reactBridge.updateUI) reactBridge.updateUI();
+    }
+
     // Cycle camera modes on F5 / KeyH press
     if(e.code === "F5" || e.code === "KeyH"){
       e.preventDefault();

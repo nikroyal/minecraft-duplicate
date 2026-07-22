@@ -53,12 +53,12 @@ export function collisionSolid(x, y, z){
 
 export function collidesAt(px, py, pz){
   const hw = 0.6 / 2, h = 1.8; // player width 0.6, height 1.8
-  const minX = Math.floor(px - hw + 1e-5);
-  const maxX = Math.floor(px + hw - 1e-5);
-  const minY = Math.floor(py + 1e-5);
-  const maxY = Math.floor(py + h - 1e-5); // Fix 2-block ceiling AABB trap!
-  const minZ = Math.floor(pz - hw + 1e-5);
-  const maxZ = Math.floor(pz + hw - 1e-5);
+  const minX = Math.floor(px - hw + 1e-4);
+  const maxX = Math.floor(px + hw - 1e-4);
+  const minY = Math.floor(py + 1e-4);
+  const maxY = Math.floor(py + h - 1e-4);
+  const minZ = Math.floor(pz - hw + 1e-4);
+  const maxZ = Math.floor(pz + hw - 1e-4);
   
   for(let x = minX; x <= maxX; x++)
   for(let y = minY; y <= maxY; y++)
@@ -70,18 +70,44 @@ export function collidesAt(px, py, pz){
 
 export function isSupportedOnGround(px, py, pz){
   const hw = 0.6 / 2;
-  const minX = Math.floor(px - hw + 1e-5);
-  const maxX = Math.floor(px + hw - 1e-5);
-  const minZ = Math.floor(pz - hw + 1e-5);
-  const maxZ = Math.floor(pz + hw - 1e-5);
-  const checkY = Math.floor(py - 0.08);
+  const minX = Math.floor(px - hw + 1e-4);
+  const maxX = Math.floor(px + hw - 1e-4);
+  const minZ = Math.floor(pz - hw + 1e-4);
+  const maxZ = Math.floor(pz + hw - 1e-4);
+  
+  const blockBelowY = Math.floor(py - 0.01);
+  const distToBlockTop = py - (blockBelowY + 1.0);
+  
+  // Feet must be within 0.08 blocks of a solid top surface directly beneath
+  if (distToBlockTop > 0.08) return false;
   
   for(let x = minX; x <= maxX; x++){
     for(let z = minZ; z <= maxZ; z++){
-      if(collisionSolid(x, checkY, z)) return true;
+      if(collisionSolid(x, blockBelowY, z)) return true;
     }
   }
   return false;
+}
+
+export function getIntersectingColliders(px, py, pz){
+  const hw = 0.6 / 2, h = 1.8;
+  const minX = Math.floor(px - hw + 1e-4);
+  const maxX = Math.floor(px + hw - 1e-4);
+  const minY = Math.floor(py - 0.05); // Include ground support block
+  const maxY = Math.floor(py + h - 1e-4);
+  const minZ = Math.floor(pz - hw + 1e-4);
+  const maxZ = Math.floor(pz + hw - 1e-4);
+  const list = [];
+  
+  for(let x = minX; x <= maxX; x++)
+  for(let y = minY; y <= maxY; y++)
+  for(let z = minZ; z <= maxZ; z++){
+    if(collisionSolid(x, y, z)) {
+      const id = getBlock(x, y, z);
+      list.push({ x, y, z, id, name: thingName(id) || "Solid" });
+    }
+  }
+  return list;
 }
 
 const MAX_STEP = 0.35;
@@ -98,14 +124,14 @@ export function moveAxis(axis, amount){
         p.x += step;
       } else {
         let stepped = false;
-        if(player.onGround || player.vel.y >= -2.0){
+        // Step-up is strictly allowed ONLY when player is already grounded
+        if(player.onGround){
           const targetY = Math.floor(p.y) + 1.0 + 1e-4;
           const stepY = targetY - p.y;
           if(stepY > 0 && stepY <= STEP_HEIGHT){
             if(!collidesAt(p.x, targetY, p.z) && !collidesAt(p.x + step, targetY, p.z)){
               p.y = targetY;
               p.x += step;
-              player.onGround = true;
               stepped = true;
             }
           }
@@ -120,20 +146,9 @@ export function moveAxis(axis, amount){
         p.y += step;
       } else {
         if(step < 0) {
-          // Verify any block below player feet footprint before setting onGround
-          const hw = 0.6 / 2;
-          const minX = Math.floor(p.x - hw + 1e-5);
-          const maxX = Math.floor(p.x + hw - 1e-5);
-          const minZ = Math.floor(p.z - hw + 1e-5);
-          const maxZ = Math.floor(p.z + hw - 1e-5);
-          const checkY = Math.floor(p.y - 0.01);
-          let groundHit = false;
-          for (let x = minX; x <= maxX; x++) {
-            for (let z = minZ; z <= maxZ; z++) {
-              if (collisionSolid(x, checkY, z)) groundHit = true;
-            }
-          }
-          if (groundHit) player.onGround = true;
+          // Landing on floor: snap Y to top of block surface
+          p.y = Math.floor(p.y + step) + 1.0 + 1e-4;
+          player.onGround = true;
         }
         player.vel.y = 0;
         break;
@@ -143,14 +158,14 @@ export function moveAxis(axis, amount){
         p.z += step;
       } else {
         let stepped = false;
-        if(player.onGround || player.vel.y >= -2.0){
+        // Step-up is strictly allowed ONLY when player is already grounded
+        if(player.onGround){
           const targetY = Math.floor(p.y) + 1.0 + 1e-4;
           const stepY = targetY - p.y;
           if(stepY > 0 && stepY <= STEP_HEIGHT){
             if(!collidesAt(p.x, targetY, p.z) && !collidesAt(p.x, targetY, p.z + step)){
               p.y = targetY;
               p.z += step;
-              player.onGround = true;
               stepped = true;
             }
           }
@@ -193,9 +208,15 @@ export function updatePlayer(dt){
     return;
   }
 
+  // Water check & physics
+  const feetBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z));
+  const headBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + player.eye), Math.floor(player.pos.z));
+  const inWater = (feetBlock === 8 || headBlock === 8);
+
   // Ground status evaluation & Coyote Timer
   if(!player.flying){
-    if(player.vel.y <= 0.1 && isSupportedOnGround(player.pos.x, player.pos.y, player.pos.z)){
+    const supported = isSupportedOnGround(player.pos.x, player.pos.y, player.pos.z);
+    if(player.vel.y <= 0.05 && supported){
       player.onGround = true;
     }
     if(player.onGround){
@@ -233,15 +254,13 @@ export function updatePlayer(dt){
   player.vel.x = wish.x * sp;
   player.vel.z = wish.z * sp;
 
-  player.vel.y += GRAV * dt;
-  if(player.vel.y < -55) player.vel.y = -55;
+  // Unconditional Gravity application when airborne
+  if (!inWater) {
+    player.vel.y += GRAV * dt;
+    if(player.vel.y < -55) player.vel.y = -55;
+  }
 
-  // Water check & physics
-  const feetBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z));
-  const headBlock = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + player.eye), Math.floor(player.pos.z));
-  const inWater = (feetBlock === 8 || headBlock === 8);
-
-  if (inWater && !player.flying) {
+  if (inWater) {
     player.fallPeak = player.pos.y; // Negate fall damage in water
     if (player.vel.y < -3.5) player.vel.y = -3.5; // Cap downward sinking speed
     player.vel.x *= 0.85;
@@ -272,7 +291,7 @@ export function updatePlayer(dt){
   moveAxis("y", player.vel.y * dt);
 
   // Post-move ground probe check to keep player grounded state precise
-  if(!player.flying && player.vel.y <= 0.1 && isSupportedOnGround(player.pos.x, player.pos.y, player.pos.z)){
+  if(!player.flying && player.vel.y <= 0.05 && isSupportedOnGround(player.pos.x, player.pos.y, player.pos.z)){
     player.onGround = true;
   }
 
