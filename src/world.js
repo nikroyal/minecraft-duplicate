@@ -590,11 +590,11 @@ export function createWaterMaterial() {
     vec3 getWaterNormal(vec3 worldPos, vec3 N, float time, float faceType) {
       vec2 flowUV;
       if (faceType > 0.5) {
-        // Vertical waterfall face: scroll downward in Y
-        flowUV = vec2(worldPos.x + worldPos.z, worldPos.y + time * 1.5);
+        // Vertical waterfall face: scroll texture downward in Y according to flow
+        flowUV = vec2(worldPos.x + worldPos.z, worldPos.y * 0.5 - time * 0.6);
       } else {
-        // Top surface face: subtle horizontal drift
-        flowUV = worldPos.xz * 1.2 + vec2(time * 0.3, time * 0.2);
+        // Top surface face: slowly scrolling horizontal UVs
+        flowUV = worldPos.xz * 0.5 + vec2(time * 0.12, time * 0.10);
       }
 
       // Layer 1: Subtle medium ripple waves
@@ -606,8 +606,8 @@ export function createWaterMaterial() {
       float n3 = sin(fineUV.x * 6.0 + fineUV.y * 5.0);
 
       vec2 bump = vec2(
-        (n1 * 0.015 + n3 * 0.008) * abs(N.y) + (n2 * 0.015) * (1.0 - abs(N.y)),
-        (n2 * 0.015 + n3 * 0.008) * abs(N.y) + (n1 * 0.015) * (1.0 - abs(N.y))
+        (n1 * 0.012 + n3 * 0.006) * abs(N.y) + (n2 * 0.012) * (1.0 - abs(N.y)),
+        (n2 * 0.012 + n3 * 0.006) * abs(N.y) + (n1 * 0.012) * (1.0 - abs(N.y))
       );
 
       return normalize(vec3(N.x + bump.x, N.y, N.z + bump.y));
@@ -622,26 +622,26 @@ export function createWaterMaterial() {
       float F0 = 0.02;
       float fresnel = F0 + (1.0 - F0) * pow(1.0 - dotNV, 5.0);
 
-      // Light, clear Minecraft depth-based color gradient
+      // Bright, clear Minecraft depth-based color gradient
       float depthEst = clamp((40.0 - vWorldPos.y) * 0.025 + (1.0 - dotNV) * 0.2, 0.0, 1.0);
       vec3 baseWaterColor = mix(uShallowColor, uDeepColor, depthEst);
 
       // Soft diffuse ambient lighting response
-      float diff = max(dot(N, uSunDir), 0.3);
-      vec3 litWaterColor = baseWaterColor * mix(0.75, 1.0, diff);
+      float diff = max(dot(N, uSunDir), 0.35);
+      vec3 litWaterColor = baseWaterColor * mix(0.80, 1.0, diff);
 
-      // Subtle sky reflection blended via Fresnel (not overwhelming transparency)
-      vec3 colorWithReflection = mix(litWaterColor, uSkyColor, fresnel * 0.25);
+      // Subtle sky reflection blended via Fresnel
+      vec3 colorWithReflection = mix(litWaterColor, uSkyColor, fresnel * 0.20);
 
-      // Tightened Blinn-Phong specular glint (high exponent 384.0, low strength for subtle sun glints)
+      // Tightened Blinn-Phong specular glint for direct sunlight
       vec3 H = normalize(uSunDir + V);
-      float spec = pow(max(dot(N, H), 0.0), 384.0);
-      vec3 specularColor = uSunColor * spec * 0.35;
+      float spec = pow(max(dot(N, H), 0.0), 512.0);
+      vec3 specularColor = uSunColor * spec * 0.30;
 
       vec3 finalColor = colorWithReflection + specularColor;
 
-      // Subtle Minecraft transparency: 40% opaque looking down, up to 65% at grazing angles
-      float alpha = mix(0.40, 0.65, fresnel);
+      // Bright, clear Minecraft transparency: 40% opaque looking down, up to 52% at grazing angles
+      float alpha = mix(0.40, 0.52, fresnel);
 
       gl_FragColor = vec4(finalColor, alpha);
     }
@@ -656,17 +656,17 @@ export function createWaterMaterial() {
       uSunDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
       uSunColor: { value: new THREE.Color(0xfff5e0) },
       uSkyColor: { value: new THREE.Color(0x7ec0ee) },
-      uShallowColor: { value: new THREE.Color(0x4ecce6) }, // Lighter, vibrant cyan
-      uDeepColor: { value: new THREE.Color(0x2678b8) },    // Light, clear ocean blue
+      uShallowColor: { value: new THREE.Color(0x52d4ec) }, // Bright Minecraft cyan
+      uDeepColor: { value: new THREE.Color(0x2882c8) },    // Vibrant clear ocean blue
       uTimeOfDay: { value: 0.3 },
     },
     transparent: true,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide, // Render ONLY outer front faces to eliminate translucent cube outlines!
     depthWrite: false,
   });
 }
 
-// Dedicated Outer-Shell Greedy Water Mesher
+// Dedicated Outer-Shell 6-Face Greedy Water Mesher
 export function buildWaterGreedyMesh(ch) {
   const ox = ch.cx * CHUNK, oz = ch.cz * CHUNK;
   const pos = [], norm = [], uv = [], idx = [], faceType = [];
@@ -788,48 +788,141 @@ export function buildWaterGreedyMesh(ch) {
     }
   }
 
-  // 3. Side (+X, -X, +Z, -Z) faces
-  const SIDE_DIRECTIONS = [
-    { n: [1, 0, 0],  offset: [1, 0, 0] },
-    { n: [-1, 0, 0], offset: [0, 0, 0] },
-    { n: [0, 0, 1],  offset: [0, 0, 1] },
-    { n: [0, 0, -1], offset: [0, 0, 0] },
-  ];
+  // 3. Side (+X & -X) vertical faces (Greedy Merged over Y and Z)
+  for (const nx of [1, -1]) {
+    for (let x = 0; x < CHUNK; x++) {
+      const mask = new Array(HEIGHT * CHUNK).fill(false);
+      let hasMask = false;
 
-  for (const sDir of SIDE_DIRECTIONS) {
-    const [nx, ny, nz] = sDir.n;
-    for (let y = 0; y < HEIGHT; y++) {
-      for (let z = 0; z < CHUNK; z++) {
-        for (let x = 0; x < CHUNK; x++) {
+      for (let y = 0; y < HEIGHT; y++) {
+        for (let z = 0; z < CHUNK; z++) {
           if (ch.get(x, y, z) === 8) {
-            const neighId = getBlock(ox + x + nx, y + ny, oz + z + nz);
+            const neighId = getBlock(ox + x + nx, y, oz + z);
             if (neighId !== 8 && !isOpaque(neighId)) {
-              const base = pos.length / 3;
-              const px = ox + x + sDir.offset[0];
-              const py = y + sDir.offset[1];
-              const pz = oz + z + sDir.offset[2];
-              
-              if (nx !== 0) {
-                pos.push(
-                  px, py,     pz,
-                  px, py + 1, pz,
-                  px, py + 1, pz + 1,
-                  px, py,     pz + 1
-                );
-              } else {
-                pos.push(
-                  px,     py,     pz,
-                  px + 1, py,     pz,
-                  px + 1, py + 1, pz,
-                  px,     py + 1, pz
-                );
-              }
-              norm.push(nx, ny, nz,  nx, ny, nz,  nx, ny, nz,  nx, ny, nz);
-              uv.push(0, 0,  1, 0,  1, 1,  0, 1);
-              faceType.push(1, 1, 1, 1);
-              idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+              mask[y * CHUNK + z] = true;
+              hasMask = true;
             }
           }
+        }
+      }
+      if (!hasMask) continue;
+
+      for (let y = 0; y < HEIGHT; y++) {
+        for (let z = 0; z < CHUNK; z++) {
+          if (!mask[y * CHUNK + z]) continue;
+
+          let w = 1;
+          while (z + w < CHUNK && mask[y * CHUNK + (z + w)]) w++;
+
+          let h = 1;
+          let canExtend = true;
+          while (y + h < HEIGHT && canExtend) {
+            for (let k = 0; k < w; k++) {
+              if (!mask[(y + h) * CHUNK + (z + k)]) {
+                canExtend = false;
+                break;
+              }
+            }
+            if (canExtend) h++;
+          }
+
+          for (let hy = 0; hy < h; hy++) {
+            for (let wz = 0; wz < w; wz++) {
+              mask[(y + hy) * CHUNK + (z + wz)] = false;
+            }
+          }
+
+          const base = pos.length / 3;
+          const px = ox + x + (nx > 0 ? 1 : 0);
+          if (nx > 0) {
+            pos.push(
+              px, y,     oz + z,
+              px, y + h, oz + z,
+              px, y + h, oz + z + w,
+              px, y,     oz + z + w
+            );
+          } else {
+            pos.push(
+              px, y,     oz + z + w,
+              px, y + h, oz + z + w,
+              px, y + h, oz + z,
+              px, y,     oz + z
+            );
+          }
+          norm.push(nx, 0, 0,  nx, 0, 0,  nx, 0, 0,  nx, 0, 0);
+          uv.push(0, 0,  0, h,  w, h,  w, 0);
+          faceType.push(1, 1, 1, 1);
+          idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        }
+      }
+    }
+  }
+
+  // 4. Side (+Z & -Z) vertical faces (Greedy Merged over Y and X)
+  for (const nz of [1, -1]) {
+    for (let z = 0; z < CHUNK; z++) {
+      const mask = new Array(HEIGHT * CHUNK).fill(false);
+      let hasMask = false;
+
+      for (let y = 0; y < HEIGHT; y++) {
+        for (let x = 0; x < CHUNK; x++) {
+          if (ch.get(x, y, z) === 8) {
+            const neighId = getBlock(ox + x, y, oz + z + nz);
+            if (neighId !== 8 && !isOpaque(neighId)) {
+              mask[y * CHUNK + x] = true;
+              hasMask = true;
+            }
+          }
+        }
+      }
+      if (!hasMask) continue;
+
+      for (let y = 0; y < HEIGHT; y++) {
+        for (let x = 0; x < CHUNK; x++) {
+          if (!mask[y * CHUNK + x]) continue;
+
+          let w = 1;
+          while (x + w < CHUNK && mask[y * CHUNK + (x + w)]) w++;
+
+          let h = 1;
+          let canExtend = true;
+          while (y + h < HEIGHT && canExtend) {
+            for (let k = 0; k < w; k++) {
+              if (!mask[(y + h) * CHUNK + (x + k)]) {
+                canExtend = false;
+                break;
+              }
+            }
+            if (canExtend) h++;
+          }
+
+          for (let hy = 0; hy < h; hy++) {
+            for (let wx = 0; wx < w; wx++) {
+              mask[(y + hy) * CHUNK + (x + wx)] = false;
+            }
+          }
+
+          const base = pos.length / 3;
+          const pz = oz + z + (nz > 0 ? 1 : 0);
+          if (nz > 0) {
+            pos.push(
+              ox + x + w, y,     pz,
+              ox + x + w, y + h, pz,
+              ox + x,     y + h, pz,
+              ox + x,     y,     pz
+            );
+          } else {
+            pos.push(
+              ox + x,     y,     pz,
+              ox + x,     y + h, pz,
+              ox + x + w, y + h, pz,
+              ox + x + w, y,     pz
+            );
+          }
+          norm.push(0, 0, nz,  0, 0, nz,  0, 0, nz,  0, 0, nz);
+          uv.push(w, 0,  w, h,  0, h,  0, 0);
+          faceType.push(1, 1, 1, 1);
+          idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
         }
       }
     }
