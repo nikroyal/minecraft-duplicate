@@ -109,8 +109,9 @@ export function getSupportingSurface(px, py, pz) {
 
   const minGridX = Math.floor(pMinX);
   const maxGridX = Math.floor(pMaxX);
-  const minGridY = Math.floor(py - 0.5);
-  const maxGridY = Math.floor(py + 0.1);
+  // Scan 2 block-heights below the player to catch slabs and carpets
+  const minGridY = Math.floor(py - 1.1);
+  const maxGridY = Math.floor(py + 0.15);
   const minGridZ = Math.floor(pMinZ);
   const maxGridZ = Math.floor(pMaxZ);
 
@@ -123,8 +124,9 @@ export function getSupportingSurface(px, py, pz) {
         const aabbs = getBlockAABBs(gx, gy, gz);
         for (const b of aabbs) {
           if (pMinX < b.maxX && pMaxX > b.minX && pMinZ < b.maxZ && pMaxZ > b.minZ) {
+            // Accept any surface the player is currently sitting on (wider tolerance)
             const dist = py - b.maxY;
-            if (dist >= -0.05 && dist <= 0.08) {
+            if (dist >= -0.12 && dist <= 0.12) {
               if (b.maxY > maxTopY) {
                 maxTopY = b.maxY;
                 const id = getBlock(gx, gy, gz);
@@ -211,11 +213,20 @@ export function moveAxis(axis, amount){
         p.y += step;
       } else {
         if(step < 0) {
-          const support = getSupportingSurface(p.x, p.y + step, p.z);
+          // Use pre-step Y to find the correct support surface (e.g. slab at y+0.5)
+          // getSupportingSurface with current p.y will find the block we just hit
+          const support = getSupportingSurface(p.x, p.y, p.z);
           if (support) {
             p.y = support.topY + 1e-4;
           } else {
-            p.y = Math.floor(p.y + step) + 1.0 + 1e-4;
+            // Fallback: scan down for the first solid block top
+            const floorY = Math.floor(p.y + step);
+            let surfY = floorY + 1.0;
+            for (let scanY = floorY; scanY >= floorY - 1; scanY--) {
+              const aabbs = getBlockAABBs(Math.floor(p.x), scanY, Math.floor(p.z));
+              if (aabbs.length > 0) { surfY = aabbs[0].maxY; break; }
+            }
+            p.y = surfY + 1e-4;
           }
           player.onGround = true;
         }

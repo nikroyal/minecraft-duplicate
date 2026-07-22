@@ -661,7 +661,7 @@ export function createWaterMaterial() {
       uTimeOfDay: { value: 0.3 },
     },
     transparent: true,
-    side: THREE.FrontSide, // Render ONLY outer front faces to eliminate translucent cube outlines!
+    side: THREE.DoubleSide,   // Visible from both above AND below water surface
     depthWrite: false,
   });
 }
@@ -715,7 +715,7 @@ export function buildWaterGreedyMesh(ch) {
         }
 
         const base = pos.length / 3;
-        const yTop = y + 1.0;
+        const yTop = y + 0.875;  // Minecraft water surface is 0.875 of block height
         pos.push(
           ox + x,     yTop, oz + z,
           ox + x + w, yTop, oz + z,
