@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { world, player, webgl, game, inventory, crops } from './state.js';
 import { uiState, setChestOpen, setFurnaceOpen } from './ui.js';
 import { 
-  CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, MAX_LIGHT, AIR, BLOCKS, VARIANTS,
+  CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, MAX_LIGHT, AIR, BLOCKS, VARIANTS, ITEMS,
   keyOf, hash2, hash3, vnoise3, surfaceHeight, isCave,
   isSolid, isOpaque, tileFor, tileUV, trng, shade, TILE, ATLAS_COLS, ATLAS_ROWS
 } from './config.js';
@@ -1317,7 +1317,7 @@ export function getItemDataURL(id) {
     ctx.fillRect(x, y, 1, 1);
   };
 
-  const it = ITEMS[id];
+  const it = (typeof ITEMS !== 'undefined' && ITEMS) ? ITEMS[id] : null;
   const colHex = it?.color || 0x8a8a8a;
   const colStr = shade(colHex, 1.0);
   const darkStr = shade(colHex, 0.6);
