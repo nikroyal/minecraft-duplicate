@@ -110,7 +110,7 @@ export default function App() {
 
       // Health restore
       if (typeof userData.healthOverride === 'number') {
-        player.hp = Math.min(20, userData.healthOverride);
+        player.health = Math.min(20, userData.healthOverride);
         player.dead = false;
         toast(`❤️ Health restored to 20 HP by Admin!`);
         updateUserDocInFirestore(currentUser.uid, { healthOverride: null });

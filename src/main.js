@@ -1468,13 +1468,13 @@ export function bootGame() {
     }
 
     // Ignore keyboard auto-repeat for menu toggle keys
-    if (e.repeat && (e.code === "KeyE" || e.code === "Escape")) {
+    if (e.repeat && (e.code === "KeyE" || e.code === "Escape" || e.key === "e" || e.key === "E")) {
       return;
     }
 
     // If a menu is open, capture E or Escape keys to close it
     if(isMenuOpen()){
-      if(e.code === "KeyE" || e.code === "Escape"){
+      if(e.code === "KeyE" || e.code === "Escape" || e.key === "e" || e.key === "E"){
         e.preventDefault();
         e.stopPropagation();
         if (uiState.craftOpen) closeCraft();
@@ -1507,7 +1507,7 @@ export function bootGame() {
     if(player.dead || !game.running) return;
 
     // Toggle/Open Crafting with 'KeyE' — works in-game or while paused
-    if(e.code === "KeyE"){
+    if(e.code === "KeyE" || e.key === "e" || e.key === "E"){
       e.preventDefault();
       if (game.paused) game.paused = false;
       openCraft();
