@@ -1065,37 +1065,49 @@ function loop(now){
     }
   }
 
-  // ── Physics Debug Overlay System (3D Wireframes & Telemetry) ──
+  // ── Physics Debug Overlay System (High-Performance Reused Object Pool) ──
   if (typeof window !== 'undefined' && window.__physicsDebug) {
     if (!webgl.debugGroup) {
       webgl.debugGroup = new THREE.Group();
       webgl.scene.add(webgl.debugGroup);
       
-      // Player AABB Wireframe Box (RED 0xff3333)
-      const pBoxGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6);
-      const pBoxMat = new THREE.MeshBasicMaterial({ color: 0xff3333, wireframe: true });
-      webgl.debugPlayerBox = new THREE.Mesh(pBoxGeo, pBoxMat);
+      // Shared Geometries & Materials
+      webgl.debugBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+      webgl.debugPlaneGeo = new THREE.PlaneGeometry(1, 1);
+      webgl.debugSphereGeo = new THREE.SphereGeometry(0.04, 8, 8);
+
+      webgl.debugMatPlayer = new THREE.MeshBasicMaterial({ color: 0xff3333, wireframe: true });
+      webgl.debugMatTerrain = new THREE.MeshBasicMaterial({ color: 0x33ff33, wireframe: true });
+      webgl.debugMatWater = new THREE.MeshBasicMaterial({ color: 0x3388ff, wireframe: true });
+      webgl.debugMatSupport = new THREE.MeshBasicMaterial({ color: 0xffea00, side: THREE.DoubleSide });
+      webgl.debugMatContact = new THREE.MeshBasicMaterial({ color: 0xff6600 });
+
+      // Player Box Mesh
+      webgl.debugPlayerBox = new THREE.Mesh(webgl.debugBoxGeo, webgl.debugMatPlayer);
+      webgl.debugPlayerBox.scale.set(0.6, 1.8, 0.6);
       webgl.debugGroup.add(webgl.debugPlayerBox);
 
-      // Contact & Collision Objects Group
-      webgl.debugContactsGroup = new THREE.Group();
-      webgl.debugGroup.add(webgl.debugContactsGroup);
+      // Single Support Plane Mesh
+      webgl.debugSupportMesh = new THREE.Mesh(webgl.debugPlaneGeo, webgl.debugMatSupport);
+      webgl.debugSupportMesh.rotation.x = Math.PI / 2;
+      webgl.debugGroup.add(webgl.debugSupportMesh);
+
+      // Object Pools
+      webgl.debugTerrainPool = [];
+      webgl.debugWaterPool = [];
+      webgl.debugContactPool = [];
     }
     webgl.debugGroup.visible = true;
 
-    // Update Player Box Position
+    // Position Player Box
     webgl.debugPlayerBox.position.set(player.pos.x, player.pos.y + 0.9, player.pos.z);
 
-    // Clear Previous Debug Objects
-    while (webgl.debugContactsGroup.children.length > 0) {
-      const c = webgl.debugContactsGroup.children[0];
-      webgl.debugContactsGroup.remove(c);
-      if (c.geometry) c.geometry.dispose();
-      if (c.material) c.material.dispose();
-    }
-
-    // Render Nearby Terrain Collision Mesh (GREEN 0x33ff33) & Water Mesh (BLUE 0x3388ff)
     const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
+
+    // Reset active pool counters
+    let tIdx = 0, wIdx = 0, cIdx = 0;
+
+    // 1. Terrain (Green) & Water (Blue) Wireframes
     const searchRad = 2;
     for (let dx = -searchRad; dx <= searchRad; dx++) {
       for (let dy = -2; dy <= 2; dy++) {
@@ -1104,59 +1116,76 @@ function loop(now){
           const vy = Math.floor(py) + dy;
           const vz = Math.floor(pz) + dz;
           const bid = getBlock(vx, vy, vz);
+
           if (bid === 8) {
-            // Water Mesh Wireframe (BLUE)
-            const wGeo = new THREE.BoxGeometry(1.001, 1.001, 1.001);
-            const wMat = new THREE.MeshBasicMaterial({ color: 0x3388ff, wireframe: true });
-            const wMesh = new THREE.Mesh(wGeo, wMat);
-            wMesh.position.set(vx + 0.5, vy + 0.5, vz + 0.5);
-            webgl.debugContactsGroup.add(wMesh);
+            let m = webgl.debugWaterPool[wIdx];
+            if (!m) {
+              m = new THREE.Mesh(webgl.debugBoxGeo, webgl.debugMatWater);
+              webgl.debugWaterPool.push(m);
+              webgl.debugGroup.add(m);
+            }
+            m.visible = true;
+            m.scale.set(1.001, 1.001, 1.001);
+            m.position.set(vx + 0.5, vy + 0.5, vz + 0.5);
+            wIdx++;
           } else if (bid > 0 && isSolid(bid)) {
-            // Terrain Collision Mesh Wireframes (GREEN)
             const aabbs = getBlockAABBs(vx, vy, vz);
             for (const b of aabbs) {
+              let m = webgl.debugTerrainPool[tIdx];
+              if (!m) {
+                m = new THREE.Mesh(webgl.debugBoxGeo, webgl.debugMatTerrain);
+                webgl.debugTerrainPool.push(m);
+                webgl.debugGroup.add(m);
+              }
+              m.visible = true;
               const bw = b.maxX - b.minX;
               const bh = b.maxY - b.minY;
               const bd = b.maxZ - b.minZ;
-              const cGeo = new THREE.BoxGeometry(bw, bh, bd);
-              const cMat = new THREE.MeshBasicMaterial({ color: 0x33ff33, wireframe: true });
-              const cMesh = new THREE.Mesh(cGeo, cMat);
-              cMesh.position.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2);
-              webgl.debugContactsGroup.add(cMesh);
+              m.scale.set(bw, bh, bd);
+              m.position.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2);
+              tIdx++;
             }
           }
         }
       }
     }
 
-    // Render Supporting Surface (GOLD/YELLOW 0xffea00)
+    // Hide unused pool meshes
+    for (let i = tIdx; i < webgl.debugTerrainPool.length; i++) webgl.debugTerrainPool[i].visible = false;
+    for (let i = wIdx; i < webgl.debugWaterPool.length; i++) webgl.debugWaterPool[i].visible = false;
+
+    // 2. Supporting Surface (Yellow Quad)
     const support = getSupportingSurface(px, py, pz);
     if (support) {
+      webgl.debugSupportMesh.visible = true;
       const sBox = support.aabb;
       const bw = sBox.maxX - sBox.minX;
       const bd = sBox.maxZ - sBox.minZ;
-      const sGeo = new THREE.PlaneGeometry(bw, bd);
-      const sMat = new THREE.MeshBasicMaterial({ color: 0xffea00, side: THREE.DoubleSide });
-      const sMesh = new THREE.Mesh(sGeo, sMat);
-      sMesh.rotation.x = Math.PI / 2;
-      sMesh.position.set((sBox.minX + sBox.maxX) / 2, sBox.maxY + 0.005, (sBox.minZ + sBox.maxZ) / 2);
-      webgl.debugContactsGroup.add(sMesh);
+      webgl.debugSupportMesh.scale.set(bw, bd, 1);
+      webgl.debugSupportMesh.position.set((sBox.minX + sBox.maxX) / 2, sBox.maxY + 0.005, (sBox.minZ + sBox.maxZ) / 2);
+    } else {
+      webgl.debugSupportMesh.visible = false;
     }
 
-    // Render Contact Points (ORANGE 0xff6600 Spheres)
+    // 3. Contact Points (Orange Spheres)
     const colliders = getIntersectingColliders(px, py, pz);
     for (const col of colliders) {
       for (const b of col.aabbs) {
-        const contactGeo = new THREE.SphereGeometry(0.04, 8, 8);
-        const contactMat = new THREE.MeshBasicMaterial({ color: 0xff6600 });
-        const cPoint = new THREE.Mesh(contactGeo, contactMat);
+        let m = webgl.debugContactPool[cIdx];
+        if (!m) {
+          m = new THREE.Mesh(webgl.debugSphereGeo, webgl.debugMatContact);
+          webgl.debugContactPool.push(m);
+          webgl.debugGroup.add(m);
+        }
+        m.visible = true;
         const cx = Math.max(b.minX, Math.min(b.maxX, px));
         const cy = Math.max(b.minY, Math.min(b.maxY, py));
         const cz = Math.max(b.minZ, Math.min(b.maxZ, pz));
-        cPoint.position.set(cx, cy, cz);
-        webgl.debugContactsGroup.add(cPoint);
+        m.position.set(cx, cy, cz);
+        cIdx++;
       }
     }
+    for (let i = cIdx; i < webgl.debugContactPool.length; i++) webgl.debugContactPool[i].visible = false;
 
     // Telemetry data
     const feetB = getBlock(Math.floor(px), Math.floor(py), Math.floor(pz));
