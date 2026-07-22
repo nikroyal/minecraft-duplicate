@@ -1381,6 +1381,7 @@ export function buildAtlas(){
   TILE_NAMES.forEach((name,i)=>{
     const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
     paintTile(ctx, col, row, PAINTERS[name]||PAINTERS.stone);
+    getTileDataURL(name);
   });
   const tex=new THREE.CanvasTexture(cv);
   tex.magFilter=THREE.NearestFilter;

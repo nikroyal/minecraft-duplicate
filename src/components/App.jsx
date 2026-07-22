@@ -438,17 +438,21 @@ export default function App() {
                       placeholder="Search blocks…" className="recipe-search"
                       style={{ background: 'var(--ink)', width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
                     <div className="block-list">
-                      {filteredBlocks.map(id => (
-                        <div key={id} className="block-row">
-                          <div className="b-swatch-container"><Swatch3D id={id} /></div>
-                          <div style={{ flex: 1, paddingLeft: '10px', fontSize: '10px' }}>
-                            <div style={{ fontWeight: 'bold', color: '#fff' }}>{BLOCKS[id].name}</div>
-                            <div style={{ color: 'var(--gold)', fontSize: '8px' }}>
-                              {BLOCKS[id].solid ? 'Solid' : 'Non-Solid'} · Hard: {BLOCKS[id].hardness} · ID: {id}
+                      {filteredBlocks.map(id => {
+                        const b = BLOCKS[id];
+                        if (!b) return null;
+                        return (
+                          <div key={id} className="block-row">
+                            <div className="b-swatch-container"><Swatch3D id={id} /></div>
+                            <div style={{ flex: 1, paddingLeft: '10px', fontSize: '10px' }}>
+                              <div style={{ fontWeight: 'bold', color: '#fff' }}>{b.name || `Block #${id}`}</div>
+                              <div style={{ color: 'var(--gold)', fontSize: '8px' }}>
+                                {b.solid ? 'Solid' : 'Non-Solid'} · Hard: {b.hardness ?? 1} · ID: {id}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
