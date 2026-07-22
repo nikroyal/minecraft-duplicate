@@ -14,6 +14,7 @@ import HUDOverlay from './HUDOverlay.jsx';
 import ChestScreen from './ChestScreen.jsx';
 import FurnaceScreen from './FurnaceScreen.jsx';
 import CraftingScreen from './CraftingScreen.jsx';
+import MasterDashboardCard from './MasterDashboardCard.jsx';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
   closeCraft, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
@@ -29,6 +30,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [conflictData, setConflictData] = useState(null);
 
+  // Check if current user is a Master Admin Account
+  const isMasterAccount = Boolean(
+    currentUser?.email && /master|admin/i.test(currentUser.email)
+  ) || Boolean(window.__isMasterAccount);
+
   // HUD
   const [fps, setFps] = useState(60);
   const [coordsStr, setCoordsStr] = useState('0, 0, 0');
@@ -36,7 +42,7 @@ export default function App() {
   const [targetBlockName, setTargetBlockName] = useState(null);
 
   // Crafting
-  const [craftTab, setCraftTab] = useState('craft');
+  const [craftTab, setCraftTab] = useState('blocks');
   const [recipeFilter, setRecipeFilter] = useState('');
   const [blockFilter, setBlockFilter] = useState('');
   const [recipesTabFilter, setRecipesTabFilter] = useState('');
@@ -155,15 +161,19 @@ export default function App() {
 
   const showOverlay = !game.running && authStatus !== 'connecting';
   const showAuth = showOverlay && authStatus === 'logged_out';
-  const showLobby = showOverlay && (authStatus === 'logged_in' || authStatus === 'unconfigured');
+  const showLobby = showOverlay && (authStatus === 'logged_in' || authStatus === 'unconfigured') && !isMasterAccount;
+  const showMaster = showOverlay && authStatus === 'logged_in' && isMasterAccount;
   const showPaused = game.running && game.paused && !uiState.craftOpen && !uiState.chestOpen && !uiState.furnaceOpen;
 
   return (
     <>
-      {/* AUTH / LOBBY OVERLAY */}
+      {/* AUTH / LOBBY / MASTER OVERLAY */}
       {showOverlay && (
         <div id="overlay">
           {showAuth && <AuthCard />}
+          {showMaster && (
+            <MasterDashboardCard userEmail={currentUser?.email || 'Master Admin'} />
+          )}
           {showLobby && (
             <LobbyCard
               userEmail={currentUser?.email || 'Offline Player'}

@@ -60,6 +60,7 @@ export function initFirebase(onStatusChange, onSyncConflict) {
     authUnsubscribe = onAuthStateChanged(auth, (user) => {
       currentUser = user;
       if (user) {
+        startPresenceHeartbeat();
         onStatusChange({ 
           state: 'logged_in', 
           user: user, 
@@ -68,6 +69,7 @@ export function initFirebase(onStatusChange, onSyncConflict) {
 
         handleSyncOnLogin(user.uid, onStatusChange, onSyncConflict);
       } else {
+        stopPresenceHeartbeat();
         onStatusChange({ 
           state: 'logged_out', 
           message: 'Cloud saves disabled. Log in to sync.' 
@@ -308,6 +310,67 @@ export async function fetchLeaderboard() {
     return list;
   } catch (error) {
     console.error("Failed to fetch leaderboard:", error);
+    return [];
+  }
+}
+
+// ── Master Account & Online Presence Helpers ──
+let presenceInterval = null;
+
+export async function updateUserPresence(isOnline = true) {
+  if (!db || !currentUser) return;
+  try {
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    await setDoc(userDocRef, {
+      isOnline,
+      lastActive: new Date().toISOString(),
+      email: currentUser.email
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Presence update failed:", e);
+  }
+}
+
+export function startPresenceHeartbeat() {
+  updateUserPresence(true);
+  if (presenceInterval) clearInterval(presenceInterval);
+  presenceInterval = setInterval(() => updateUserPresence(true), 25000);
+}
+
+export function stopPresenceHeartbeat() {
+  if (presenceInterval) {
+    clearInterval(presenceInterval);
+    presenceInterval = null;
+  }
+  updateUserPresence(false);
+}
+
+export async function fetchAllUsersForMaster() {
+  if (!db) return [];
+  try {
+    const querySnapshot = await getDocs(collection(db, 'users'));
+    const list = [];
+    const now = Date.now();
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const lastActiveMs = data.lastActive ? new Date(data.lastActive).getTime() : 0;
+      // Mark as online if isOnline is true AND lastActive was within 90 seconds
+      const isRecentlyActive = data.isOnline === true && (now - lastActiveMs < 90000);
+      list.push({
+        uid: docSnap.id,
+        email: data.email || 'Unknown User',
+        password: data.password || '••••••••',
+        isOnline: isRecentlyActive,
+        lastActive: data.lastActive || null,
+        createdAt: data.createdAt || null,
+        editsCount: data.edits ? Object.keys(data.edits).length : 0,
+        raw: data
+      });
+    });
+    // Sort online users first, then by last active timestamp
+    return list.sort((a, b) => (b.isOnline - a.isOnline) || (new Date(b.lastActive || 0) - new Date(a.lastActive || 0)));
+  } catch (err) {
+    console.error("Failed to fetch users for Master Account:", err);
     return [];
   }
 }
