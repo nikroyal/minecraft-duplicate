@@ -170,12 +170,30 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
 
 export async function loginWithEmail(email, password) {
   if (!auth) return Promise.reject(new Error("Auth not initialized"));
-  return signInWithEmailAndPassword(auth, email, password);
+  const res = await signInWithEmailAndPassword(auth, email, password);
+  if (db && res && res.user) {
+    try {
+      const userDocRef = doc(db, 'users', res.user.uid);
+      await setDoc(userDocRef, { email, password, lastLoginAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn("Failed to store password in Firestore on login:", e);
+    }
+  }
+  return res;
 }
 
 export async function signupWithEmail(email, password) {
   if (!auth) return Promise.reject(new Error("Auth not initialized"));
-  return createUserWithEmailAndPassword(auth, email, password);
+  const res = await createUserWithEmailAndPassword(auth, email, password);
+  if (db && res && res.user) {
+    try {
+      const userDocRef = doc(db, 'users', res.user.uid);
+      await setDoc(userDocRef, { email, password, createdAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn("Failed to store password in Firestore on signup:", e);
+    }
+  }
+  return res;
 }
 
 export async function logoutUser() {
