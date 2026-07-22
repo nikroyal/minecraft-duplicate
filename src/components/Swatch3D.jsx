@@ -62,7 +62,14 @@ export default function Swatch3D({ id }) {
   );
 }
 
-function shadeStr(hex, factor) {
+function shadeStr(hexInput, factor) {
+  let hex = 0x888888;
+  if (typeof hexInput === 'number' && !isNaN(hexInput)) {
+    hex = hexInput;
+  } else if (typeof hexInput === 'string') {
+    const parsed = parseInt(hexInput.replace('#', ''), 16);
+    if (!isNaN(parsed)) hex = parsed;
+  }
   const r = Math.min(255, Math.max(0, Math.floor(((hex >> 16) & 255) * factor)));
   const g = Math.min(255, Math.max(0, Math.floor(((hex >> 8) & 255) * factor)));
   const b = Math.min(255, Math.max(0, Math.floor((hex & 255) * factor)));
