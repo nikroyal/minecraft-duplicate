@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { player, game, world, inventory, SAVE_KEY, avatarCallbacks, achievements } from '../state.js';
 import { Chunk, getChunk, generateChunk, getBlock } from '../world.js';
-import { isSolid, keyOf } from '../config.js';
+import { isSolid, keyOf, HEIGHT } from '../config.js';
 import { invCount } from '../player.js';
 import { logoutUser, fetchLeaderboard, manuallySyncLocalToCloud, resetWorldData } from '../firebase.js';
 import { updateLobbyAvatarPreview } from '../ui.js';
@@ -56,7 +56,7 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
     if (!ch) { ch = new Chunk(cx,cz); world.chunks.set(keyOf(cx,cz), ch); }
     if (!ch.generated) generateChunk(ch);
     let topY = 1;
-    for (let y = 48-1; y >= 0; y--) { if (isSolid(getBlock(px,y,pz))) { topY = y + 1; break; } }
+    for (let y = HEIGHT-1; y >= 0; y--) { if (isSolid(getBlock(px,y,pz))) { topY = y + 1; break; } }
     player.pos.set(px+0.5, topY+0.5, pz+0.5);
     player.vel.set(0,0,0);
     player.flying = false;
