@@ -135,8 +135,8 @@ export function resetGameState() {
   player.dead = false;
   player.flying = false;
   player.vel.set(0, 0, 0);
-  player.pos.set(8.5, 30, 8.5);
-  player.fallPeak = 30;
+  player.pos.set(8.5, 48, 8.5);
+  player.fallPeak = 48;
   player.minedWoodCount = 0;
   player.minedOresCount = 0;
   player.diedTonight = false;

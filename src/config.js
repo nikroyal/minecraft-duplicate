@@ -469,10 +469,10 @@ export function shade(hex,f){
 
 // ---- World generation configs ----
 export const CHUNK = 16;
-export const HEIGHT = 48;
+export const HEIGHT = 80;
 export const RENDER_DIST = 5;
 export const SEED = 1337;
-export const SEA = 12;
+export const SEA = 32;
 
 export function keyOf(cx, cz){ return cx + "," + cz; }
 
@@ -515,12 +515,12 @@ export function vnoise3(x,y,z,s){
 }
 export function isCave(wx,wy,wz){
   const maxH = surfaceHeight(wx, wz);
-  if(wy < 3 || wy > Math.min(maxH - 2, SEA + 24)) return false;
+  if(wy < 3 || wy > Math.min(maxH - 2, SEA + 12)) return false;
   const a=vnoise3(wx*0.09, wy*0.14, wz*0.09, SEED+11);
   const b=vnoise3(wx*0.09, wy*0.14, wz*0.09, SEED+22);
   return Math.abs(a-0.5)<0.09 && Math.abs(b-0.5)<0.12;
 }
 export function surfaceHeight(wx, wz){
   const base = fbm(wx, wz);
-  return Math.floor(6 + base*22);
+  return Math.floor(34 + base * 12);
 }
