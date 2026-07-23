@@ -74,9 +74,10 @@ export function getBlockAABBs(x, y, z) {
 
 export function collidesAt(px, py, pz) {
   const hw = 0.3, h = 1.8;
-  const pMinX = px - hw + 1e-4, pMaxX = px + hw - 1e-4;
-  const pMinY = py + 1e-4,      pMaxY = py + h - 1e-4;
-  const pMinZ = pz - hw + 1e-4, pMaxZ = pz + hw - 1e-4;
+  const eps = 1e-3;
+  const pMinX = px - hw + eps, pMaxX = px + hw - eps;
+  const pMinY = py + eps,      pMaxY = py + h - eps;
+  const pMinZ = pz - hw + eps, pMaxZ = pz + hw - eps;
 
   const minGridX = Math.floor(pMinX);
   const maxGridX = Math.floor(pMaxX);
@@ -102,16 +103,51 @@ export function collidesAt(px, py, pz) {
   return false;
 }
 
+export function collidesCeiling(px, py, pz, step) {
+  const hw = 0.3, h = 1.8;
+  const eps = 1e-3;
+  const pMinY = py + h - 0.1;
+  const pMaxY = py + h + step + eps;
+
+  const minGridX = Math.floor(px - hw);
+  const maxGridX = Math.floor(px + hw);
+  const minGridY = Math.floor(py);
+  const maxGridY = Math.floor(pMaxY);
+  const minGridZ = Math.floor(pz - hw);
+  const maxGridZ = Math.floor(pz + hw);
+
+  for (let gx = minGridX; gx <= maxGridX; gx++) {
+    for (let gy = minGridY; gy <= maxGridY; gy++) {
+      for (let gz = minGridZ; gz <= maxGridZ; gz++) {
+        const aabbs = getBlockAABBs(gx, gy, gz);
+        for (const b of aabbs) {
+          // Block bottom must sit above player waist/chest (b.minY >= py + 0.8)
+          if (b.minY >= py + 0.8 && pMinY < b.maxY && pMaxY > b.minY) {
+            // Check if player inner core overlaps block horizontally
+            const coreMinX = px - 0.2, coreMaxX = px + 0.2;
+            const coreMinZ = pz - 0.2, coreMaxZ = pz + 0.2;
+            if (coreMinX < b.maxX && coreMaxX > b.minX && coreMinZ < b.maxZ && coreMaxZ > b.minZ) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
 export function getSupportingSurface(px, py, pz) {
   const hw = 0.3;
-  const pMinX = px - hw + 1e-4, pMaxX = px + hw - 1e-4;
-  const pMinZ = pz - hw + 1e-4, pMaxZ = pz + hw - 1e-4;
+  const eps = 1e-3;
+  const pMinX = px - hw + eps, pMaxX = px + hw - eps;
+  const pMinZ = pz - hw + eps, pMaxZ = pz + hw - eps;
 
   const minGridX = Math.floor(pMinX);
   const maxGridX = Math.floor(pMaxX);
-  // Scan 2 block-heights below the player to catch slabs and carpets
-  const minGridY = Math.floor(py - 1.1);
-  const maxGridY = Math.floor(py + 0.15);
+  // Scan 2 block-heights below the player to catch slabs, stairs and terrain steps
+  const minGridY = Math.floor(py - 1.2);
+  const maxGridY = Math.floor(py + 0.25);
   const minGridZ = Math.floor(pMinZ);
   const maxGridZ = Math.floor(pMaxZ);
 
@@ -124,9 +160,9 @@ export function getSupportingSurface(px, py, pz) {
         const aabbs = getBlockAABBs(gx, gy, gz);
         for (const b of aabbs) {
           if (pMinX < b.maxX && pMaxX > b.minX && pMinZ < b.maxZ && pMaxZ > b.minZ) {
-            // Accept any surface the player is currently sitting on (wider tolerance)
+            // Accept any supporting surface within stepping distance (-0.25 to 0.35)
             const dist = py - b.maxY;
-            if (dist >= -0.12 && dist <= 0.12) {
+            if (dist >= -0.25 && dist <= 0.35) {
               if (b.maxY > maxTopY) {
                 maxTopY = b.maxY;
                 const id = getBlock(gx, gy, gz);
@@ -178,9 +214,11 @@ export function getIntersectingColliders(px, py, pz) {
 }
 
 const MAX_STEP = 0.35;
-export function moveAxis(axis, amount){
+export function moveAxis(axis, amount, allowAutoStep){
   if(!isFinite(amount) || Math.abs(amount) < 1e-6) return;
   const p = player.pos;
+  const hw = 0.3;
+  const canStep = allowAutoStep !== undefined ? allowAutoStep : player.onGround;
   let remaining = amount;
   let maxTries = 100;
   while(Math.abs(remaining) > 1e-6 && maxTries-- > 0){
@@ -191,7 +229,7 @@ export function moveAxis(axis, amount){
         p.x += step;
       } else {
         let stepped = false;
-        if(player.onGround){
+        if(canStep){
           const support = getSupportingSurface(p.x + step, p.y + STEP_HEIGHT, p.z);
           const targetY = support ? support.topY + 1e-4 : Math.floor(p.y) + 1.0 + 1e-4;
           const stepY = targetY - p.y;
@@ -204,22 +242,38 @@ export function moveAxis(axis, amount){
           }
         }
         if(!stepped){
+          const checkGridX = Math.floor(p.x + step + (step > 0 ? hw : -hw));
+          const minY = Math.floor(p.y);
+          const maxY = Math.floor(p.y + 1.799);
+          let foundAABB = null;
+          for (let gy = minY; gy <= maxY; gy++) {
+            const aabbs = getBlockAABBs(checkGridX, gy, Math.floor(p.z));
+            if (aabbs.length > 0) { foundAABB = aabbs[0]; break; }
+          }
+          if (foundAABB) {
+            if (step > 0) p.x = Math.min(p.x, foundAABB.minX - hw - 1e-4);
+            else p.x = Math.max(p.x, foundAABB.maxX + hw + 1e-4);
+          }
           player.vel.x = 0;
           break;
         }
       }
     } else if(axis === "y"){
-      if(!collidesAt(p.x, p.y + step, p.z)) {
-        p.y += step;
+      if(step > 0) {
+        if(!collidesCeiling(p.x, p.y, p.z, step)) {
+          p.y += step;
+        } else {
+          player.vel.y = 0;
+          break;
+        }
       } else {
-        if(step < 0) {
-          // Use pre-step Y to find the correct support surface (e.g. slab at y+0.5)
-          // getSupportingSurface with current p.y will find the block we just hit
+        if(!collidesAt(p.x, p.y + step, p.z)) {
+          p.y += step;
+        } else {
           const support = getSupportingSurface(p.x, p.y, p.z);
           if (support) {
             p.y = support.topY + 1e-4;
           } else {
-            // Fallback: scan down for the first solid block top
             const floorY = Math.floor(p.y + step);
             let surfY = floorY + 1.0;
             for (let scanY = floorY; scanY >= floorY - 1; scanY--) {
@@ -229,16 +283,16 @@ export function moveAxis(axis, amount){
             p.y = surfY + 1e-4;
           }
           player.onGround = true;
+          player.vel.y = 0;
+          break;
         }
-        player.vel.y = 0;
-        break;
       }
     } else {
       if(!collidesAt(p.x, p.y, p.z + step)) {
         p.z += step;
       } else {
         let stepped = false;
-        if(player.onGround){
+        if(canStep){
           const support = getSupportingSurface(p.x, p.y + STEP_HEIGHT, p.z + step);
           const targetY = support ? support.topY + 1e-4 : Math.floor(p.y) + 1.0 + 1e-4;
           const stepY = targetY - p.y;
@@ -251,6 +305,18 @@ export function moveAxis(axis, amount){
           }
         }
         if(!stepped){
+          const checkGridZ = Math.floor(p.z + step + (step > 0 ? hw : -hw));
+          const minY = Math.floor(p.y);
+          const maxY = Math.floor(p.y + 1.799);
+          let foundAABB = null;
+          for (let gy = minY; gy <= maxY; gy++) {
+            const aabbs = getBlockAABBs(Math.floor(p.x), gy, checkGridZ);
+            if (aabbs.length > 0) { foundAABB = aabbs[0]; break; }
+          }
+          if (foundAABB) {
+            if (step > 0) p.z = Math.min(p.z, foundAABB.minZ - hw - 1e-4);
+            else p.z = Math.max(p.z, foundAABB.maxZ + hw + 1e-4);
+          }
           player.vel.z = 0;
           break;
         }
@@ -300,7 +366,7 @@ export function updatePlayer(dt){
       player.onGround = true;
     }
     if(player.onGround){
-      player.coyoteTimer = 0.12;
+      player.coyoteTimer = 0.18;
     } else {
       player.coyoteTimer = Math.max(0, (player.coyoteTimer || 0) - dt);
     }
@@ -308,7 +374,7 @@ export function updatePlayer(dt){
 
   // Jump Input Buffering
   if(!blockInput && (keys["Space"] || touch.jump)){
-    player.jumpBuffer = 0.15;
+    player.jumpBuffer = 0.20;
   } else if((player.jumpBuffer || 0) > 0){
     player.jumpBuffer -= dt;
   }
@@ -354,6 +420,8 @@ export function updatePlayer(dt){
     }
   }
 
+  const wasOnGround = player.onGround;
+
   // Trigger jump if jump buffer is active and player is on ground or within coyote window
   if(!blockInput && !inWater && (player.jumpBuffer || 0) > 0 && (player.onGround || (player.coyoteTimer || 0) > 0)){
     player.vel.y = JUMP;
@@ -362,12 +430,11 @@ export function updatePlayer(dt){
     player.jumpBuffer = 0;
   }
 
-  const wasOnGround = player.onGround;
   player.onGround = false;
   
   const oldX = player.pos.x, oldZ = player.pos.z;
-  moveAxis("x", player.vel.x * dt);
-  moveAxis("z", player.vel.z * dt);
+  moveAxis("x", player.vel.x * dt, wasOnGround);
+  moveAxis("z", player.vel.z * dt, wasOnGround);
   moveAxis("y", player.vel.y * dt);
 
   // Post-move ground probe check to keep player grounded state precise

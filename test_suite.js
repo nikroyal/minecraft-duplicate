@@ -169,6 +169,32 @@ async function runFullTestSuite() {
       if (world.getBlock(50, 30, 50) !== 0) throw new Error("triggerWorldExplosion did not clear block");
     });
 
+    test("player jumps consistently when pressed against blocks and walls", () => {
+      for (let x = 0; x < 20; x++) {
+        for (let z = 0; z < 20; z++) {
+          world.setBlock(x, 9, z, 1);
+          for (let y = 10; y < 20; y++) world.setBlock(x, y, z, 0);
+        }
+      }
+      const ch = world.getChunk(0, 0);
+      if (ch) ch.generated = true;
+      world.setBlock(6, 10, 5, 1);
+      world.setBlock(6, 11, 5, 1);
+
+      state.player.pos.set(5.7, 10.0, 5.5);
+      state.player.vel.set(0, 0, 0);
+      state.player.onGround = true;
+      state.player.yaw = -Math.PI / 2;
+      state.keys["KeyW"] = true;
+      state.keys["Space"] = true;
+      state.game.paused = false;
+
+      player.updatePlayer(0.016);
+      if (state.player.vel.y <= 0 || state.player.pos.y <= 10.0) {
+        throw new Error(`Jump failed while pressed against wall! vel.y: ${state.player.vel.y}, pos.y: ${state.player.pos.y}`);
+      }
+    });
+
     // TEST SUITE 4: MOBS & COMBAT SYSTEM
     console.log("\n--- TEST SUITE 4: MOBS & COMBAT SYSTEM ---");
     test("spawnMob creates pig, sheep, zombie, creeper, skeleton", () => {
