@@ -424,7 +424,7 @@ export function updatePlayer(dt){
 
   // Trigger jump if jump buffer is active and player is on ground or within coyote window
   if(!blockInput && !inWater && (player.jumpBuffer || 0) > 0 && (player.onGround || (player.coyoteTimer || 0) > 0)){
-    player.vel.y = JUMP;
+    player.vel.y = Math.max(player.vel.y, JUMP);
     player.onGround = false;
     player.coyoteTimer = 0;
     player.jumpBuffer = 0;
@@ -569,7 +569,9 @@ export function playerDie(cause){
   Object.keys(keys).forEach(k => keys[k] = false);
   player.sprinting = false;
   player.vel.set(0, 0, 0);
-  if(document.pointerLockElement) document.exitPointerLock();
+  if(document.pointerLockElement) {
+    try { document.exitPointerLock(); } catch(e){}
+  }
   showDeathScreen(cause);
 }
 
@@ -598,7 +600,7 @@ export function respawnPlayer(){
 export function invCount(id){ return inventory[id] || 0; }
 export function addItem(id, n=1){ 
   if (n <= 0) return;
-  inventory[id] = (inventory[id] || 0) + n; 
+  inventory[id] = Math.min(64, (inventory[id] || 0) + n); 
   refreshCounts(); 
 }
 export function removeItem(id, n=1){ 
@@ -609,11 +611,13 @@ export function removeItem(id, n=1){
 }
 
 export function heldTool(){
-  const id = hotbar[game.selected];
+  const idx = Math.max(0, Math.min(8, game.selected || 0));
+  const id = hotbar[idx];
   return ITEMS[id] && ITEMS[id].tool ? ITEMS[id] : null;
 }
 export function heldItem(){
-  const id = hotbar[game.selected];
+  const idx = Math.max(0, Math.min(8, game.selected || 0));
+  const id = hotbar[idx];
   return ITEMS[id] || BLOCKS[id] || null;
 }
 

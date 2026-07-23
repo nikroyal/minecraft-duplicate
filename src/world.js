@@ -7,8 +7,10 @@ import {
   isSolid, isOpaque, tileFor, tileUV, trng, shade, TILE, ATLAS_COLS, ATLAS_ROWS
 } from './config.js';
 
-// Streaming queue
+// Streaming queue & static meshing buffers
 export let genQueue = [];
+const sharedMeshMask = new Uint8Array(HEIGHT * CHUNK);
+const sharedSurfaceRow = new Uint8Array(HEIGHT * CHUNK);
 
 export class Chunk {
   constructor(cx, cz){
@@ -803,20 +805,17 @@ export function buildWaterGreedyMesh(ch) {
         );
         norm.push(0, -1, 0,  0, -1, 0,  0, -1, 0,  0, -1, 0);
         uv.push(0, 0,  w, 0,  w, h,  0, h);
-        faceType.push(2, 2, 2, 2); // face type 2 = bottom face
+        faceType.push(2, 2, 2, 2);
         idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
       }
     }
   }
 
   // 3. Side (+X & -X) vertical faces (Greedy Merged over Y and Z)
-  // Side face top is capped at y+0.875 when the water block above is exposed
-  // (top neighbour is not water), to match the water surface height.
   for (const nx of [1, -1]) {
     for (let x = 0; x < CHUNK; x++) {
-      const mask = new Array(HEIGHT * CHUNK).fill(false);
-      // surfaceRow[y*CHUNK+z] = true when block at (x,y,z) is the topmost water layer
-      const surfaceRow = new Array(HEIGHT * CHUNK).fill(false);
+      sharedMeshMask.fill(0);
+      sharedSurfaceRow.fill(0);
       let hasMask = false;
 
       for (let y = 0; y < HEIGHT; y++) {
@@ -824,11 +823,10 @@ export function buildWaterGreedyMesh(ch) {
           if (ch.get(x, y, z) === 8) {
             const neighId = getBlock(ox + x + nx, y, oz + z);
             if (neighId !== 8 && !isOpaque(neighId)) {
-              mask[y * CHUNK + z] = true;
+              sharedMeshMask[y * CHUNK + z] = 1;
               hasMask = true;
-              // Mark as surface row if block above is not water
               const aboveId = getBlock(ox + x, y + 1, oz + z);
-              if (aboveId !== 8) surfaceRow[y * CHUNK + z] = true;
+              if (aboveId !== 8) sharedSurfaceRow[y * CHUNK + z] = 1;
             }
           }
         }
@@ -837,23 +835,21 @@ export function buildWaterGreedyMesh(ch) {
 
       for (let y = 0; y < HEIGHT; y++) {
         for (let z = 0; z < CHUNK; z++) {
-          if (!mask[y * CHUNK + z]) continue;
+          if (!sharedMeshMask[y * CHUNK + z]) continue;
 
-          // Only merge cells that share the same surface status to avoid
-          // mixing full-height and capped-height cells in one quad
-          const isSurface = surfaceRow[y * CHUNK + z];
+          const isSurface = sharedSurfaceRow[y * CHUNK + z] === 1;
 
           let w = 1;
           while (z + w < CHUNK &&
-                 mask[y * CHUNK + (z + w)] &&
-                 surfaceRow[y * CHUNK + (z + w)] === isSurface) w++;
+                 sharedMeshMask[y * CHUNK + (z + w)] &&
+                 (sharedSurfaceRow[y * CHUNK + (z + w)] === 1) === isSurface) w++;
 
           let h = 1;
           let canExtend = true;
           while (y + h < HEIGHT && canExtend) {
             for (let k = 0; k < w; k++) {
               const mi = (y + h) * CHUNK + (z + k);
-              if (!mask[mi] || surfaceRow[mi] !== isSurface) {
+              if (!sharedMeshMask[mi] || (sharedSurfaceRow[mi] === 1) !== isSurface) {
                 canExtend = false;
                 break;
               }
@@ -861,9 +857,9 @@ export function buildWaterGreedyMesh(ch) {
             if (canExtend) h++;
           }
 
-          for (let hy = 0; hy < h; hy++) {
-            for (let wz = 0; wz < w; wz++) {
-              mask[(y + hy) * CHUNK + (z + wz)] = false;
+          for (let dy = 0; dy < h; dy++) {
+            for (let dz = 0; dz < w; dz++) {
+              sharedMeshMask[(y + dy) * CHUNK + (z + dz)] = 0;
             }
           }
 
