@@ -5,7 +5,7 @@ import { isSolid } from '../config.js';
 import { respawnPlayer, invCount, addItem } from '../player.js';
 import { 
   resolveSyncConflict, subscribeToUserDoc, subscribeToWorldSettings, updateUserDocInFirestore,
-  subscribeToRoomWorld, subscribeToRoomPresence
+  subscribeToRoomWorld, subscribeToRoomPresence, subscribeToUserInvites
 } from '../firebase.js';
 import { thingName, BLOCKS, RECIPES, isPlaceable } from '../config.js';
 import { initAudio } from '../audio.js';
@@ -18,6 +18,7 @@ import ChestScreen from './ChestScreen.jsx';
 import FurnaceScreen from './FurnaceScreen.jsx';
 import CraftingScreen from './CraftingScreen.jsx';
 import MasterDashboardCard from './MasterDashboardCard.jsx';
+import PlayerDirectoryModal from './PlayerDirectoryModal.jsx';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
   closeCraft, closeChest, closeFurnace, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
@@ -245,6 +246,18 @@ export default function App() {
       .filter(id => BLOCKS[id] && BLOCKS[id].name && BLOCKS[id].name.toLowerCase().includes(filter));
   }, [blockFilter]);
 
+  const [showPlayerDirectory, setShowPlayerDirectory] = useState(false);
+  const [incomingInvites, setIncomingInvites] = useState([]);
+
+  // Subscribe to User Room Invites
+  useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
+    const unsub = subscribeToUserInvites(currentUser.uid, (invites) => {
+      setIncomingInvites(invites || []);
+    });
+    return () => unsub();
+  }, [currentUser]);
+
   const showOverlay = !game.running && authStatus !== 'connecting';
   const showAuth = showOverlay && authStatus === 'logged_out';
   const showLobby = showOverlay && (authStatus === 'logged_in' || authStatus === 'unconfigured') && !isMasterAccount;
@@ -265,6 +278,7 @@ export default function App() {
               userEmail={currentUser?.email || 'Offline Player'}
               syncStatus={syncMsg}
               scheduleSave={scheduleSave}
+              onOpenDirectory={() => setShowPlayerDirectory(true)}
               onStartGame={() => {
                 game.running = true;
                 game.paused = false;
@@ -279,6 +293,56 @@ export default function App() {
               }}
             />
           )}
+        </div>
+      )}
+
+      {/* PLAYER DIRECTORY MODAL */}
+      {showPlayerDirectory && (
+        <PlayerDirectoryModal
+          currentUser={currentUser}
+          onClose={() => setShowPlayerDirectory(false)}
+        />
+      )}
+
+      {/* INCOMING ROOM INVITES BANNER */}
+      {incomingInvites.length > 0 && (
+        <div style={{
+          position: 'fixed', top: '16px', right: '16px', zIndex: 110,
+          background: 'rgba(20,16,10,0.95)', border: '1px solid var(--gold)', borderRadius: '8px',
+          padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 8px 30px rgba(0,0,0,0.7)'
+        }}>
+          {incomingInvites.map(inv => (
+            <div key={inv.id} style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--gold-bright)' }}>✉️ Room Invitation</div>
+              <div style={{ fontSize: '10px', color: '#fff', margin: '3px 0' }}>
+                <strong>{inv.senderEmail}</strong> invited you to join <strong>{inv.roomName}</strong>!
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                <button
+                  onClick={() => {
+                    game.mode = 'room';
+                    game.activeRoomId = inv.roomId;
+                    game.activeRoomInfo = { id: inv.roomId, name: inv.roomName };
+                    game.running = true;
+                    game.paused = false;
+                    initAudio();
+                    toast(`Joined '${inv.roomName}'!`);
+                    setIncomingInvites(prev => prev.filter(i => i.id !== inv.id));
+                    forceUpdate();
+                  }}
+                  style={{ background: 'var(--gold)', color: '#000', border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Accept & Join
+                </button>
+                <button
+                  onClick={() => setIncomingInvites(prev => prev.filter(i => i.id !== inv.id))}
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#aaa', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '10px', cursor: 'pointer' }}
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -608,3 +608,55 @@ export function subscribeToRoomPresence(roomId, callback) {
     callback(players);
   });
 }
+
+// ── SOCIAL DIRECTORY & ROOM INVITES ──
+
+export async function updateUserBio(bioText) {
+  if (!db || !currentUser) return;
+  try {
+    const userRef = doc(db, 'users', currentUser.uid);
+    await setDoc(userRef, { bio: bioText.trim() }, { merge: true });
+    console.log("Updated bio successfully.");
+  } catch (err) {
+    console.error("Failed to update bio:", err);
+  }
+}
+
+export async function sendRoomInvite(targetUid, roomId, roomName) {
+  if (!db || !currentUser || !targetUid || !roomId) return false;
+  try {
+    const inviteObj = {
+      id: 'inv_' + Date.now(),
+      roomId,
+      roomName: roomName || 'Team Room',
+      senderEmail: currentUser.email,
+      senderUid: currentUser.uid,
+      timestamp: new Date().toISOString(),
+      type: 'room_invite'
+    };
+    const targetRef = doc(db, 'users', targetUid);
+    const snap = await getDoc(targetRef);
+    if (snap.exists()) {
+      const existing = Array.isArray(snap.data().invites) ? snap.data().invites : [];
+      const updatedInvites = [inviteObj, ...existing].slice(0, 20);
+      await setDoc(targetRef, { invites: updatedInvites }, { merge: true });
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error("Failed to send room invite:", err);
+    return false;
+  }
+}
+
+export function subscribeToUserInvites(uid, callback) {
+  if (!db || !uid) return () => {};
+  const userRef = doc(db, 'users', uid);
+  return onSnapshot(userRef, (snap) => {
+    if (snap.exists() && snap.data().invites) {
+      callback(snap.data().invites);
+    } else {
+      callback([]);
+    }
+  });
+}

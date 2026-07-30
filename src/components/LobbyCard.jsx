@@ -10,7 +10,7 @@ import {
 import { updateLobbyAvatarPreview, toast } from '../ui.js';
 import { initAudio } from '../audio.js';
 
-export default function LobbyCard({ userEmail, syncStatus, onStartGame, scheduleSave }) {
+export default function LobbyCard({ userEmail, syncStatus, onStartGame, scheduleSave, onOpenDirectory }) {
   const [activeTab, setActiveTab] = useState('play');
   const [resetStep, setResetStep] = useState(null);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -159,6 +159,7 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
       {/* Navigation */}
       <div className="dashboard-tabs">
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
+        <button className="dash-tab" onClick={onOpenDirectory}>🔍 Directory</button>
         <button id="tabStatsBtn" className={`dash-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>📊 My Stats</button>
         <button id="tabLeaderboardBtn" className={`dash-tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>🥇 Leaderboard</button>
         <button id="tabAchievementsBtn" className={`dash-tab ${activeTab === 'achievements' ? 'active' : ''}`} onClick={() => setActiveTab('achievements')}>🏆 Achievements</button>
