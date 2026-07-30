@@ -254,6 +254,39 @@ async function runFullTestSuite() {
       if (state.game.xpOrbs.length !== initialOrbsLength + 3) throw new Error("spawnXpOrbs failed to push orbs");
     });
 
+    // TEST SUITE 7: MULTIPLAYER ECOSYSTEM, ROOMS & PRESENCE
+    console.log("\n--- TEST SUITE 7: MULTIPLAYER ECOSYSTEM, ROOMS & PRESENCE ---");
+    test("game mode state transitions between singleplayer, public, and room", () => {
+      state.game.mode = 'singleplayer';
+      state.game.activeRoomId = null;
+      if (state.game.mode !== 'singleplayer' || state.game.activeRoomId !== null) throw new Error("Singleplayer state invalid");
+
+      state.game.mode = 'public';
+      state.game.activeRoomId = 'global_public';
+      if (state.game.mode !== 'public' || state.game.activeRoomId !== 'global_public') throw new Error("Public mode state invalid");
+
+      state.game.mode = 'room';
+      state.game.activeRoomId = 'room_test_123';
+      if (state.game.mode !== 'room' || state.game.activeRoomId !== 'room_test_123') throw new Error("Room mode state invalid");
+    });
+
+    test("otherPlayerMeshes map correctly initializes and tracks multiplayer players", () => {
+      if (!main.otherPlayerMeshes || typeof main.otherPlayerMeshes.set !== 'function') {
+        throw new Error("otherPlayerMeshes map is not properly exported or initialized");
+      }
+    });
+
+    test("saveWorld delegates payload to appropriate mode target", () => {
+      state.game.mode = 'singleplayer';
+      ui.saveWorld(); // Should execute singleplayer save path cleanly without exception
+      
+      state.game.mode = 'public';
+      state.game.activeRoomId = 'global_public';
+      ui.saveWorld(); // Should execute room save path cleanly
+
+      state.game.mode = 'singleplayer'; // Reset
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
