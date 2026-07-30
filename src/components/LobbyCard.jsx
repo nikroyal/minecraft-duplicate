@@ -5,7 +5,8 @@ import { isSolid, keyOf, HEIGHT } from '../config.js';
 import { invCount } from '../player.js';
 import { 
   logoutUser, fetchLeaderboard, manuallySyncLocalToCloud, resetWorldData,
-  createTeamRoom, subscribeToRoomsDirectory, deleteTeamRoom, updateRoomPrivacy
+  createTeamRoom, subscribeToRoomsDirectory, deleteTeamRoom, updateRoomPrivacy,
+  submitGameReview
 } from '../firebase.js';
 import { updateLobbyAvatarPreview, toast } from '../ui.js';
 import { initAudio } from '../audio.js';
@@ -17,6 +18,12 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
   const [leaderboardList, setLeaderboardList] = useState([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+
+  // Review & Feedback State
+  const [reviewRating, setReviewRating] = useState(10);
+  const [reviewText, setReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState('');
 
   // World Mode & Room States
   const [worldMode, setWorldMode] = useState(game.mode || 'singleplayer');
@@ -66,6 +73,18 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
     // trigger updates
     if (avatarCallbacks.update) avatarCallbacks.update();
     scheduleSave();
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!reviewText.trim()) return setReviewMsg("Please write your experience or feedback.");
+    setSubmittingReview(true);
+    setReviewMsg('');
+    const res = await submitGameReview(reviewRating, reviewText);
+    setSubmittingReview(false);
+    setReviewMsg(res.msg);
+    if (res.success) {
+      setReviewText('');
+    }
   };
 
   const handleCreateRoomSubmit = async () => {
@@ -160,6 +179,7 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
       <div className="dashboard-tabs">
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
         <button className="dash-tab" onClick={onOpenDirectory}>🔍 Directory</button>
+        <button id="tabReviewBtn" className={`dash-tab ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>⭐ Reviews</button>
         <button id="tabStatsBtn" className={`dash-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>📊 My Stats</button>
         <button id="tabLeaderboardBtn" className={`dash-tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>🥇 Leaderboard</button>
         <button id="tabAchievementsBtn" className={`dash-tab ${activeTab === 'achievements' ? 'active' : ''}`} onClick={() => setActiveTab('achievements')}>🏆 Achievements</button>
@@ -315,6 +335,78 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
           <div className="secondary-actions">
             <button className="minor-btn" onClick={handleTeleportSurface}>↑ Teleport to surface</button>
             <button className="minor-btn danger" onClick={() => setResetStep(0)}>Reset world</button>
+          </div>
+        </div>
+      )}
+
+      {/* REVIEWS & FEEDBACK PANEL */}
+      {activeTab === 'reviews' && (
+        <div className="dash-panel" id="dash-reviews" style={{ textAlign: 'left' }}>
+          <div style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--gold-bright)', fontWeight: 'bold' }}>
+            ⭐ Community Feedback & Bug Reports
+          </div>
+          <div style={{ fontSize: '11px', color: '#d8caae', lineHeight: '1.5', marginBottom: '14px' }}>
+            Help us continuously update and improve the game! Share your experience, negatives, positives, bugs, or feature ideas directly with the game developers.
+          </div>
+
+          {/* Star Selector (1 to 10 Stars) */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--gold)', display: 'block', marginBottom: '6px' }}>
+              Rating: {reviewRating} / 10 Stars {'⭐'.repeat(Math.min(5, Math.ceil(reviewRating / 2)))}
+            </label>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                <button
+                  key={num}
+                  onClick={() => setReviewRating(num)}
+                  style={{
+                    padding: '6px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                    background: reviewRating === num ? 'var(--gold)' : 'rgba(255,255,255,0.06)',
+                    color: reviewRating === num ? '#000' : '#ccc',
+                    border: reviewRating === num ? '1px solid var(--gold-bright)' : '1px solid rgba(255,255,255,0.1)'
+                  }}
+                >
+                  {num}★
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Required Text Review Box */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#fff', display: 'block', marginBottom: '6px' }}>
+              Your Review / Suggestions (Mandatory):
+            </label>
+            <textarea
+              rows="4"
+              value={reviewText}
+              onChange={e => setReviewText(e.target.value)}
+              placeholder="Talk about your experience, negatives, positives, bugs, or how we can make the game better..."
+              style={{
+                width: '100%', padding: '10px', borderRadius: '6px', fontSize: '11px', lineHeight: '1.4',
+                background: 'rgba(0,0,0,0.4)', border: '1px solid var(--slot-line)', color: '#fff', resize: 'vertical'
+              }}
+            />
+          </div>
+
+          {reviewMsg && (
+            <div style={{ fontSize: '11px', color: reviewMsg.includes('Thank') ? '#4cd964' : '#ff9999', marginBottom: '12px', fontWeight: 'bold' }}>
+              {reviewMsg}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '9px', color: '#888' }}>🛡️ Anti-Spam Active (5-min cooldown between reviews)</span>
+            <button
+              onClick={handleReviewSubmit}
+              disabled={submittingReview}
+              style={{
+                background: 'var(--gold)', color: '#000', border: 'none', borderRadius: '4px',
+                padding: '8px 16px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer'
+              }}
+            >
+              {submittingReview ? "Submitting..." : "Submit Review"}
+            </button>
           </div>
         </div>
       )}

@@ -660,3 +660,73 @@ export function subscribeToUserInvites(uid, callback) {
     }
   });
 }
+
+// ── REVIEWS & FEEDBACK SYSTEM ──
+
+export async function submitGameReview(rating, text) {
+  if (!db || !currentUser) return { success: false, msg: "Must be logged in to submit a review." };
+  const cleanText = (text || '').trim();
+  if (cleanText.length < 10) {
+    return { success: false, msg: "Please write a descriptive review (minimum 10 characters)." };
+  }
+  const cleanRating = Math.max(1, Math.min(10, Number(rating) || 10));
+
+  try {
+    // Rate-limiting spam check (5 minute cooldown)
+    const userRef = doc(db, 'users', currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    const now = Date.now();
+    if (userSnap.exists()) {
+      const lastTime = userSnap.data().lastReviewTime || 0;
+      const cooldownMs = 5 * 60 * 1000;
+      if (now - lastTime < cooldownMs) {
+        const remainingSec = Math.ceil((cooldownMs - (now - lastTime)) / 1000);
+        return { success: false, msg: `Anti-spam active: Please wait ${remainingSec}s before submitting another review.` };
+      }
+    }
+
+    const reviewId = 'rev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    const reviewRef = doc(db, 'reviews', reviewId);
+    const reviewData = {
+      id: reviewId,
+      uid: currentUser.uid,
+      email: currentUser.email,
+      rating: cleanRating,
+      text: cleanText,
+      timestamp: new Date().toISOString()
+    };
+
+    await setDoc(reviewRef, reviewData);
+    await setDoc(userRef, { lastReviewTime: now }, { merge: true });
+    return { success: true, msg: "Thank you! Your feedback has been sent to the Admin inbox." };
+  } catch (err) {
+    console.error("Failed to submit review:", err);
+    return { success: false, msg: "Failed to submit review due to network error." };
+  }
+}
+
+export async function fetchGameReviews() {
+  if (!db) return [];
+  try {
+    const reviewsCol = collection(db, 'reviews');
+    const snapshot = await getDocs(reviewsCol);
+    const list = [];
+    snapshot.forEach(docSnap => {
+      list.push(docSnap.data());
+    });
+    return list.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  } catch (err) {
+    console.error("Failed to fetch reviews:", err);
+    return [];
+  }
+}
+
+export async function deleteGameReview(reviewId) {
+  if (!db || !reviewId) return;
+  try {
+    const reviewRef = doc(db, 'reviews', reviewId);
+    await setDoc(reviewRef, { deleted: true }, { merge: true });
+  } catch (err) {
+    console.error("Failed to delete review:", err);
+  }
+}

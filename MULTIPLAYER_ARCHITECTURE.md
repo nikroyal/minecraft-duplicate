@@ -55,7 +55,20 @@ The Master Admin (`role: 'admin'` or `'master'`) possesses unrestricted root acc
 
 ---
 
-## 🛠️ 4. Phased Implementation Roadmap
+## ⭐ 5. Community Reviews & Feedback System
+
+### 📝 Player Submission Form (`LobbyCard.jsx`)
+- **10-Star Rating Selector**: Rating choice from 1★ to 10★.
+- **Mandatory Description Prompt**: *"Talk about your experience, negatives, positives, bugs, or how we can make the game better..."*
+- **Anti-Spam Cooldown**: Enforces a 5-minute cooldown timer (`lastReviewTime`) per user account to prevent spamming while allowing ongoing game updates feedback.
+
+### 📥 Admin Reviews Inbox (`MasterDashboardCard.jsx`)
+- Displays all submitted community reviews with star rating badge, player email, timestamp, and review text.
+- Provides `[ 🗑️ Delete Review ]` action for admin moderation.
+
+---
+
+## 🛠️ 6. Phased Implementation Roadmap
 
 - [x] **Phase 1: Database & Mode Selection UI**: World mode selector (Singleplayer, Nexus, Team Rooms), Room Browser, and Cloud room saving.
 - [x] **Phase 2: 3D Multiplayer Player Presence & Avatars**: High-frequency presence broadcasting (100ms), 3D player mesh rendering, walking leg animations, and floating 3D name tags.

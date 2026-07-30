@@ -9,7 +9,9 @@ import {
   sendAdminDirectMessage,
   subscribeToRoomsDirectory,
   deleteTeamRoom,
-  updateRoomPrivacy
+  updateRoomPrivacy,
+  fetchGameReviews,
+  deleteGameReview
 } from '../firebase.js';
 import { game } from '../state.js';
 import { initAudio } from '../audio.js';
@@ -17,12 +19,13 @@ import { initAudio } from '../audio.js';
 export default function MasterDashboardCard({ userEmail }) {
   const [users, setUsers] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'online', 'offline'
   const [selectedUser, setSelectedUser] = useState(null);
   const [lastRefreshed, setLastRefreshed] = useState(null);
-  const [adminTab, setAdminTab] = useState('users'); // 'users', 'rooms'
+  const [adminTab, setAdminTab] = useState('users'); // 'users', 'rooms', 'reviews'
 
   // Admin controls state
   const [broadcastText, setBroadcastText] = useState('');
@@ -37,6 +40,17 @@ export default function MasterDashboardCard({ userEmail }) {
     });
     return () => unsub();
   }, []);
+
+  const loadReviews = async () => {
+    const data = await fetchGameReviews();
+    setReviews(data.filter(r => !r.deleted));
+  };
+
+  useEffect(() => {
+    if (adminTab === 'reviews') {
+      loadReviews();
+    }
+  }, [adminTab]);
 
   const showFeedback = (msg) => {
     setStatusFeedback(msg);
@@ -338,9 +352,66 @@ export default function MasterDashboardCard({ userEmail }) {
         >
           🌐 Team & Private Rooms ({rooms.length})
         </button>
+
+        <button
+          onClick={() => setAdminTab('reviews')}
+          style={{
+            background: adminTab === 'reviews' ? 'rgba(214,178,120,0.25)' : 'transparent',
+            border: adminTab === 'reviews' ? '1px solid var(--gold)' : '1px solid transparent',
+            color: adminTab === 'reviews' ? 'var(--gold-bright)' : '#aaa',
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer'
+          }}
+        >
+          ⭐ Reviews & Feedback ({reviews.length})
+        </button>
       </div>
 
-      {adminTab === 'rooms' ? (
+      {adminTab === 'reviews' ? (
+        /* ── COMMUNITY REVIEWS INBOX ── */
+        <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 8, padding: 14, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--gold-bright)' }}>⭐ Community Reviews Inbox ({reviews.length})</span>
+            <button onClick={loadReviews} style={{ background: 'rgba(214,178,120,0.15)', border: '1px solid var(--gold)', color: 'var(--gold-bright)', padding: '4px 10px', borderRadius: 4, fontSize: 10, cursor: 'pointer', fontWeight: 'bold' }}>
+              🔄 Refresh Reviews
+            </button>
+          </div>
+
+          {reviews.length === 0 ? (
+            <div style={{ color: '#aaa', fontSize: 11, textAlign: 'center', padding: 24 }}>No community reviews received yet.</div>
+          ) : (
+            reviews.map(rev => (
+              <div key={rev.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 6, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--gold-bright)' }}>
+                      {'⭐'.repeat(Math.min(5, Math.ceil(rev.rating / 2)))} ({rev.rating} / 10 Stars)
+                    </span>
+                    <span style={{ fontSize: 10, color: '#aaa', marginLeft: 10 }}>From: {rev.email}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 9, color: '#777' }}>{rev.timestamp ? new Date(rev.timestamp).toLocaleString() : ''}</span>
+                    <button
+                      onClick={async () => {
+                        if (confirm("Delete this review?")) {
+                          await deleteGameReview(rev.id);
+                          showFeedback("Deleted review.");
+                          loadReviews();
+                        }
+                      }}
+                      style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '2px 6px', borderRadius: 3, fontSize: 9, cursor: 'pointer' }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: '#fff', lineHeight: 1.5, background: 'rgba(0,0,0,0.3)', padding: 8, borderRadius: 4 }}>
+                  "{rev.text}"
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : adminTab === 'rooms' ? (
         /* ── TEAM ROOMS MANAGEMENT TABLE ── */
         <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 8, padding: 12, textAlign: 'left' }}>
           <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: 10 }}>
