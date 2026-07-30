@@ -314,7 +314,10 @@ export async function fetchLeaderboard() {
       orderBy('placedBlocks', 'desc'),
       limit(10)
     );
-    const querySnapshot = await getDocs(q);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), 5000)
+    );
+    const querySnapshot = await Promise.race([getDocs(q), timeoutPromise]);
     const list = [];
     querySnapshot.forEach((doc) => {
       list.push(doc.data());
@@ -498,12 +501,14 @@ export async function sendAdminDirectMessage(targetUid, text, senderEmail) {
 export async function createTeamRoom(name, description, isPrivate = false) {
   if (!db || !currentUser) return null;
   try {
+    const cleanName = String(name || 'Team Room').trim().slice(0, 40).replace(/<[^>]*>?/gm, '');
+    const cleanDesc = String(description || 'Custom Voxel World').trim().slice(0, 100).replace(/<[^>]*>?/gm, '');
     const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
     const roomRef = doc(db, 'rooms', roomId);
     const roomData = {
       id: roomId,
-      name: name || 'Team Room',
-      description: description || 'Custom Voxel World',
+      name: cleanName,
+      description: cleanDesc,
       ownerUid: currentUser.uid,
       ownerEmail: currentUser.email,
       isPrivate: Boolean(isPrivate),

@@ -583,6 +583,7 @@ export function respawnPlayer(){
   player.vel.set(0, 0, 0);
   player.sprinting = false;
   spawnPlayer();
+  player.fallPeak = player.pos.y;
   
   updateStatsHUD();
   hideDeathScreen();
@@ -600,7 +601,17 @@ export function respawnPlayer(){
 export function invCount(id){ return inventory[id] || 0; }
 export function addItem(id, n=1){ 
   if (n <= 0) return;
-  inventory[id] = Math.min(64, (inventory[id] || 0) + n); 
+  const current = inventory[id] || 0;
+  const next = current + n;
+  if (next > 64) {
+    inventory[id] = 64;
+    const overflow = next - 64;
+    if (typeof window.__spawnItemDrop === 'function') {
+      window.__spawnItemDrop(id, overflow, player.pos.x, player.pos.y + 0.5, player.pos.z);
+    }
+  } else {
+    inventory[id] = next;
+  }
   refreshCounts(); 
 }
 export function removeItem(id, n=1){ 

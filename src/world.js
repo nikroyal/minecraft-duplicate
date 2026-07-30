@@ -1557,18 +1557,22 @@ export function queueWater(x,y,z){ waterActive.add(wkey(x,y,z)); }
 
 export function disturbWater(x,y,z){
   for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++){
-    const b=getBlock(x+dx,y+dy,z+dz);
-    if(b===WATER || b===AIR) queueWater(x+dx,y+dy,z+dz);
+    const wy = y + dy;
+    if (wy < 0 || wy >= HEIGHT) continue;
+    const b=getBlock(x+dx,wy,z+dz);
+    if(b===WATER || b===AIR) queueWater(x+dx,wy,z+dz);
   }
 }
 
 export function waterFlowDist(x,y,z){
+  if(y < 0 || y >= HEIGHT) return Infinity;
   if(getBlock(x,y,z)!==WATER) return Infinity;
   const d=flowDist[wkey(x,y,z)];
   return d===undefined?0:d;
 }
 
 export function setWater(x,y,z,dist){
+  if(y < 0 || y >= HEIGHT) return;
   setBlock(x,y,z,WATER,false);
   flowDist[wkey(x,y,z)]=dist;
 }
