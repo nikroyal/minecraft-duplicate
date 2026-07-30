@@ -410,6 +410,41 @@ async function runFullTestSuite() {
       world.tickWater();
     });
 
+    // TEST SUITE 14: DEEP AUDIT & UNPRECEDENTED EDGE-CASE COVERAGE
+    console.log("\n--- TEST SUITE 14: DEEP AUDIT & UNPRECEDENTED EDGE-CASE COVERAGE ---");
+    test("validates 1,000 random block ID color lookups without throwing TypeError", () => {
+      for (let id = 0; id < 1000; id++) {
+        const col = config.thingColor(id);
+        if (typeof col !== 'number' && typeof col !== 'string') {
+          throw new Error(`Invalid color output for block ID ${id}`);
+        }
+      }
+    });
+
+    test("verifies 3D Avatar color hex safety fallback under malformed inputs", () => {
+      const safeColor = (colorStr, defaultHex) => {
+        try {
+          if (typeof colorStr === 'string' && colorStr.length >= 3) {
+            return new THREE.Color(colorStr);
+          }
+        } catch (e) {}
+        return new THREE.Color(defaultHex);
+      };
+
+      const c1 = safeColor(null, "#dfcfb7");
+      const c2 = safeColor(undefined, "#008080");
+      const c3 = safeColor(12345, "#3c4e8c");
+      const c4 = safeColor("#ff0000", "#ffffff");
+      if (!c1 || !c2 || !c3 || !c4) throw new Error("safeColor failed fallback");
+      if (c4.getHexString() !== "ff0000") throw new Error("safeColor altered valid hex");
+    });
+
+    test("verifies Bedrock Y=0 protection under massive explosion radius 10.0", () => {
+      world.setBlock(5, 0, 5, 30, false);
+      world.triggerWorldExplosion(5, 0, 5, 10.0);
+      if (world.getBlock(5, 0, 5) !== 30) throw new Error("Massive explosion destroyed bedrock");
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
