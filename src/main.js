@@ -492,7 +492,8 @@ function updateMining(dt){
   }
   const [x, y, z] = r.hit;
   const id = getBlock(x, y, z);
-  if(id === 0 || BLOCKS[id].name === "Water"){
+  if(id === 0 || BLOCKS[id]?.name === "Water" || y === 0 || id === 30 || BLOCKS[id]?.unbreakable){
+    if (y === 0 || id === 30) toast("Bedrock is unbreakable!");
     mining.active = false; mining.progress = 0; hideCrack();
     return;
   }
