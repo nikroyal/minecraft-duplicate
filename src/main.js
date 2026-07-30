@@ -961,7 +961,7 @@ function loop(now){
   // Drifting clouds animation
   if (webgl.cloudMesh) {
     webgl.cloudMesh.position.x += dt * 1.5;
-    if (webgl.cloudMesh.position.x > 140) webgl.cloudMesh.position.x = -140;
+    if (webgl.cloudMesh.position.x > 336) webgl.cloudMesh.position.x = -336;
   }
 
   // Ambient torch/furnace particles (skip while paused)
