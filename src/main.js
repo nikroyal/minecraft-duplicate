@@ -335,13 +335,13 @@ export function updatePrimedTnt(dt) {
 export function createClouds() {
   const group = new THREE.Group();
   const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.82 });
-  const geo = new THREE.BoxGeometry(16, 4, 16);
+  const geo = new THREE.BoxGeometry(20, 4, 20);
 
-  for (let x = -8; x <= 8; x++) {
-    for (let z = -8; z <= 8; z++) {
-      if ((Math.sin(x * 12.3 + z * 4.5) + 1) / 2 > 0.4) {
+  for (let x = -12; x <= 12; x++) {
+    for (let z = -12; z <= 12; z++) {
+      if ((Math.sin(x * 12.3 + z * 4.5) + 1) / 2 > 0.35) {
         const cloud = new THREE.Mesh(geo, mat);
-        cloud.position.set(x * 24, 38, z * 24);
+        cloud.position.set(x * 28, 72, z * 28);
         group.add(cloud);
       }
     }

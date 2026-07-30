@@ -219,17 +219,19 @@ export function spawnMob(type, x, y, z){
 
 export function trySpawnMobs(){
   if(game.mobs.length >= MAX_MOBS) return;
-  const types = ["pig", "sheep", "zombie", "creeper", "skeleton"];
-  const type = types[Math.floor(Math.random() * types.length)];
-  const def = MOB_TYPES[type];
-  
-  // Night check for hostiles
   const isNight = game.timeOfDay < 0.22 || game.timeOfDay > 0.78;
-  if(def.hostile && !isNight) return;
-  if(!def.hostile && isNight && Math.random() > 0.3) return;
+  const passiveTypes = ["pig", "sheep"];
+  const hostileTypes = ["zombie", "creeper", "skeleton"];
+  
+  let type;
+  if(isNight){
+    type = Math.random() < 0.75 ? hostileTypes[Math.floor(Math.random() * hostileTypes.length)] : passiveTypes[Math.floor(Math.random() * passiveTypes.length)];
+  } else {
+    type = passiveTypes[Math.floor(Math.random() * passiveTypes.length)];
+  }
   
   const angle = Math.random() * Math.PI * 2;
-  const dist = 12 + Math.random() * 18;
+  const dist = 10 + Math.random() * 20;
   const sx = Math.floor(player.pos.x + Math.cos(angle) * dist);
   const sz = Math.floor(player.pos.z + Math.sin(angle) * dist);
   
@@ -248,7 +250,8 @@ export function trySpawnMobs(){
 
 export function updateMobs(dt){
   mobSpawnTimer += dt;
-  if(mobSpawnTimer >= 5.0){
+  const spawnInterval = game.mobs.length < 8 ? 0.8 : 3.5;
+  if(mobSpawnTimer >= spawnInterval){
     mobSpawnTimer = 0;
     trySpawnMobs();
   }
