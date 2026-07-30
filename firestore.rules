@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.role == 'admin' || 
+        request.auth.token.role == 'master' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'master'
+      );
+    }
+
+    // 1. User Documents (Singleplayer Saves, Profile, Messages, Invites)
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // 2. Custom Team & Group Rooms
+    match /rooms/{roomId} {
+      allow read, write: if isSignedIn();
+      
+      // Presence sub-collection for real-time 3D multiplayer player coordinates
+      match /presence/{playerId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    // 3. Global Public Nexus World
+    match /worlds/{worldId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 4. Community Reviews & Bug Reports
+    match /reviews/{reviewId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // 5. Server Settings & Global Broadcast Banners
+    match /server_settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
