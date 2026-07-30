@@ -3,8 +3,11 @@ import { player, game, world, inventory, SAVE_KEY, avatarCallbacks, achievements
 import { Chunk, getChunk, generateChunk, getBlock } from '../world.js';
 import { isSolid, keyOf, HEIGHT } from '../config.js';
 import { invCount } from '../player.js';
-import { logoutUser, fetchLeaderboard, manuallySyncLocalToCloud, resetWorldData } from '../firebase.js';
-import { updateLobbyAvatarPreview } from '../ui.js';
+import { 
+  logoutUser, fetchLeaderboard, manuallySyncLocalToCloud, resetWorldData,
+  createTeamRoom, subscribeToRoomsDirectory, deleteTeamRoom, updateRoomPrivacy
+} from '../firebase.js';
+import { updateLobbyAvatarPreview, toast } from '../ui.js';
 import { initAudio } from '../audio.js';
 
 export default function LobbyCard({ userEmail, syncStatus, onStartGame, scheduleSave }) {
@@ -15,11 +18,27 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
 
+  // World Mode & Room States
+  const [worldMode, setWorldMode] = useState(game.mode || 'singleplayer');
+  const [roomsList, setRoomsList] = useState([]);
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomDesc, setNewRoomDesc] = useState('');
+  const [newRoomPrivate, setNewRoomPrivate] = useState(false);
+
   // Avatar states
   const [avatarHead, setAvatarHead] = useState(player.avatar?.headType || 'steve');
   const [avatarShirt, setAvatarShirt] = useState(player.avatar?.shirtColor || '#008080');
   const [avatarPants, setAvatarPants] = useState(player.avatar?.pantsColor || '#3c4e8c');
   const [avatarSkin, setAvatarSkin] = useState(player.avatar?.skinColor || '#dfcfb7');
+
+  useEffect(() => {
+    const unsub = subscribeToRoomsDirectory((list) => {
+      setRoomsList(list.filter(r => !r.deleted));
+    });
+    return () => unsub();
+  }, []);
 
   // Trigger avatar 3D preview render whenever states change
   useEffect(() => {
@@ -49,6 +68,36 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
     scheduleSave();
   };
 
+  const handleCreateRoomSubmit = async () => {
+    if (!newRoomName.trim()) return toast("Please enter a room name.");
+    const id = await createTeamRoom(newRoomName.trim(), newRoomDesc.trim(), newRoomPrivate);
+    if (id) {
+      toast(`Created Team Room '${newRoomName.trim()}'!`);
+      setSelectedRoomId(id);
+      setShowCreateModal(false);
+      setNewRoomName('');
+      setNewRoomDesc('');
+      setNewRoomPrivate(false);
+    }
+  };
+
+  const handleStartWithMode = () => {
+    game.mode = worldMode;
+    if (worldMode === 'singleplayer') {
+      game.activeRoomId = null;
+    } else if (worldMode === 'public') {
+      game.activeRoomId = 'global_public';
+    } else if (worldMode === 'room') {
+      if (!selectedRoomId) {
+        return toast("Please select or create a Team Room to join!");
+      }
+      game.activeRoomId = selectedRoomId;
+      const rObj = roomsList.find(r => r.id === selectedRoomId);
+      game.activeRoomInfo = rObj || null;
+    }
+    onStartGame();
+  };
+
   const handleTeleportSurface = () => {
     const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
     const cx = Math.floor(px/16), cz = Math.floor(pz/16);
@@ -62,12 +111,12 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
     player.flying = false;
     
     initAudio();
-    onStartGame();
+    handleStartWithMode();
   };
 
   const handleEnterWorld = () => {
     initAudio();
-    onStartGame();
+    handleStartWithMode();
   };
 
   const handleManualSync = () => {
@@ -85,37 +134,31 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
 
   // Fetch leaderboard data when tab changes
   useEffect(() => {
-    let isMounted = true;
     if (activeTab === 'leaderboard') {
       setLoadingLeaderboard(true);
-      fetchLeaderboard().then(list => {
-        if (isMounted) {
-          setLeaderboardList(list);
-          setLoadingLeaderboard(false);
-        }
-      }).catch(() => {
-        if (isMounted) setLoadingLeaderboard(false);
-      });
+      fetchLeaderboard()
+        .then(data => setLeaderboardList(data))
+        .catch(err => console.error(err))
+        .finally(() => setLoadingLeaderboard(false));
     }
-    return () => { isMounted = false; };
   }, [activeTab]);
 
   // Formatted stats
-  const minedBlocks = Object.values(world.edits || {}).filter(v => v === 0).length;
-  const placedBlocks = Object.values(world.edits || {}).filter(v => v > 0).length;
-  
-  const rawTime = game.timeOfDay * 24;
+  const minedBlocks = (player.minedWoodCount || 0) + (player.minedOresCount || 0);
+  const placedBlocks = Object.keys(world.edits || {}).length;
+  const timeVal = typeof game?.timeOfDay === 'number' ? game.timeOfDay : 0.3;
+  const rawTime = (timeVal * 24) % 24;
   const hh = Math.floor(rawTime).toString().padStart(2, '0');
   const mm = Math.floor((rawTime % 1) * 60).toString().padStart(2, '0');
 
   return (
-    <div className="card" id="lobbyCard" style={{ maxWidth: '680px', width: '95vw', padding: '25px 30px' }}>
-      <h1>VOXEL</h1>
-      <div className="tag">A TINY WORLD</div>
+    <div className="card" id="lobbyCard" style={{ maxWidth: '640px', width: '92vw', padding: '25px 30px' }}>
+      <h1>VOXEL ECOSYSTEM</h1>
+      <div className="tag">A MULTIPLAYER VOXEL WORLD</div>
 
       {/* Navigation */}
       <div className="dashboard-tabs">
-        <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play</button>
+        <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
         <button id="tabStatsBtn" className={`dash-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>📊 My Stats</button>
         <button id="tabLeaderboardBtn" className={`dash-tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>🥇 Leaderboard</button>
         <button id="tabAchievementsBtn" className={`dash-tab ${activeTab === 'achievements' ? 'active' : ''}`} onClick={() => setActiveTab('achievements')}>🏆 Achievements</button>
@@ -125,9 +168,138 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
       {/* Tabs panels */}
       {activeTab === 'play' && (
         <div className="dash-panel" id="dash-play">
-          <div style={{ marginBottom: '18px', fontSize: '12px', color: 'var(--gold-bright)' }}>
+          <div style={{ marginBottom: '14px', fontSize: '12px', color: 'var(--gold-bright)' }}>
             Welcome back, <span style={{ fontWeight: 700, color: '#fff' }}>{userEmail}</span>!
           </div>
+
+          {/* WORLD MODE SELECTOR */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <button
+              onClick={() => setWorldMode('singleplayer')}
+              style={{
+                flex: 1, padding: '10px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                background: worldMode === 'singleplayer' ? 'rgba(214,178,120,0.25)' : 'rgba(0,0,0,0.2)',
+                border: worldMode === 'singleplayer' ? '1px solid var(--gold)' : '1px solid var(--slot-line)',
+                color: worldMode === 'singleplayer' ? 'var(--gold-bright)' : '#aaa',
+                transition: 'all 0.15s'
+              }}
+            >
+              🔒 Singleplayer
+              <div style={{ fontSize: '9px', fontWeight: 'normal', opacity: 0.7, marginTop: '2px' }}>Private Sandbox</div>
+            </button>
+
+            <button
+              onClick={() => setWorldMode('public')}
+              style={{
+                flex: 1, padding: '10px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                background: worldMode === 'public' ? 'rgba(214,178,120,0.25)' : 'rgba(0,0,0,0.2)',
+                border: worldMode === 'public' ? '1px solid var(--gold)' : '1px solid var(--slot-line)',
+                color: worldMode === 'public' ? 'var(--gold-bright)' : '#aaa',
+                transition: 'all 0.15s'
+              }}
+            >
+              🌐 Nexus World
+              <div style={{ fontSize: '9px', fontWeight: 'normal', opacity: 0.7, marginTop: '2px' }}>Global Shared World</div>
+            </button>
+
+            <button
+              onClick={() => setWorldMode('room')}
+              style={{
+                flex: 1, padding: '10px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                background: worldMode === 'room' ? 'rgba(214,178,120,0.25)' : 'rgba(0,0,0,0.2)',
+                border: worldMode === 'room' ? '1px solid var(--gold)' : '1px solid var(--slot-line)',
+                color: worldMode === 'room' ? 'var(--gold-bright)' : '#aaa',
+                transition: 'all 0.15s'
+              }}
+            >
+              👥 Team Rooms
+              <div style={{ fontSize: '9px', fontWeight: 'normal', opacity: 0.7, marginTop: '2px' }}>Custom Group Worlds</div>
+            </button>
+          </div>
+
+          {/* TEAM ROOMS BROWSER PANEL */}
+          {worldMode === 'room' && (
+            <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--slot-line)', borderRadius: '6px', padding: '12px', marginBottom: '16px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--gold-bright)' }}>👥 Select a Team Room</span>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  style={{ background: 'rgba(76,217,100,0.18)', border: '1px solid #4cd964', color: '#4cd964', padding: '4px 10px', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  + Create Room
+                </button>
+              </div>
+
+              <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {roomsList.length === 0 ? (
+                  <div style={{ color: '#aaa', fontSize: '10px', textAlign: 'center', padding: '12px' }}>No public team rooms found. Click "+ Create Room" to make one!</div>
+                ) : (
+                  roomsList.map(r => {
+                    const isSelected = selectedRoomId === r.id;
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => setSelectedRoomId(r.id)}
+                        style={{
+                          padding: '8px 10px', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          background: isSelected ? 'rgba(214,178,120,0.18)' : 'rgba(255,255,255,0.04)',
+                          border: isSelected ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.08)'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: 'bold', color: isSelected ? 'var(--gold-bright)' : '#fff' }}>
+                            {r.isPrivate ? '🔒' : '🌐'} {r.name}
+                          </div>
+                          <div style={{ fontSize: '9px', color: '#aaa' }}>{r.description || 'Custom room'} • Owner: {r.ownerEmail}</div>
+                        </div>
+                        <span style={{ fontSize: '9px', color: isSelected ? 'var(--gold)' : '#777', fontWeight: 'bold' }}>
+                          {isSelected ? 'SELECTED' : 'SELECT'}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* CREATE ROOM MODAL */}
+          {showCreateModal && (
+            <div style={{ background: 'rgba(20,15,10,0.95)', border: '1px solid var(--gold)', borderRadius: '8px', padding: '16px', marginBottom: '16px', textAlign: 'left' }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: '10px' }}>➕ Create a New Team Room</div>
+              <input
+                type="text"
+                placeholder="Room Name (e.g. Castle Builders)"
+                value={newRoomName}
+                onChange={e => setNewRoomName(e.target.value)}
+                style={{ width: '100%', padding: '8px', marginBottom: '8px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--slot-line)', color: '#fff', borderRadius: '4px', fontSize: '11px' }}
+              />
+              <input
+                type="text"
+                placeholder="Description (Optional)"
+                value={newRoomDesc}
+                onChange={e => setNewRoomDesc(e.target.value)}
+                style={{ width: '100%', padding: '8px', marginBottom: '10px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--slot-line)', color: '#fff', borderRadius: '4px', fontSize: '11px' }}
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#ccc', marginBottom: '12px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={newRoomPrivate}
+                  onChange={e => setNewRoomPrivate(e.target.checked)}
+                />
+                Make Room Private / Invite-Only (Hidden from directory)
+              </label>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={handleCreateRoomSubmit} style={{ flex: 1, padding: '8px', background: 'var(--gold)', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', fontSize: '11px' }}>
+                  Create & Select
+                </button>
+                <button onClick={() => setShowCreateModal(false)} style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.1)', color: '#ccc', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="keys" style={{ margin: '0 0 20px 0' }}>
             <div><kbd>W A S D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>Shift</kbd> sprint</div>
@@ -135,7 +307,9 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
             <div><kbd>1–8</kbd> select &nbsp; <kbd>E</kbd> inventory &nbsp; <kbd>Q</kbd> eat &nbsp; <kbd>F</kbd> fly &nbsp; <kbd>F5</kbd> camera &nbsp; <kbd>Esc</kbd> pause</div>
           </div>
 
-          <button id="playBtn" onClick={handleEnterWorld}>ENTER WORLD</button>
+          <button id="playBtn" onClick={handleEnterWorld}>
+            ENTER {worldMode === 'singleplayer' ? 'PRIVATE WORLD' : worldMode === 'public' ? 'GLOBAL NEXUS' : 'TEAM ROOM'}
+          </button>
           
           <div className="secondary-actions">
             <button className="minor-btn" onClick={handleTeleportSurface}>↑ Teleport to surface</button>

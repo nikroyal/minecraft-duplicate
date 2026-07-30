@@ -1,7 +1,7 @@
 import { keys, touch, player, inventory, hotbar, game, webgl, SAVE_KEY, world, reactBridge, toolDurability, crops, achievements } from './state.js';
 import { thingName, isPlaceable, craftableRecipes, BLOCKS } from './config.js';
 import { invCount, addItem, removeItem } from './player.js';
-import { initFirebase, saveWorldToCloud } from './firebase.js';
+import { initFirebase, saveWorldToCloud, saveRoomWorldToCloud } from './firebase.js';
 
 // Mutable UI state - use setters to modify from outside (ES module immutability rule)
 export const uiState = {
@@ -244,7 +244,13 @@ export function saveWorld() {
     toast("world saved");
   } catch (e) {}
 
-  saveWorldToCloud(payload);
+  if (game.mode === 'room' && game.activeRoomId) {
+    saveRoomWorldToCloud(game.activeRoomId, payload);
+  } else if (game.mode === 'public') {
+    saveRoomWorldToCloud('global_public', payload);
+  } else {
+    saveWorldToCloud(payload);
+  }
 }
 
 export function scheduleSave() {

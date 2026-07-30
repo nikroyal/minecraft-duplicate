@@ -3,7 +3,10 @@ import { player, game, world, inventory, hotbar, reactBridge } from '../state.js
 import { getBlock } from '../world.js';
 import { isSolid } from '../config.js';
 import { respawnPlayer, invCount, addItem } from '../player.js';
-import { resolveSyncConflict, subscribeToUserDoc, subscribeToWorldSettings, updateUserDocInFirestore } from '../firebase.js';
+import { 
+  resolveSyncConflict, subscribeToUserDoc, subscribeToWorldSettings, updateUserDocInFirestore,
+  subscribeToRoomWorld, subscribeToRoomPresence
+} from '../firebase.js';
 import { thingName, BLOCKS, RECIPES, isPlaceable } from '../config.js';
 import { initAudio } from '../audio.js';
 
@@ -52,6 +55,24 @@ export default function App() {
 
   // Force re-render helper used from game loop
   const forceUpdate = () => setTick(t => t + 1);
+
+  // Real-time Room World Subscription (for Public Nexus & Team Rooms)
+  useEffect(() => {
+    if (!game.running || !game.activeRoomId) return;
+    const unsubRoom = subscribeToRoomWorld(game.activeRoomId, (roomData) => {
+      if (!roomData || !roomData.edits) return;
+      for (const k in roomData.edits) {
+        if (world.edits[k] !== roomData.edits[k]) {
+          world.edits[k] = roomData.edits[k];
+          const [wx, wy, wz] = k.split(',').map(Number);
+          const cx = Math.floor(wx / 16), cz = Math.floor(wz / 16);
+          const ch = world.chunks.get(`${cx},${cz}`);
+          if (ch && ch.generated) ch.dirty = true;
+        }
+      }
+    });
+    return () => unsubRoom();
+  }, [game.running, game.activeRoomId]);
 
   // ── Real-Time Admin Subscriptions (World Settings & User Document) ──
   useEffect(() => {

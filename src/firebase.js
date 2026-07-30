@@ -492,3 +492,119 @@ export async function sendAdminDirectMessage(targetUid, text, senderEmail) {
     console.error("Failed to send direct message:", err);
   }
 }
+
+// ── TEAM ROOMS & MULTIPLAYER ARCHITECTURE ──
+
+export async function createTeamRoom(name, description, isPrivate = false) {
+  if (!db || !currentUser) return null;
+  try {
+    const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomData = {
+      id: roomId,
+      name: name || 'Team Room',
+      description: description || 'Custom Voxel World',
+      ownerUid: currentUser.uid,
+      ownerEmail: currentUser.email,
+      isPrivate: Boolean(isPrivate),
+      members: [currentUser.uid],
+      createdAt: new Date().toISOString(),
+      edits: {},
+      chests: {},
+      furnaces: {}
+    };
+    await setDoc(roomRef, roomData);
+    console.log(`Created Team Room '${name}' (${roomId})`);
+    return roomId;
+  } catch (err) {
+    console.error("Failed to create team room:", err);
+    return null;
+  }
+}
+
+export function subscribeToRoomsDirectory(callback) {
+  if (!db) return () => {};
+  const roomsRef = collection(db, 'rooms');
+  return onSnapshot(roomsRef, (snapshot) => {
+    const list = [];
+    snapshot.forEach(docSnap => {
+      list.push(docSnap.data());
+    });
+    callback(list);
+  }, (err) => {
+    console.warn("Rooms directory listener error:", err);
+  });
+}
+
+export async function deleteTeamRoom(roomId) {
+  if (!db || !roomId) return;
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await setDoc(roomRef, { deleted: true }, { merge: true });
+    console.log(`Room ${roomId} marked as deleted.`);
+  } catch (err) {
+    console.error("Failed to delete room:", err);
+  }
+}
+
+export async function updateRoomPrivacy(roomId, isPrivate) {
+  if (!db || !roomId) return;
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await setDoc(roomRef, { isPrivate: Boolean(isPrivate) }, { merge: true });
+  } catch (err) {
+    console.error("Failed to update room privacy:", err);
+  }
+}
+
+export function subscribeToRoomWorld(roomId, callback) {
+  if (!db || !roomId) return () => {};
+  const roomRef = doc(db, 'rooms', roomId);
+  return onSnapshot(roomRef, (snap) => {
+    if (snap.exists()) {
+      callback(snap.data());
+    }
+  }, (err) => {
+    console.warn("Room world listener error:", err);
+  });
+}
+
+export async function saveRoomWorldToCloud(roomId, payload) {
+  if (!db || !roomId) return;
+  try {
+    const cleanPayload = sanitizePayload(payload);
+    const roomRef = doc(db, 'rooms', roomId);
+    await setDoc(roomRef, cleanPayload, { merge: true });
+  } catch (err) {
+    console.error("Cloud room save failed:", err);
+  }
+}
+
+export async function updatePlayerPresenceInRoom(roomId, presenceData) {
+  if (!db || !roomId || !currentUser) return;
+  try {
+    const playerRef = doc(db, 'rooms', roomId, 'presence', currentUser.uid);
+    await setDoc(playerRef, {
+      uid: currentUser.uid,
+      email: currentUser.email,
+      lastSeen: Date.now(),
+      ...presenceData
+    }, { merge: true });
+  } catch (e) {}
+}
+
+export function subscribeToRoomPresence(roomId, callback) {
+  if (!db || !roomId) return () => {};
+  const presenceCol = collection(db, 'rooms', roomId, 'presence');
+  return onSnapshot(presenceCol, (snapshot) => {
+    const players = [];
+    const now = Date.now();
+    snapshot.forEach(docSnap => {
+      const pData = docSnap.data();
+      if (now - (pData.lastSeen || 0) < 15000) { // filter players seen in last 15s
+        players.push(pData);
+      }
+    });
+    callback(players);
+  });
+}

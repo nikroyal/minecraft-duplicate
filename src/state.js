@@ -62,6 +62,10 @@ export const game = {
   saveTimer: null,
   waterTimer: 0,
   selected: 0,
+  mode: 'singleplayer', // 'singleplayer' | 'public' | 'room'
+  activeRoomId: null,
+  activeRoomInfo: null,
+  otherPlayers: new Map(),
   mobs: [],
   particles: [],
   xpOrbs: [],
