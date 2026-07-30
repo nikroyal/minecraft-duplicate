@@ -1775,6 +1775,7 @@ export function clearOtherPlayerMeshes() {
   }
   otherPlayerMeshes.clear();
 }
+if (typeof window !== 'undefined') window.__clearOtherPlayerMeshes = clearOtherPlayerMeshes;
 
 function createOtherPlayerMesh(pData) {
   const group = new THREE.Group();

@@ -63,11 +63,18 @@ export default function App() {
     const unsubRoom = subscribeToRoomWorld(game.activeRoomId, (roomData) => {
       if (!roomData) return;
       if (roomData.deleted) {
-        toast("⚠️ This team room was deleted by an admin. Returning to singleplayer...");
+        toast("ℹ️ This team room was closed by an admin. Transitioning to Lobby...");
+        if (document.pointerLockElement) {
+          try { document.exitPointerLock(); } catch(e){}
+        }
         game.running = false;
+        game.paused = false;
         game.mode = 'singleplayer';
         game.activeRoomId = null;
         game.activeRoomInfo = null;
+        if (typeof window.__clearOtherPlayerMeshes === 'function') {
+          window.__clearOtherPlayerMeshes();
+        }
         forceUpdate();
         return;
       }
