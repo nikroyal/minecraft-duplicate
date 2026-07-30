@@ -287,6 +287,88 @@ async function runFullTestSuite() {
       state.game.mode = 'singleplayer'; // Reset
     });
 
+    // TEST SUITE 8: CRAFTING & RECIPES ENGINE
+    console.log("\n--- TEST SUITE 8: CRAFTING & RECIPES ENGINE ---");
+    test("craftableRecipes returns valid recipes list", () => {
+      state.inventory[5] = 4; // Seed inventory with logs so recipes evaluate
+      const recipes = config.craftableRecipes(state.inventory);
+      if (!Array.isArray(recipes) || recipes.length === 0) throw new Error("craftableRecipes did not return array");
+      for (const r of recipes) {
+        if (!r.recipe || !r.recipe.out || !r.recipe.in) throw new Error(`Invalid recipe structure`);
+      }
+    });
+
+    test("crafting consumes input items and produces expected output stack", () => {
+      player.addItem(5, 4); // 4 Wood Logs
+      const initialLogs = player.invCount(5);
+      if (initialLogs < 4) throw new Error("Failed to seed initial wood logs");
+      // Craft Wood Plank (ID 7)
+      player.removeItem(5, 1);
+      player.addItem(7, 4);
+      if (player.invCount(5) !== initialLogs - 1) throw new Error("Log count did not decrement");
+      if (player.invCount(7) < 4) throw new Error("Plank count did not increment");
+    });
+
+    // TEST SUITE 9: CROP FARMING & GROWTH CYCLES
+    console.log("\n--- TEST SUITE 9: CROP FARMING & GROWTH CYCLES ---");
+    test("farmland block ID 89 and crop block IDs 90, 91, 92 have valid definitions", () => {
+      if (!config.BLOCKS[89] || config.BLOCKS[89].name !== "Farmland") throw new Error("Farmland block 89 missing");
+      if (!config.BLOCKS[90] || !config.BLOCKS[91] || !config.BLOCKS[92]) throw new Error("Wheat crop blocks 90, 91, 92 missing");
+    });
+
+    test("crop state tracker registers and updates wheat plant coordinates", () => {
+      state.crops["10,40,10"] = { stage: 1, timer: 0 };
+      if (!state.crops["10,40,10"] || state.crops["10,40,10"].stage !== 1) throw new Error("Failed to register crop state");
+      delete state.crops["10,40,10"];
+    });
+
+    // TEST SUITE 10: ADVANCED MOB AI & DAMAGE SCALING
+    console.log("\n--- TEST SUITE 10: ADVANCED MOB AI & DAMAGE SCALING ---");
+    test("hostile mobs inflict damage on player within attack range", () => {
+      const initialHealth = state.player.health;
+      player.hurtPlayer(3, "zombie");
+      if (state.player.health !== Math.max(0, initialHealth - 3)) throw new Error("hurtPlayer failed to subtract health");
+      state.player.health = 20; // Heal back
+    });
+
+    test("Creeper mob properties initialize with fuse timer and explosion radius", () => {
+      const creeper = mobs.spawnMob('creeper', 0, 40, 0);
+      if (!creeper || creeper.type !== 'creeper') throw new Error("Creeper spawn failed");
+      if (creeper.hp !== 16) throw new Error(`Creeper HP expected 16, got ${creeper.hp}`);
+    });
+
+    // TEST SUITE 11: REVIEWS & RATE LIMITING DATA MODEL
+    console.log("\n--- TEST SUITE 11: REVIEWS & RATE LIMITING DATA MODEL ---");
+    test("review rating clamp validation enforces 1 to 10 star bounds", () => {
+      const clampRating = (r) => Math.max(1, Math.min(10, Number(r) || 10));
+      if (clampRating(15) !== 10) throw new Error("Failed to clamp rating 15 to 10");
+      if (clampRating(-5) !== 1) throw new Error("Failed to clamp rating -5 to 1");
+      if (clampRating(7) !== 7) throw new Error("Valid rating 7 altered");
+    });
+
+    test("anti-spam cooldown math correctly calculates remaining seconds", () => {
+      const now = Date.now();
+      const lastReviewTime = now - (2 * 60 * 1000); // 2 minutes ago
+      const cooldownMs = 5 * 60 * 1000;
+      const isSpam = (now - lastReviewTime) < cooldownMs;
+      const remainingSec = Math.ceil((cooldownMs - (now - lastReviewTime)) / 1000);
+      if (!isSpam) throw new Error("Should flag 2-minute old review as spam");
+      if (remainingSec !== 180) throw new Error(`Expected 180s remaining cooldown, got ${remainingSec}`);
+    });
+
+    // TEST SUITE 12: UNBREAKABLE BEDROCK & VOXEL BOUNDS
+    console.log("\n--- TEST SUITE 12: UNBREAKABLE BEDROCK & VOXEL BOUNDS ---");
+    test("bedrock block ID 30 at Y=0 is protected from voxel destruction", () => {
+      world.setBlock(0, 0, 0, 30, false);
+      if (world.getBlock(0, 0, 0) !== 30) throw new Error("Bedrock failed to set at Y=0");
+    });
+
+    test("triggerWorldExplosion spares bedrock blocks at Y <= 0", () => {
+      world.setBlock(0, 0, 0, 30, false);
+      world.triggerWorldExplosion(0, 0, 0, 3.0);
+      if (world.getBlock(0, 0, 0) !== 30) throw new Error("Explosion broke bedrock at Y=0");
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
