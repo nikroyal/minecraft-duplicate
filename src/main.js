@@ -1742,13 +1742,47 @@ export function updatePlayerMeshMaterials() {
 
 export const otherPlayerMeshes = new Map();
 
+function safeColor(colorStr, defaultHex) {
+  try {
+    if (typeof colorStr === 'string' && colorStr.length >= 3) {
+      return new THREE.Color(colorStr);
+    }
+  } catch (e) {}
+  return new THREE.Color(defaultHex);
+}
+
+function disposePlayerGroup(group) {
+  if (!group) return;
+  group.traverse((child) => {
+    if (child.isMesh || child.isSprite) {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (child.material.map) child.material.map.dispose();
+        if (Array.isArray(child.material)) {
+          child.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+        } else {
+          child.material.dispose();
+        }
+      }
+    }
+  });
+}
+
+export function clearOtherPlayerMeshes() {
+  for (const [uid, pMesh] of otherPlayerMeshes.entries()) {
+    if (webgl.scene) webgl.scene.remove(pMesh);
+    disposePlayerGroup(pMesh);
+  }
+  otherPlayerMeshes.clear();
+}
+
 function createOtherPlayerMesh(pData) {
   const group = new THREE.Group();
-  const avatar = pData.avatar || { headType: "steve", shirtColor: "#008080", pantsColor: "#3c4e8c", skinColor: "#dfcfb7" };
+  const avatar = pData.avatar || {};
 
-  let skinCol = new THREE.Color(avatar.skinColor || "#dfcfb7");
-  let shirtCol = new THREE.Color(avatar.shirtColor || "#008080");
-  let pantsCol = new THREE.Color(avatar.pantsColor || "#3c4e8c");
+  let skinCol = safeColor(avatar.skinColor, "#dfcfb7");
+  let shirtCol = safeColor(avatar.shirtColor, "#008080");
+  let pantsCol = safeColor(avatar.pantsColor, "#3c4e8c");
 
   if (avatar.headType === "zombie") skinCol = new THREE.Color(0x4a7a4a);
   else if (avatar.headType === "creeper") skinCol = new THREE.Color(0x2e8b57);
@@ -1805,7 +1839,8 @@ function createOtherPlayerMesh(pData) {
   ctx.font = 'bold 24px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const label = (pData.email || 'Player').split('@')[0];
+  const cleanEmail = String(pData.email || 'Player').replace(/<[^>]*>?/gm, '');
+  const label = cleanEmail.split('@')[0];
   ctx.fillText(label, 128, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -1820,6 +1855,11 @@ function createOtherPlayerMesh(pData) {
 }
 
 export function updateOtherPlayers3D(dt) {
+  if (game.mode === 'singleplayer') {
+    if (otherPlayerMeshes.size > 0) clearOtherPlayerMeshes();
+    return;
+  }
+
   const activeList = game.otherPlayersList || [];
   const currentUids = new Set();
   const currentEmail = window.__currentUserEmail;
@@ -1848,10 +1888,11 @@ export function updateOtherPlayers3D(dt) {
     if (pMesh.rightArm) pMesh.rightArm.rotation.x = swing;
   }
 
-  // Remove disconnected player meshes
+  // Remove disconnected player meshes with full GPU memory disposal
   for (const [uid, pMesh] of otherPlayerMeshes.entries()) {
     if (!currentUids.has(uid)) {
       if (webgl.scene) webgl.scene.remove(pMesh);
+      disposePlayerGroup(pMesh);
       otherPlayerMeshes.delete(uid);
     }
   }

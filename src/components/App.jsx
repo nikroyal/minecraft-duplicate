@@ -61,7 +61,17 @@ export default function App() {
   useEffect(() => {
     if (!game.running || !game.activeRoomId) return;
     const unsubRoom = subscribeToRoomWorld(game.activeRoomId, (roomData) => {
-      if (!roomData || !roomData.edits) return;
+      if (!roomData) return;
+      if (roomData.deleted) {
+        toast("⚠️ This team room was deleted by an admin. Returning to singleplayer...");
+        game.running = false;
+        game.mode = 'singleplayer';
+        game.activeRoomId = null;
+        game.activeRoomInfo = null;
+        forceUpdate();
+        return;
+      }
+      if (!roomData.edits) return;
       for (const k in roomData.edits) {
         if (world.edits[k] !== roomData.edits[k]) {
           world.edits[k] = roomData.edits[k];
