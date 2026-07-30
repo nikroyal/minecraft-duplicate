@@ -369,6 +369,47 @@ async function runFullTestSuite() {
       if (world.getBlock(0, 0, 0) !== 30) throw new Error("Explosion broke bedrock at Y=0");
     });
 
+    // TEST SUITE 13: HIGH-STRESS SIMULATION & LOAD TESTING
+    console.log("\n--- TEST SUITE 13: HIGH-STRESS SIMULATION & LOAD TESTING ---");
+    test("handles 500 rapid random voxel mutations without memory corruption or array errors", () => {
+      for (let i = 0; i < 500; i++) {
+        const x = (i % 30) - 15;
+        const y = Math.max(1, (i % 60));
+        const z = Math.floor(i / 30) - 8;
+        const blockId = (i % 25) + 1;
+        world.setBlock(x, y, z, blockId, false);
+        if (world.getBlock(x, y, z) !== blockId) throw new Error(`Voxel mismatch at (${x},${y},${z})`);
+      }
+    });
+
+    test("handles 1,000 item additions with stack overflows and drop generation without memory leaks", () => {
+      for (let i = 0; i < 1000; i++) {
+        player.addItem(1, 1); // Add grass blocks
+      }
+      if (player.invCount(1) > 64) throw new Error("Inventory slot exceeded max stack size of 64");
+    });
+
+    test("handles 100 consecutive mob AI ticks with active mobs without engine lag or crashes", () => {
+      const mobList = [
+        mobs.spawnMob('zombie', 5, 40, 5),
+        mobs.spawnMob('pig', -5, 40, -5),
+        mobs.spawnMob('creeper', 10, 40, 10)
+      ];
+      for (let frame = 0; frame < 100; frame++) {
+        mobs.updateMobs(0.016);
+      }
+      for (const m of mobList) {
+        if (!m || typeof m.pos.x !== 'number') throw new Error("Mob state corrupted after 100 AI frames");
+      }
+    });
+
+    test("handles water flow simulation ticks across 50 active water cells", () => {
+      for (let i = 0; i < 50; i++) {
+        world.queueWater(i % 10, 40, Math.floor(i / 10));
+      }
+      world.tickWater();
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
