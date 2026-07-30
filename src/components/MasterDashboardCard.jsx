@@ -6,16 +6,23 @@ import {
   updateUserDocInFirestore,
   updateWorldSettingsInFirestore,
   sendAdminBroadcast,
-  sendAdminDirectMessage
+  sendAdminDirectMessage,
+  subscribeToRoomsDirectory,
+  deleteTeamRoom,
+  updateRoomPrivacy
 } from '../firebase.js';
+import { game } from '../state.js';
+import { initAudio } from '../audio.js';
 
 export default function MasterDashboardCard({ userEmail }) {
   const [users, setUsers] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'online', 'offline'
   const [selectedUser, setSelectedUser] = useState(null);
   const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [adminTab, setAdminTab] = useState('users'); // 'users', 'rooms'
 
   // Admin controls state
   const [broadcastText, setBroadcastText] = useState('');
@@ -24,9 +31,32 @@ export default function MasterDashboardCard({ userEmail }) {
   const [isRaining, setIsRaining] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState('');
 
+  useEffect(() => {
+    const unsub = subscribeToRoomsDirectory((list) => {
+      setRooms(list.filter(r => !r.deleted));
+    });
+    return () => unsub();
+  }, []);
+
   const showFeedback = (msg) => {
     setStatusFeedback(msg);
     setTimeout(() => setStatusFeedback(''), 4000);
+  };
+
+  const handleStealthEnterRoom = (roomObj) => {
+    game.mode = 'room';
+    game.activeRoomId = roomObj.id;
+    game.activeRoomInfo = roomObj;
+    game.running = true;
+    game.paused = false;
+    initAudio();
+    showFeedback(`🕵️ Stealth entering Room '${roomObj.name}' (${roomObj.id})...`);
+    setTimeout(() => {
+      try {
+        const promise = document.getElementById('game')?.requestPointerLock();
+        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+      } catch(e){}
+    }, 100);
   };
 
   const loadData = async () => {
@@ -283,6 +313,112 @@ export default function MasterDashboardCard({ userEmail }) {
         </div>
       </div>
 
+      {/* ── ADMIN NAV TABS ── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 12, borderBottom: '1px solid rgba(214,178,120,0.2)', paddingBottom: 8 }}>
+        <button
+          onClick={() => setAdminTab('users')}
+          style={{
+            background: adminTab === 'users' ? 'rgba(214,178,120,0.25)' : 'transparent',
+            border: adminTab === 'users' ? '1px solid var(--gold)' : '1px solid transparent',
+            color: adminTab === 'users' ? 'var(--gold-bright)' : '#aaa',
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer'
+          }}
+        >
+          👤 Registered Accounts ({users.length})
+        </button>
+
+        <button
+          onClick={() => setAdminTab('rooms')}
+          style={{
+            background: adminTab === 'rooms' ? 'rgba(214,178,120,0.25)' : 'transparent',
+            border: adminTab === 'rooms' ? '1px solid var(--gold)' : '1px solid transparent',
+            color: adminTab === 'rooms' ? 'var(--gold-bright)' : '#aaa',
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer'
+          }}
+        >
+          🌐 Team & Private Rooms ({rooms.length})
+        </button>
+      </div>
+
+      {adminTab === 'rooms' ? (
+        /* ── TEAM ROOMS MANAGEMENT TABLE ── */
+        <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 8, padding: 12, textAlign: 'left' }}>
+          <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: 10 }}>
+            👑 Master Room Inspector & Stealth Direct Access
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(214,178,120,0.3)', color: '#a09075', textTransform: 'uppercase' }}>
+                <th style={{ padding: '8px', textAlign: 'left' }}>Room Name / ID</th>
+                <th style={{ padding: '8px', textAlign: 'left' }}>Owner</th>
+                <th style={{ padding: '8px', textAlign: 'left' }}>Privacy</th>
+                <th style={{ padding: '8px', textAlign: 'left' }}>Created</th>
+                <th style={{ padding: '8px', textAlign: 'center' }}>Admin Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rooms.length === 0 ? (
+                <tr>
+                  <td colSpan="5" style={{ padding: 20, textAlign: 'center', color: '#aaa' }}>No team rooms created yet.</td>
+                </tr>
+              ) : (
+                rooms.map(r => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '8px', fontWeight: 'bold', color: '#fff' }}>
+                      {r.isPrivate ? '🔒' : '🌐'} {r.name}
+                      <div style={{ fontSize: 9, color: '#777' }}>{r.id}</div>
+                    </td>
+                    <td style={{ padding: '8px', color: '#ccc' }}>{r.ownerEmail}</td>
+                    <td style={{ padding: '8px' }}>
+                      <span style={{
+                        padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 'bold',
+                        background: r.isPrivate ? 'rgba(255,100,100,0.15)' : 'rgba(76,217,100,0.15)',
+                        color: r.isPrivate ? '#ff9999' : '#4cd964'
+                      }}>
+                        {r.isPrivate ? 'PRIVATE / INVITE' : 'PUBLIC'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '8px', color: '#888', fontSize: 10 }}>
+                      {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                        <button
+                          onClick={() => handleStealthEnterRoom(r)}
+                          style={{ background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)', padding: '4px 8px', borderRadius: 4, fontSize: 10, fontWeight: 'bold', cursor: 'pointer' }}
+                        >
+                          🕵️ Stealth Enter
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await updateRoomPrivacy(r.id, !r.isPrivate);
+                            showFeedback(`Toggled privacy for room '${r.name}'`);
+                          }}
+                          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid #777', color: '#ccc', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
+                        >
+                          ⚙️ {r.isPrivate ? 'Make Public' : 'Make Private'}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Are you sure you want to delete room '${r.name}'?`)) {
+                              await deleteTeamRoom(r.id);
+                              showFeedback(`Deleted room '${r.name}'`);
+                            }
+                          }}
+                          style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <>
       {/* ── SEARCH & FILTER CONTROL BAR ── */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
@@ -517,6 +653,8 @@ export default function MasterDashboardCard({ userEmail }) {
             </button>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

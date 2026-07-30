@@ -60,4 +60,4 @@ The Master Admin (`role: 'admin'` or `'master'`) possesses unrestricted root acc
 - [x] **Phase 1: Database & Mode Selection UI**: World mode selector (Singleplayer, Nexus, Team Rooms), Room Browser, and Cloud room saving.
 - [x] **Phase 2: 3D Multiplayer Player Presence & Avatars**: High-frequency presence broadcasting (100ms), 3D player mesh rendering, walking leg animations, and floating 3D name tags.
 - [x] **Phase 3: Player Directory, Profile Cards & Invite System**: Searchable directory modal, profile bio editing, 3D avatar cards, and instant room invite notifications.
-- [ ] **Phase 4: Admin Super-Dashboard Overhaul**: Room manager table in Master Dashboard for stealth entering, deleting, and auditing any room or singleplayer save.
+- [x] **Phase 4: Admin Super-Dashboard Overhaul**: Master Room Inspector table in Super-Admin Dashboard for stealth direct access, room privacy toggles, and deletion.
