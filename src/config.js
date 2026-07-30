@@ -472,7 +472,7 @@ export const CHUNK = 16;
 export const HEIGHT = 80;
 export const RENDER_DIST = 5;
 export const SEED = 1337;
-export const SEA = 32;
+export const SEA = 37;
 
 export function keyOf(cx, cz){ return cx + "," + cz; }
 
@@ -508,7 +508,7 @@ export function vnoise3(x,y,z,s){
   const c000=hash3(xi,yi,zi,s),   c100=hash3(xi+1,yi,zi,s);
   const c010=hash3(xi,yi+1,zi,s), c110=hash3(xi+1,yi+1,zi,s);
   const c001=hash3(xi,yi,zi+1,s), c101=hash3(xi+1,yi,zi+1,s);
-  const c011=hash3(xi,yi+1,zi+1,s),c111=hash3(xi+1,yi+1,zi+1,s);
+  const c011=hash3(xi,yi+1,zi+1,s),c111=hash3(xi,yi+1,zi+1,s);
   const x00=L(c000,c100,u), x10=L(c010,c110,u), x01=L(c001,c101,u), x11=L(c011,c111,u);
   const y0=L(x00,x10,v), y1=L(x01,x11,v);
   return L(y0,y1,w);
@@ -522,5 +522,5 @@ export function isCave(wx,wy,wz){
 }
 export function surfaceHeight(wx, wz){
   const base = fbm(wx, wz);
-  return Math.floor(34 + base * 12);
+  return Math.floor(32 + base * 16);
 }
