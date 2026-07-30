@@ -18,6 +18,7 @@ import {
   invCount, addItem, removeItem, heldTool, heldItem, unstick, eyePos, lookDir,
   getIntersectingColliders, getSupportingSurface
 } from './player.js';
+import { updatePlayerPresenceInRoom } from './firebase.js';
 import { 
   MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob 
 } from './mobs.js';
@@ -1108,6 +1109,23 @@ function loop(now){
     }
   }
 
+  // ── Multiplayer Real-Time Presence & 3D Avatar Rendering ──
+  if (game.running && game.mode !== 'singleplayer' && game.activeRoomId) {
+    if (!webgl.presenceTimer) webgl.presenceTimer = 0;
+    webgl.presenceTimer += dt;
+    if (webgl.presenceTimer >= 0.10) { // Publish every 100ms
+      webgl.presenceTimer = 0;
+      updatePlayerPresenceInRoom(game.activeRoomId, {
+        pos: { x: player.pos.x, y: player.pos.y, z: player.pos.z },
+        yaw: player.yaw,
+        pitch: player.pitch,
+        avatar: player.avatar || {},
+        heldItem: game.selected
+      });
+    }
+    updateOtherPlayers3D(dt);
+  }
+
   if(game.running && !game.paused){
     const r = raycastVoxel(6);
     if(r){ 
@@ -1718,6 +1736,125 @@ export function updatePlayerMeshMaterials() {
   rightLegMat.color.copy(pantsCol);
   leftArmMat.color.copy(shirtCol);
   rightArmMat.color.copy(shirtCol);
+}
+
+// ── 3D MULTIPLAYER OTHER PLAYER AVATARS & RENDERING ENGINE ──
+
+export const otherPlayerMeshes = new Map();
+
+function createOtherPlayerMesh(pData) {
+  const group = new THREE.Group();
+  const avatar = pData.avatar || { headType: "steve", shirtColor: "#008080", pantsColor: "#3c4e8c", skinColor: "#dfcfb7" };
+
+  let skinCol = new THREE.Color(avatar.skinColor || "#dfcfb7");
+  let shirtCol = new THREE.Color(avatar.shirtColor || "#008080");
+  let pantsCol = new THREE.Color(avatar.pantsColor || "#3c4e8c");
+
+  if (avatar.headType === "zombie") skinCol = new THREE.Color(0x4a7a4a);
+  else if (avatar.headType === "creeper") skinCol = new THREE.Color(0x2e8b57);
+
+  const headMat = new THREE.MeshLambertMaterial({ color: skinCol });
+  const bodyMat = new THREE.MeshLambertMaterial({ color: shirtCol });
+  const legMat = new THREE.MeshLambertMaterial({ color: pantsCol });
+  const armMat = new THREE.MeshLambertMaterial({ color: shirtCol });
+
+  // Head
+  const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), headMat);
+  headMesh.position.set(0, 1.575, 0);
+  group.add(headMesh);
+  group.head = headMesh;
+
+  // Body
+  const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.525, 0.175), bodyMat);
+  bodyMesh.position.set(0, 1.1375, 0);
+  group.add(bodyMesh);
+
+  // Left Leg
+  const legGeo = new THREE.BoxGeometry(0.16, 0.525, 0.16);
+  const leftLegMesh = new THREE.Mesh(legGeo, legMat);
+  leftLegMesh.position.set(-0.09, 0.2625, 0);
+  group.add(leftLegMesh);
+  group.leftLeg = leftLegMesh;
+
+  // Right Leg
+  const rightLegMesh = new THREE.Mesh(legGeo, legMat);
+  rightLegMesh.position.set(0.09, 0.2625, 0);
+  group.add(rightLegMesh);
+  group.rightLeg = rightLegMesh;
+
+  // Left Arm
+  const armGeo = new THREE.BoxGeometry(0.12, 0.525, 0.12);
+  const leftArmMesh = new THREE.Mesh(armGeo, armMat);
+  leftArmMesh.position.set(-0.24, 1.1375, 0);
+  group.add(leftArmMesh);
+  group.leftArm = leftArmMesh;
+
+  // Right Arm
+  const rightArmMesh = new THREE.Mesh(armGeo, armMat);
+  rightArmMesh.position.set(0.24, 1.1375, 0);
+  group.add(rightArmMesh);
+  group.rightArm = rightArmMesh;
+
+  // Floating 3D Name Tag Canvas Sprite
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = '#ffdf7e';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const label = (pData.email || 'Player').split('@')[0];
+  ctx.fillText(label, 128, 32);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.position.set(0, 2.05, 0);
+  sprite.scale.set(1.5, 0.385, 1);
+  group.add(sprite);
+
+  if (webgl.scene) webgl.scene.add(group);
+  return group;
+}
+
+export function updateOtherPlayers3D(dt) {
+  const activeList = game.otherPlayersList || [];
+  const currentUids = new Set();
+  const currentEmail = window.__currentUserEmail;
+
+  for (const p of activeList) {
+    if (!p.uid || p.email === currentEmail || !p.pos) continue;
+    currentUids.add(p.uid);
+
+    let pMesh = otherPlayerMeshes.get(p.uid);
+    if (!pMesh) {
+      pMesh = createOtherPlayerMesh(p);
+      otherPlayerMeshes.set(p.uid, pMesh);
+    }
+
+    const targetPos = new THREE.Vector3(p.pos.x, p.pos.y, p.pos.z);
+    pMesh.position.lerp(targetPos, Math.min(1.0, dt * 15));
+    pMesh.rotation.y = p.yaw || 0;
+    if (pMesh.head) pMesh.head.rotation.x = -(p.pitch || 0);
+
+    // Walking animation legs
+    const phase = (performance.now() * 0.01) % (Math.PI * 2);
+    const swing = Math.sin(phase) * 0.45;
+    if (pMesh.leftLeg) pMesh.leftLeg.rotation.x = swing;
+    if (pMesh.rightLeg) pMesh.rightLeg.rotation.x = -swing;
+    if (pMesh.leftArm) pMesh.leftArm.rotation.x = -swing;
+    if (pMesh.rightArm) pMesh.rightArm.rotation.x = swing;
+  }
+
+  // Remove disconnected player meshes
+  for (const [uid, pMesh] of otherPlayerMeshes.entries()) {
+    if (!currentUids.has(uid)) {
+      if (webgl.scene) webgl.scene.remove(pMesh);
+      otherPlayerMeshes.delete(uid);
+    }
+  }
 }
 
 // Auto start game bootloader

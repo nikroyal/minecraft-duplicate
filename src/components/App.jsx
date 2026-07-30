@@ -71,7 +71,15 @@ export default function App() {
         }
       }
     });
-    return () => unsubRoom();
+
+    const unsubPresence = subscribeToRoomPresence(game.activeRoomId, (presenceList) => {
+      game.otherPlayersList = presenceList || [];
+    });
+
+    return () => {
+      unsubRoom();
+      unsubPresence();
+    };
   }, [game.running, game.activeRoomId]);
 
   // ── Real-Time Admin Subscriptions (World Settings & User Document) ──
