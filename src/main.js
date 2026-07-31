@@ -31,6 +31,7 @@ import {
   unlockAchievement
 } from './ui.js';
 import { playPlaceSound, playMineSound } from './audio.js';
+import { activeNavigation, findPath, updatePathTrail } from './pathfinder.js';
 
 // ---- 3D Item Drops System ----
 export const itemDrops = [];
@@ -1000,10 +1001,11 @@ function loop(now){
   if (!uEl && typeof document !== "undefined") {
     uEl = document.createElement("div");
     uEl.id = "underwaterOverlay";
-    uEl.style.cssText = "position:fixed;inset:0;z-index:7;pointer-events:none;background:rgba(20,80,180,0.36);backdrop-filter:blur(1px);opacity:0;transition:opacity 0.2s;";
+    uEl.style.cssText = "position:fixed;inset:0;z-index:7;pointer-events:none;background:rgba(20,80,180,0.36);display:none;opacity:0;transition:opacity 0.2s;";
     document.body.appendChild(uEl);
   }
   if (uEl) {
+    uEl.style.display = isUnderwater ? "block" : "none";
     uEl.style.opacity = isUnderwater ? "1" : "0";
   }
   if (isUnderwater) {
@@ -1139,6 +1141,25 @@ function loop(now){
       });
     }
     updateOtherPlayers3D(dt);
+  }
+
+  // ── Pathfinder Real-Time Trail Recalculation ──
+  if (game.running && activeNavigation && activeNavigation.targetPos) {
+    if (!webgl.navTimer) webgl.navTimer = 0;
+    webgl.navTimer += dt;
+    if (webgl.navTimer >= 0.40) { // Recalculate every 400ms
+      webgl.navTimer = 0;
+      const startPos = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
+      const pathNodes = findPath(startPos, activeNavigation.targetPos, 600);
+      if (pathNodes && pathNodes.length > 0) {
+        updatePathTrail(pathNodes);
+        activeNavigation.pathNodes = pathNodes;
+        const dx = activeNavigation.targetPos.x - player.pos.x;
+        const dy = activeNavigation.targetPos.y - player.pos.y;
+        const dz = activeNavigation.targetPos.z - player.pos.z;
+        activeNavigation.distance = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
+      }
+    }
   }
 
   if(game.running && !game.paused){
@@ -1544,6 +1565,14 @@ export function bootGame() {
       e.preventDefault();
       if (game.paused) game.paused = false;
       openCraft();
+      return;
+    }
+
+    // Toggle Wayfinder & Pathfinder Modal on 'KeyG' or 'KeyV'
+    if (e.code === "KeyG" || e.code === "KeyV" || e.key === "g" || e.key === "G" || e.key === "v" || e.key === "V") {
+      e.preventDefault();
+      if (document.pointerLockElement) document.exitPointerLock();
+      if (window.__toggleWayfinder) window.__toggleWayfinder();
       return;
     }
 

@@ -105,9 +105,6 @@ export function generateChunk(ch){
           else b=3;                                 // stone
         } else if(y<=SEA){
           b=8; // water
-          if(y===SEA || x===0 || x===CHUNK-1 || z===0 || z===CHUNK-1 || y===h+1){
-            queueWater(wx, y, wz);
-          }
         }
         
         // carve caves (keep bedrock intact)
@@ -173,6 +170,8 @@ export function setBlock(wx,wy,wz,v, record, scheduleSaveCallback){
     ch = new Chunk(cx, cz);
     generateChunk(ch);
     world.chunks.set(keyOf(cx,cz), ch);
+  } else if (!ch.generated) {
+    ch.generated = true;
   }
   const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
   
@@ -1662,8 +1661,7 @@ export function tickWater(){
     const [cx,cz]=ck.split(",").map(Number);
     const ch=getChunk(cx,cz);
     if(ch && ch.generated){
-      ch.dirty = true;  // Let processGenBudget rebuild on next frame
-      ch.lit   = false; // Also force a light recompute
+      ch.dirty = true;  // Let processGenBudget rebuild mesh on next frame
     }
   }
 

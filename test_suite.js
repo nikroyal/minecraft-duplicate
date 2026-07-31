@@ -18,6 +18,14 @@ global.window = {
   innerHeight: 768
 };
 
+const localStorageStore = new Map();
+global.localStorage = {
+  getItem: (k) => localStorageStore.get(k) || null,
+  setItem: (k, v) => localStorageStore.set(k, String(v)),
+  removeItem: (k) => localStorageStore.delete(k),
+  clear: () => localStorageStore.clear()
+};
+
 const mockCtx = new Proxy({
   canvas: {},
   getShaderPrecisionFormat: () => ({ precision: 1, rangeMin: 1, rangeMax: 1 }),
@@ -83,6 +91,7 @@ async function runFullTestSuite() {
     const mobs = await import('./src/mobs.js');
     const ui = await import('./src/ui.js');
     const main = await import('./src/main.js');
+    const pathfinder = await import('./src/pathfinder.js');
 
     // TEST SUITE 1: CONFIG & REGISTRY
     console.log("\n--- TEST SUITE 1: CONFIG & REGISTRY VALIDATION ---");
@@ -557,6 +566,47 @@ async function runFullTestSuite() {
       const mob1 = mobs.spawnMob("invalid_dragon", 0, 40, 0);
       const mob2 = mobs.spawnMob("zombie", NaN, 40, 0);
       if (mob1 !== null || mob2 !== null) throw new Error("spawnMob allowed invalid mob type or NaN coordinate!");
+    });
+
+    // TEST SUITE 16: VOXEL PATHFINDER & WAYFINDER ENGINE
+    console.log("\n--- TEST SUITE 16: VOXEL PATHFINDER & WAYFINDER ENGINE ---");
+    test("findPath calculates connected 3D A* path between coordinates", () => {
+      const path = pathfinder.findPath({ x: 0, y: 80, z: 0 }, { x: 4, y: 80, z: 4 }, 500);
+      if (!Array.isArray(path) || path.length === 0) throw new Error("findPath returned empty path!");
+      const targetNode = path[path.length - 1];
+      if (targetNode.x !== 4 || targetNode.z !== 4) throw new Error(`Target node expected (4, 4), got (${targetNode.x}, ${targetNode.z})`);
+    });
+
+    test("findPath marks solid obstacles with mine: true flag", () => {
+      world.setBlock(1, 50, 0, 3, true);
+      const path = pathfinder.findPath({ x: 1, y: 50, z: 0 }, { x: 3, y: 50, z: 0 }, 500);
+      const minedNode = path.find(n => n.mine === true);
+      if (!minedNode) throw new Error(`findPath failed! mine node not found in path: ${JSON.stringify(path)}`);
+    });
+
+    test("findPath assigns high cost penalty to water blocks", () => {
+      world.setBlock(2, 80, 2, 8); // Water block
+      const path = pathfinder.findPath({ x: 0, y: 80, z: 2 }, { x: 4, y: 80, z: 2 }, 500);
+      if (!Array.isArray(path) || path.length === 0) throw new Error("findPath failed across water!");
+    });
+
+    test("findPath performance budget is under 5ms execution time", () => {
+      const startT = performance.now();
+      for (let i = 0; i < 10; i++) {
+        pathfinder.findPath({ x: i, y: 80, z: i }, { x: i + 25, y: 80, z: i + 25 }, 500);
+      }
+      const elapsed = performance.now() - startT;
+      const avgMs = elapsed / 10;
+      if (avgMs > 5.0) throw new Error(`Average pathfinding time ${avgMs.toFixed(2)}ms exceeded 5.0ms performance budget!`);
+    });
+
+    test("saveWaypoint, getSavedWaypoints, and deleteWaypoint manage local storage bookmarks", () => {
+      const initialWps = pathfinder.getSavedWaypoints();
+      const updatedWps = pathfinder.saveWaypoint("Test Fort", 15, 85, -45, '🏰');
+      const found = updatedWps.find(w => w.name === "Test Fort");
+      if (!found) throw new Error("saveWaypoint failed to persist waypoint object!");
+      const cleaned = pathfinder.deleteWaypoint(found.id);
+      if (cleaned.find(w => w.id === found.id)) throw new Error("deleteWaypoint failed to purge waypoint!");
     });
 
   } catch (fatalErr) {

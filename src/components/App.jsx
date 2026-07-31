@@ -19,6 +19,7 @@ import FurnaceScreen from './FurnaceScreen.jsx';
 import CraftingScreen from './CraftingScreen.jsx';
 import MasterDashboardCard from './MasterDashboardCard.jsx';
 import PlayerDirectoryModal from './PlayerDirectoryModal.jsx';
+import WayfinderModal from './WayfinderModal.jsx';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
   closeCraft, closeChest, closeFurnace, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
@@ -27,6 +28,16 @@ import {
 
 export default function App() {
   const [tick, setTick] = useState(0);
+  const [showWayfinder, setShowWayfinder] = useState(false);
+
+  useEffect(() => {
+    window.__toggleWayfinder = () => {
+      setShowWayfinder(prev => !prev);
+    };
+    return () => {
+      window.__toggleWayfinder = null;
+    };
+  }, []);
 
   // Auth
   const [authStatus, setAuthStatus] = useState('connecting');
@@ -194,7 +205,6 @@ export default function App() {
     let lastCoords = '', lastClock = '', lastTarget = null, lastFpsVal = 0;
 
     reactBridge.updateUI = () => {
-      forceUpdate();
       const px = player?.pos ? Math.floor(player.pos.x) : 0;
       const py = player?.pos ? Math.floor(player.pos.y) : 0;
       const pz = player?.pos ? Math.floor(player.pos.z) : 0;
@@ -334,6 +344,14 @@ export default function App() {
         <PlayerDirectoryModal
           currentUser={currentUser}
           onClose={() => setShowPlayerDirectory(false)}
+        />
+      )}
+
+      {/* WAYFINDER MODAL */}
+      {showWayfinder && (
+        <WayfinderModal
+          currentUser={currentUser}
+          onClose={() => setShowWayfinder(false)}
         />
       )}
 
@@ -532,22 +550,23 @@ export default function App() {
               overflow: 'hidden',
             }}>
               {/* Tabs header */}
-              <div style={{
+              <div className="dashboard-tabs" style={{
                 display: 'flex', borderBottom: '1px solid rgba(214,178,120,0.2)',
                 background: 'rgba(0,0,0,0.3)',
                 padding: '6px 10px 0',
-                gap: 2,
+                gap: 2, marginBottom: 0, flexShrink: 0
               }}>
                 {['blocks','recipes','manual','messages'].map(tab => (
                   <button key={tab}
                     onClick={() => setCraftTab(tab)}
+                    className="dash-tab"
                     style={{
                       fontFamily: 'inherit', fontSize: 10, letterSpacing: 1,
                       color: craftTab === tab ? '#1a1410' : '#d6b278',
                       background: craftTab === tab ? '#f2d9a0' : 'transparent',
                       border: 'none', borderRadius: '4px 4px 0 0',
                       padding: '6px 12px', cursor: 'pointer',
-                      fontWeight: craftTab === tab ? 700 : 400,
+                      fontWeight: craftTab === tab ? 700 : 400, flexShrink: 0
                     }}>
                     {tab === 'blocks' ? '📚 Blocks' : tab === 'recipes' ? '📜 Recipes' : tab === 'manual' ? '📖 Manual' : `✉️ Messages (${userMessages.length})`}
                   </button>

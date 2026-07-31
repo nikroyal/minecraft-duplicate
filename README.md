@@ -37,6 +37,7 @@ An advanced, browser-based 3D Voxel Sandbox game built with **Three.js**, **Reac
 | **`F`** | Toggle Creative Flying Mode |
 | **`F3`** | Toggle **3D Physics Debug Overlay & Telemetry** |
 | **`F5` / `H`** | Cycle Camera View (*First-Person*, *Third-Person Back*, *Third-Person Front*) |
+| **`G` / `V`** | Open / Close **3D Voxel Pathfinder & GPS Wayfinder Modal** |
 | **`Esc`** | Pause / Main Menu / Release Pointer Lock |
 
 ---
@@ -105,6 +106,21 @@ An advanced, browser-based 3D Voxel Sandbox game built with **Three.js**, **Reac
 - **Dual-Layer Normal Map Ripples**: Computes dual-layer procedural wave interference normals for realistic water surface motion.
 - **Schlick Fresnel ($F_0 = 0.02$)**: Blends grazing-angle sky reflections (`uSkyColor`) while preserving clear transparency looking straight down.
 - **Depth Color Attenuation**: Transitions from bright turquoise shallow water (`#4ecce6`) to clear deep ocean blue (`#2678b8`).
+
+---
+
+## 🧭 3D Voxel Pathfinder & GPS Wayfinder System (`G` / `V`)
+
+Press **`G`** or **`V`** in-game to open the **Wayfinder Modal** ("Where do you wanna go?"):
+
+- **Searchable Nexus Directory**: Instant search of all active online players currently in the Nexus server with 1-click live player target tracking.
+- **Searchable Friends Directory**: Dedicated search tab showing online friends in your Nexus workspace for real-time multiplayer path recalculation.
+- **Coordinates & Waypoint Bookmarking**: Enter custom `(X, Y, Z)` target coordinates with surface auto-landing, select quick presets (Spawn, Underground Diamond Y=12, Sky Island), or save custom labeled coordinate bookmarks in local storage.
+- **Holographic 3D Trail Rendering**: Renders dynamic, zero-allocation Three.js holographic trail beacons in real-time:
+  - 🟢 **Neon Green Spheres & Beacons**: Clear walking and climbing path segment.
+  - 🟠 **Glowing Amber Spheres**: Solid block mining required (`mine: true`).
+  - 🔵 **Cyan Beacons**: Water / river crossing segment (`water: true`).
+- **Low-Latency Real-Time A* Updating**: Recalculates paths dynamically every $400\text{ms}$ as targets or friends move through the voxel world.
 
 ---
 

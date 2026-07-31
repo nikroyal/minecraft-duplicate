@@ -328,14 +328,15 @@ export default function MasterDashboardCard({ userEmail }) {
       </div>
 
       {/* ── ADMIN NAV TABS ── */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 12, borderBottom: '1px solid rgba(214,178,120,0.2)', paddingBottom: 8 }}>
+      <div className="dashboard-tabs" style={{ marginBottom: 12, borderBottom: '1px solid rgba(214,178,120,0.2)', paddingBottom: 8, flexShrink: 0 }}>
         <button
           onClick={() => setAdminTab('users')}
+          className={`dash-tab ${adminTab === 'users' ? 'active' : ''}`}
           style={{
             background: adminTab === 'users' ? 'rgba(214,178,120,0.25)' : 'transparent',
             border: adminTab === 'users' ? '1px solid var(--gold)' : '1px solid transparent',
             color: adminTab === 'users' ? 'var(--gold-bright)' : '#aaa',
-            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer'
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer', flexShrink: 0
           }}
         >
           👤 Registered Accounts ({users.length})
@@ -343,11 +344,12 @@ export default function MasterDashboardCard({ userEmail }) {
 
         <button
           onClick={() => setAdminTab('rooms')}
+          className={`dash-tab ${adminTab === 'rooms' ? 'active' : ''}`}
           style={{
             background: adminTab === 'rooms' ? 'rgba(214,178,120,0.25)' : 'transparent',
             border: adminTab === 'rooms' ? '1px solid var(--gold)' : '1px solid transparent',
             color: adminTab === 'rooms' ? 'var(--gold-bright)' : '#aaa',
-            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer'
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer', flexShrink: 0
           }}
         >
           🌐 Team & Private Rooms ({rooms.length})
@@ -355,11 +357,12 @@ export default function MasterDashboardCard({ userEmail }) {
 
         <button
           onClick={() => setAdminTab('reviews')}
+          className={`dash-tab ${adminTab === 'reviews' ? 'active' : ''}`}
           style={{
             background: adminTab === 'reviews' ? 'rgba(214,178,120,0.25)' : 'transparent',
             border: adminTab === 'reviews' ? '1px solid var(--gold)' : '1px solid transparent',
             color: adminTab === 'reviews' ? 'var(--gold-bright)' : '#aaa',
-            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer'
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer', flexShrink: 0
           }}
         >
           ⭐ Reviews & Feedback ({reviews.length})
