@@ -57,8 +57,11 @@ export function spawnItemDrop(id, count, x, y, z) {
   const placeable = isPlaceable(id);
   
   let mesh;
-  if (placeable && webgl.atlasTex) {
-    const geo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
+  if (webgl.atlasTex) {
+    const isBlock = placeable && BLOCKS[id];
+    const geo = isBlock 
+      ? new THREE.BoxGeometry(0.24, 0.24, 0.24) 
+      : new THREE.BoxGeometry(0.20, 0.20, 0.05);
     const faceMap = [4, 5, 0, 1, 2, 3];
     const uvAttr = geo.attributes.uv;
     for (let f = 0; f < 6; f++) {
@@ -75,7 +78,7 @@ export function spawnItemDrop(id, count, x, y, z) {
     const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
     mesh = new THREE.Mesh(geo, mat);
   } else {
-    const geo = new THREE.BoxGeometry(0.08, 0.08, 0.35);
+    const geo = new THREE.BoxGeometry(0.20, 0.20, 0.05);
     const mat = new THREE.MeshLambertMaterial({ color: col });
     mesh = new THREE.Mesh(geo, mat);
   }
@@ -102,10 +105,10 @@ export function updateItemDrops(dt) {
     d.mesh.rotation.y += dt * 3.5;
 
     const dist = d.pos.distanceTo(playerTarget);
-    // Magnet pull triggers up to 30.0 blocks away
-    if (dist < 30.0 && now - d.spawnTime > 150 && !player.dead) {
-      // Faster lerp for smooth magnetic pull
-      d.pos.lerp(playerTarget, dt * 12.0);
+    // Realistic magnet pull triggers within 2.5 blocks radius
+    if (dist < 2.5 && now - d.spawnTime > 150 && !player.dead) {
+      // Smooth magnetic pull towards player hands
+      d.pos.lerp(playerTarget, dt * 10.0);
       d.mesh.position.copy(d.pos);
       // Collect item when within 1.2 block radius
       if (dist < 1.2) {
@@ -123,7 +126,7 @@ export function updateItemDrops(dt) {
       d.pos.addScaledVector(d.vel, dt);
       const bx = Math.floor(d.pos.x), by = Math.floor(d.pos.y), bz = Math.floor(d.pos.z);
       if (isSolid(getBlock(bx, by, bz))) {
-        d.pos.y = by + 1.05; // Rest on top of block surface, don't embed inside floor
+        d.pos.y = by + 1.05; // Rest on top of block surface
         d.vel.set(0, 0, 0);
       }
       d.mesh.position.copy(d.pos);
@@ -159,8 +162,8 @@ export function updateXpOrbs(dt) {
     orb.mesh.rotation.y += dt * 5.0;
 
     const dist = orb.pos.distanceTo(pTarget);
-    if (dist < 30.0 && now - orb.spawnTime > 150 && !player.dead) {
-      orb.pos.lerp(pTarget, dt * 12.0);
+    if (dist < 4.5 && now - orb.spawnTime > 150 && !player.dead) {
+      orb.pos.lerp(pTarget, dt * 10.0);
       orb.mesh.position.copy(orb.pos);
       if (dist < 1.0) {
         player.xp = (player.xp || 0) + 1;
@@ -384,13 +387,13 @@ function mixColor(a, b, t){ return _c.copy(a).lerp(b, t); }
 
 function skyState(t){
   let sky, sunI, moonI, ambI;
-  if(t<0.22){ sky=SKY.night.clone(); sunI=0; moonI=0.35; ambI=0.35; }
-  else if(t<0.30){ const k=(t-0.22)/0.08; sky=mixColor(SKY.night,SKY.dawn,k).clone(); sunI=k*0.9; moonI=0.35*(1-k); ambI=0.35+k*0.35; }
-  else if(t<0.36){ const k=(t-0.30)/0.06; sky=mixColor(SKY.dawn,SKY.day,k).clone(); sunI=0.9+k*0.1; moonI=0; ambI=0.7+k*0.05; }
+  if(t<0.22){ sky=SKY.night.clone(); sunI=0; moonI=0.40; ambI=0.22; }
+  else if(t<0.30){ const k=(t-0.22)/0.08; sky=mixColor(SKY.night,SKY.dawn,k).clone(); sunI=k*0.9; moonI=0.40*(1-k); ambI=0.22+k*0.48; }
+  else if(t<0.36){ const k=(t-0.30)/0.06; sky=mixColor(SKY.dawn,SKY.day,k).clone(); sunI=0.9+k*0.1; moonI=0; ambI=0.70+k*0.05; }
   else if(t<0.64){ sky=SKY.day.clone(); sunI=1.0; moonI=0; ambI=0.75; }
   else if(t<0.72){ const k=(t-0.64)/0.08; sky=mixColor(SKY.day,SKY.dusk,k).clone(); sunI=1.0-k*0.1; moonI=0; ambI=0.75-k*0.05; }
-  else if(t<0.80){ const k=(t-0.72)/0.08; sky=mixColor(SKY.dusk,SKY.night,k).clone(); sunI=0.9*(1-k); moonI=0.35*k; ambI=0.7-k*0.35; }
-  else { sky=SKY.night.clone(); sunI=0; moonI=0.35; ambI=0.35; }
+  else if(t<0.80){ const k=(t-0.72)/0.08; sky=mixColor(SKY.dusk,SKY.night,k).clone(); sunI=0.9*(1-k); moonI=0.40*k; ambI=0.70-k*0.48; }
+  else { sky=SKY.night.clone(); sunI=0; moonI=0.40; ambI=0.22; }
   return {sky, sunI, moonI, ambI};
 }
 
@@ -408,15 +411,15 @@ function updateDayNight(dt){
   const ang = (game.timeOfDay-0.25)*Math.PI*2;
   const sx = Math.cos(ang), sy = Math.sin(ang);
   
-  webgl.dirLight.position.set(sx*100, Math.max(0.05, sy)*120, 60).add(webgl.camera.position);
+  webgl.dirLight.position.set(sx*100, sy*120, 60).add(webgl.camera.position);
   webgl.dirLight.intensity = s.sunI;
   webgl.dirLight.color.copy(dayColor);
   
-  webgl.moonLight.position.set(-sx*100, Math.max(0.05, -sy)*120, -60).add(webgl.camera.position);
+  webgl.moonLight.position.set(-sx*100, -sy*120, -60).add(webgl.camera.position);
   webgl.moonLight.intensity = s.moonI;
   webgl.moonLight.color.copy(nightColor);
   
-  webgl.ambientLight.intensity = Math.max(0.6, s.ambI);
+  webgl.ambientLight.intensity = s.ambI;
   webgl.ambientLight.color.copy(nightColor).lerp(new THREE.Color(0xb8c4d0), s.sunI);
 
   if (webgl.sunMesh) {
@@ -543,14 +546,19 @@ function completeMine(x, y, z, id){
   disturbWater(x, y, z);
   playPlaceSound(id); // break audio
 
-  // Tool durability check
-  const heldId = hotbar[game.selected];
+  // Tool durability check (tracked per hotbar slot index)
+  const slotIdx = Math.max(0, Math.min(8, game.selected || 0));
+  const heldId = hotbar[slotIdx];
   if (heldId > 0 && ITEMS[heldId] && ITEMS[heldId].tool) {
     const maxDur = [30, 60, 150, 500][ITEMS[heldId].tier - 1] || 30;
-    if (toolDurability[heldId] === undefined) toolDurability[heldId] = maxDur;
-    toolDurability[heldId]--;
+    const durKey = `slot_${slotIdx}`;
+    if (toolDurability[durKey] === undefined) {
+      toolDurability[durKey] = toolDurability[heldId] !== undefined ? toolDurability[heldId] : maxDur;
+    }
+    toolDurability[durKey]--;
+    toolDurability[heldId] = toolDurability[durKey];
     
-    if (toolDurability[heldId] <= 0) {
+    if (toolDurability[durKey] <= 0) {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
@@ -567,6 +575,7 @@ function completeMine(x, y, z, id){
       } catch(e){}
       
       removeItem(heldId, 1);
+      delete toolDurability[durKey];
       delete toolDurability[heldId];
       toast("Your tool broke!");
       if (reactBridge.updateUI) reactBridge.updateUI();
@@ -574,6 +583,11 @@ function completeMine(x, y, z, id){
       scheduleSave();
       if (reactBridge.updateUI) reactBridge.updateUI();
     }
+  }
+
+  // Trigger leaf decay if log or leaf block broken
+  if (id === 5 || id === 6) {
+    checkLeafDecayAround(x, y, z);
   }
 
   // Crop harvesting logic
@@ -632,7 +646,38 @@ function completeMine(x, y, z, id){
   }
 
   if(game.survival) spawnItemDrop(id, 1, x + 0.5, y + 0.5, z + 0.5);
-  updateAfterEdit(x, y, z);
+}
+
+function checkLeafDecayAround(x, y, z) {
+  const radius = 3;
+  for (let dx = -radius; dx <= radius; dx++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dz = -radius; dz <= radius; dz++) {
+        const lx = x + dx, ly = y + dy, lz = z + dz;
+        const leafId = getBlock(lx, ly, lz);
+        if (leafId === 6) { // Oak Leaves
+          let hasLog = false;
+          for (let bx = -3; bx <= 3 && !hasLog; bx++) {
+            for (let by = -3; by <= 3 && !hasLog; by++) {
+              for (let bz = -3; bz <= 3 && !hasLog; bz++) {
+                const checkId = getBlock(lx + bx, ly + by, lz + bz);
+                if (checkId === 5) { // Oak Log
+                  hasLog = true;
+                }
+              }
+            }
+          }
+          if (!hasLog) {
+            setBlock(lx, ly, lz, 0, true, scheduleSave);
+            spawnBreakBurst(lx, ly, lz, 6);
+            if (Math.random() < 0.12) {
+              spawnItemDrop(Math.random() < 0.5 ? 130 : 138, 1, lx + 0.5, ly + 0.5, lz + 0.5); // Apple or Sapling
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 function tickCrops(dt) {
@@ -730,7 +775,8 @@ function blockColor(id){
 export function placeBlock(){
   const heldId = hotbar[game.selected];
   const isBucket = (heldId === 144 || heldId === 145);
-  const r = raycastVoxel(6, isBucket);
+  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"] || isPlaceable(heldId);
+  const r = raycastVoxel(6, includeWater);
   if(!r) return;
   
   // Intercept right click container interaction

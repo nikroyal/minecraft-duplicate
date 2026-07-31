@@ -272,6 +272,28 @@ async function runFullTestSuite() {
       if (zombie.hp !== initialHp - 6) throw new Error(`attackMob failed to subtract HP. New HP: ${zombie.hp}`);
     });
 
+    test("undead mobs take damage when exposed to direct sunlight during daytime", () => {
+      state.game.timeOfDay = 0.50; // Daytime (noon)
+      state.game.survival = true;
+      state.player.dead = false;
+      state.player.invuln = 0;
+      state.player.pos.set(8.5, 10.0, 8.5);
+      const ch = world.getChunk(0, 0);
+      if (ch) ch.generated = true;
+      for (let x = 10; x <= 15; x++) {
+        for (let z = 10; z <= 15; z++) {
+          for (let y = 0; y < 128; y++) world.setBlock(x, y, z, 0);
+        }
+      }
+      const zombie = mobs.spawnMob('zombie', 12.5, 10.0, 12.5);
+      const startHp = zombie.hp;
+      mobs.updateMobs(1.0); // 1 sec tick
+      if (zombie.hp >= startHp) {
+        throw new Error(`Undead mob did not take sunlight damage during daytime! HP: ${zombie.hp}`);
+      }
+      state.player.invuln = 0; // Reset invuln flag for subsequent tests
+    });
+
     // TEST SUITE 5: UI & MODAL STATE MACHINE
     console.log("\n--- TEST SUITE 5: UI & MODAL STATE MACHINE ---");
     test("openCraft and closeCraft toggle uiState.craftOpen and isMenuOpen", () => {

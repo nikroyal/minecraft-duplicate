@@ -160,7 +160,7 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           const itemDef = ITEMS[id];
           const isTool = itemDef && itemDef.tool;
           const maxDurability = isTool ? ([30, 60, 150, 500][(itemDef.tier || 1) - 1] || 30) : 0;
-          const currentDurability = isTool ? (toolDurability[id] !== undefined ? toolDurability[id] : maxDurability) : 0;
+          const currentDurability = isTool ? (toolDurability[`slot_${index}`] !== undefined ? toolDurability[`slot_${index}`] : (toolDurability[id] !== undefined ? toolDurability[id] : maxDurability)) : 0;
           const durPercent = maxDurability > 0 ? Math.max(0, Math.min(100, (currentDurability / maxDurability) * 100)) : 100;
 
           let barColor = '#4cd964';

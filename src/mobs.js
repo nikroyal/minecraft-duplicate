@@ -408,6 +408,35 @@ export function updateMobs(dt){
       else if(m.type === "sheep") playSheepSound();
       else if(m.type === "zombie" || m.type === "skeleton") playZombieSound();
     }
+
+    // Undead sunlight burning logic (Zombies & Skeletons burn in direct sunlight during day)
+    const isDaytime = game.timeOfDay >= 0.25 && game.timeOfDay <= 0.75;
+    if (isDaytime && (m.type === "zombie" || m.type === "skeleton")) {
+      const mx = Math.floor(m.pos.x), my = Math.floor(m.pos.y + m.def.h), mz = Math.floor(m.pos.z);
+      let exposed = true;
+      for (let y = my; y < 128; y++) {
+        if (isSolid(getBlock(mx, y, mz))) {
+          exposed = false;
+          break;
+        }
+      }
+      if (exposed) {
+        m.burnTimer = (m.burnTimer || 0) + dt;
+        if (m.burnTimer >= 0.8) {
+          m.burnTimer = 0;
+          m.hp -= 2;
+          m.hurtFlash = 0.35;
+          if (m.hp <= 0) {
+            if (m.def.drop && game.survival) {
+              spawnItemDrop(m.def.drop, m.def.dropN || 1, m.pos.x, m.pos.y + 0.5, m.pos.z);
+              spawnXpOrbs(m.pos.x, m.pos.y + 0.5, m.pos.z, 3);
+            }
+            removeMob(i);
+            continue;
+          }
+        }
+      }
+    }
   }
 }
 
