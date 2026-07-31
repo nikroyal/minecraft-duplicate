@@ -326,6 +326,23 @@ export function moveAxis(axis, amount, allowAutoStep){
 }
 
 export function updatePlayer(dt){
+  // Coordinate sanity check against NaN / Infinity injection
+  if (!isFinite(player.pos.x) || !isFinite(player.pos.y) || !isFinite(player.pos.z)) {
+    spawnPlayer();
+  }
+
+  // Prevent creative flight in survival mode
+  if (game.survival && player.flying) {
+    player.flying = false;
+  }
+
+  // Velocity capping against speed hacks and kinetic manipulation
+  if (player.vel) {
+    player.vel.x = Math.max(-50, Math.min(50, player.vel.x || 0));
+    player.vel.y = Math.max(-60, Math.min(40, player.vel.y || 0));
+    player.vel.z = Math.max(-50, Math.min(50, player.vel.z || 0));
+  }
+
   const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
   const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   let wish = new THREE.Vector3();
@@ -657,4 +674,16 @@ export function lookDir(){
   const sinYaw = Math.sin(player.yaw);
   const cosYaw = Math.cos(player.yaw);
   return new THREE.Vector3(-sinYaw * cosPitch, sinPitch, -cosYaw * cosPitch).normalize();
+}
+
+export function validateInventoryState(){
+  for (const k in inventory) {
+    const numKey = Number(k);
+    const count = inventory[k];
+    if (isNaN(numKey) || (!BLOCKS[numKey] && !ITEMS[numKey]) || typeof count !== 'number' || isNaN(count) || count <= 0) {
+      delete inventory[k];
+    } else if (count > 64) {
+      inventory[k] = 64;
+    }
+  }
 }

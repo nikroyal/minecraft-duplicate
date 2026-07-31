@@ -490,9 +490,25 @@ async function runFullTestSuite() {
     });
 
     test("verify prototype pollution keys are stripped during cloud payload sanitization", () => {
-      const maliciousPayload = JSON.parse('{"edits": {"1_2_3": 7}, "__proto__": {"polluted": true}}');
       const clean = firebase.saveRoomWorldToCloud ? true : false;
       if (!clean) throw new Error("saveRoomWorldToCloud missing");
+    });
+
+    test("validateInventoryState automatically purges corrupted or invalid inventory keys", () => {
+      const inv = state.inventory;
+      inv["invalid_key"] = 100;
+      inv[999999] = 10;
+      inv[7] = 200; // Exceeds stack max 64
+      player.validateInventoryState();
+      if ("invalid_key" in inv || 999999 in inv) throw new Error("validateInventoryState failed to purge invalid keys");
+      if (inv[7] > 64) throw new Error("validateInventoryState failed to clamp stack max 64");
+    });
+
+    test("updatePlayer restricts creative flight when survival mode is active", () => {
+      state.game.survival = true;
+      state.player.flying = true;
+      player.updatePlayer(0.016);
+      if (state.player.flying !== false) throw new Error("Survival mode failed to restrict creative flight!");
     });
 
   } catch (fatalErr) {

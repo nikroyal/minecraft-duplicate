@@ -193,7 +193,9 @@ export function sanitizeSecurityInput(str, maxLen = 1000) {
     .replace(/"/g, '&#34;')
     .replace(/'/g, '&#39;')
     .replace(/\//g, '&#x2F;')
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    .replace(/[\u200B-\u200D\uFEFF\u202E]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/(.)\1{14,}/gu, '$1$1$1$1$1');
 }
 
 export async function loginWithEmail(email, password) {
