@@ -176,9 +176,17 @@ export function flashDamage() {
 
 export function toast(msg) {
   if (typeof document === 'undefined' || !document.body || typeof document.body.appendChild !== 'function') return;
+  const safeMsg = String(msg || '').slice(0, 100);
   const el = document.createElement("div");
   el.className = "toast";
-  el.textContent = msg;
+  el.textContent = safeMsg;
+
+  // Cap active toast elements in DOM to 5 to prevent element leaks during rapid notifications
+  const existingToasts = document.querySelectorAll('.toast');
+  if (existingToasts.length >= 5 && existingToasts[0]) {
+    existingToasts[0].remove();
+  }
+
   document.body.appendChild(el);
   setTimeout(() => el.classList.add("show"), 10);
   setTimeout(() => {
