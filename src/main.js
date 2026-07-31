@@ -1526,14 +1526,18 @@ export function bootGame() {
       return;
     }
 
-    // If a menu is open, capture E or Escape keys to close it
+    // If a menu is open, capture E, Escape, G, V keys to close it
     if(isMenuOpen()){
-      if(e.code === "KeyE" || e.code === "Escape" || e.key === "e" || e.key === "E"){
+      if(e.code === "KeyE" || e.code === "Escape" || e.code === "KeyG" || e.code === "KeyV" || e.key === "e" || e.key === "E" || e.key === "g" || e.key === "G" || e.key === "v" || e.key === "V"){
         e.preventDefault();
         e.stopPropagation();
         if (uiState.craftOpen) closeCraft();
         if (uiState.chestOpen) closeChest();
         if (uiState.furnaceOpen) closeFurnace();
+        if (uiState.wayfinderOpen) {
+          uiState.wayfinderOpen = false;
+          if (window.__closeWayfinder) window.__closeWayfinder();
+        }
       }
       return;
     }

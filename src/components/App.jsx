@@ -32,10 +32,19 @@ export default function App() {
 
   useEffect(() => {
     window.__toggleWayfinder = () => {
-      setShowWayfinder(prev => !prev);
+      setShowWayfinder(prev => {
+        const next = !prev;
+        uiState.wayfinderOpen = next;
+        return next;
+      });
+    };
+    window.__closeWayfinder = () => {
+      uiState.wayfinderOpen = false;
+      setShowWayfinder(false);
     };
     return () => {
       window.__toggleWayfinder = null;
+      window.__closeWayfinder = null;
     };
   }, []);
 
