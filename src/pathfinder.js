@@ -38,6 +38,8 @@ function heuristic(x1, y1, z1, x2, y2, z2) {
  * Finds optimal shortest path while penalizing water and marking solid mining blocks.
  */
 export function findPath(start, target, maxExpansions = 500) {
+  if (!start || !target) return [];
+
   const sx = Math.floor(start.x);
   const sy = Math.floor(start.y);
   const sz = Math.floor(start.z);
@@ -45,6 +47,11 @@ export function findPath(start, target, maxExpansions = 500) {
   const tx = Math.floor(target.x);
   const ty = Math.floor(target.y);
   const tz = Math.floor(target.z);
+
+  if (!Number.isFinite(sx) || !Number.isFinite(sy) || !Number.isFinite(sz) ||
+      !Number.isFinite(tx) || !Number.isFinite(ty) || !Number.isFinite(tz)) {
+    return [];
+  }
 
   // If already at target
   if (sx === tx && sy === ty && sz === tz) {
@@ -194,6 +201,11 @@ export function findPath(start, target, maxExpansions = 500) {
   return path;
 }
 
+const sharedSphereGeo = new THREE.SphereGeometry(0.18, 8, 8);
+const sharedGreenMat = new THREE.MeshBasicMaterial({ color: 0x39ff14, transparent: true, opacity: 0.85 });
+const sharedOrangeMat = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.9 });
+const sharedCyanMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.85 });
+
 /**
  * 3D Holographic Trail WebGL Renderer
  * Updates InstancedMesh / Point Beacons in Three.js scene for zero-allocation rendering.
@@ -208,12 +220,6 @@ export function updatePathTrail(pathNodes) {
   pathMeshGroup = new THREE.Group();
   pathMeshGroup.name = "pathfinder_trail";
 
-  const sphereGeo = new THREE.SphereGeometry(0.18, 8, 8);
-
-  const greenMat = new THREE.MeshBasicMaterial({ color: 0x39ff14, transparent: true, opacity: 0.85 }); // Emerald
-  const orangeMat = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.9 }); // Mining Orange
-  const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.85 }); // Water Cyan
-
   // Path line points
   const points = [];
 
@@ -226,11 +232,11 @@ export function updatePathTrail(pathNodes) {
     points.push(new THREE.Vector3(px, py, pz));
 
     // Render node sphere beacon
-    let mat = greenMat;
-    if (p.mine) mat = orangeMat;
-    else if (p.water) mat = cyanMat;
+    let mat = sharedGreenMat;
+    if (p.mine) mat = sharedOrangeMat;
+    else if (p.water) mat = sharedCyanMat;
 
-    const mesh = new THREE.Mesh(sphereGeo, mat);
+    const mesh = new THREE.Mesh(sharedSphereGeo, mat);
     mesh.position.set(px, py, pz);
     pathMeshGroup.add(mesh);
   }
@@ -253,8 +259,10 @@ export function clearPathTrail() {
   if (pathMeshGroup && webgl.scene) {
     webgl.scene.remove(pathMeshGroup);
     pathMeshGroup.traverse(child => {
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
+      if (child.isLine) {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
     });
     pathMeshGroup = null;
   }
@@ -275,12 +283,13 @@ export function getSavedWaypoints() {
 
 export function saveWaypoint(name, x, y, z, icon = '📍') {
   const waypoints = getSavedWaypoints();
-  const newWp = { id: Date.now().toString(), name, x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), icon };
+  const safeName = String(name || 'Waypoint').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim().slice(0, 50);
+  const newWp = { id: Date.now().toString(), name: safeName, x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), icon };
   waypoints.push(newWp);
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(WAYPOINTS_KEY, JSON.stringify(waypoints));
   }
-  toast(`📍 Waypoint '${name}' saved!`);
+  toast(`📍 Waypoint '${safeName}' saved!`);
   return waypoints;
 }
 
