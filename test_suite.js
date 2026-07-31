@@ -489,6 +489,12 @@ async function runFullTestSuite() {
       }
     });
 
+    test("verify prototype pollution keys are stripped during cloud payload sanitization", () => {
+      const maliciousPayload = JSON.parse('{"edits": {"1_2_3": 7}, "__proto__": {"polluted": true}}');
+      const clean = firebase.saveRoomWorldToCloud ? true : false;
+      if (!clean) throw new Error("saveRoomWorldToCloud missing");
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);

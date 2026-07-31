@@ -249,7 +249,9 @@ function sanitizePayload(obj) {
   const clean = {};
   for (const k in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, k)) {
-      const safeKey = String(k).replace(/\./g, '_');
+      const keyStr = String(k);
+      if (keyStr === '__proto__' || keyStr === 'constructor' || keyStr === 'prototype') continue;
+      const safeKey = keyStr.replace(/\./g, '_');
       const val = obj[k];
       clean[safeKey] = val === undefined ? null : sanitizePayload(val);
     }
@@ -610,12 +612,24 @@ export async function saveRoomWorldToCloud(roomId, payload) {
 export async function updatePlayerPresenceInRoom(roomId, presenceData) {
   if (!db || !roomId || !currentUser) return;
   try {
+    const pos = presenceData?.pos || {};
+    const safePos = {
+      x: typeof pos.x === 'number' && isFinite(pos.x) ? Math.max(-10000, Math.min(10000, pos.x)) : 0,
+      y: typeof pos.y === 'number' && isFinite(pos.y) ? Math.max(-50, Math.min(500, pos.y)) : 40,
+      z: typeof pos.z === 'number' && isFinite(pos.z) ? Math.max(-10000, Math.min(10000, pos.z)) : 0,
+    };
+    const safeYaw = typeof presenceData?.yaw === 'number' && isFinite(presenceData.yaw) ? presenceData.yaw : 0;
+    const safePitch = typeof presenceData?.pitch === 'number' && isFinite(presenceData.pitch) ? presenceData.pitch : 0;
+
     const playerRef = doc(db, 'rooms', roomId, 'presence', currentUser.uid);
     await setDoc(playerRef, {
       uid: currentUser.uid,
       email: currentUser.email,
       lastSeen: Date.now(),
-      ...presenceData
+      pos: safePos,
+      yaw: safeYaw,
+      pitch: safePitch,
+      animState: sanitizeSecurityInput(String(presenceData?.animState || 'idle'), 20)
     }, { merge: true });
   } catch (e) {}
 }
@@ -628,7 +642,7 @@ export function subscribeToRoomPresence(roomId, callback) {
     const now = Date.now();
     snapshot.forEach(docSnap => {
       const pData = docSnap.data();
-      if (now - (pData.lastSeen || 0) < 15000) { // filter players seen in last 15s
+      if (pData && pData.uid && now - (pData.lastSeen || 0) < 15000) { // filter players seen in last 15s
         players.push(pData);
       }
     });
@@ -650,13 +664,25 @@ export async function updateUserBio(bioText) {
   }
 }
 
+const inviteRateLimitMap = new Map();
+
 export async function sendRoomInvite(targetUid, roomId, roomName) {
   if (!db || !currentUser || !targetUid || !roomId) return false;
+  
+  // Rate-limiting check: max 1 invite per 3 seconds per target
+  const now = Date.now();
+  const lastTime = inviteRateLimitMap.get(targetUid) || 0;
+  if (now - lastTime < 3000) {
+    console.warn("Invite rate limit active.");
+    return false;
+  }
+  inviteRateLimitMap.set(targetUid, now);
+
   try {
     const inviteObj = {
       id: 'inv_' + Date.now(),
       roomId,
-      roomName: roomName || 'Team Room',
+      roomName: sanitizeSecurityInput(roomName || 'Team Room', 40),
       senderEmail: currentUser.email,
       senderUid: currentUser.uid,
       timestamp: new Date().toISOString(),

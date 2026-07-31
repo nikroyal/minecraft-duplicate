@@ -21,12 +21,12 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
     .filter(id => invCount(id) > 0);
 
   const handleStoreItem = (id) => {
-    if (invCount(id) <= 0) return;
-    let slot = chest.find(s => s.id === id && s.count < 64);
+    if (typeof id !== 'number' || isNaN(id) || invCount(id) <= 0) return;
+    let slot = chest.find(s => s.id === id && (s.count || 0) < 64);
     if (!slot) slot = chest.find(s => s.id === 0);
     if (slot) {
       slot.id = id;
-      slot.count = (slot.count || 0) + 1;
+      slot.count = Math.min(64, (slot.count || 0) + 1);
       removeItem(id, 1);
       playPlaceSound(id);
       scheduleSave();
@@ -35,11 +35,12 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
   };
 
   const handleRetrieveItem = (idx) => {
+    if (typeof idx !== 'number' || idx < 0 || idx >= chest.length) return;
     const slot = chest[idx];
-    if (slot && slot.id > 0 && slot.count > 0) {
+    if (slot && typeof slot.id === 'number' && slot.id > 0 && typeof slot.count === 'number' && slot.count > 0) {
       const id = slot.id;
       addItem(id, 1);
-      slot.count--;
+      slot.count = Math.max(0, slot.count - 1);
       if (slot.count <= 0) {
         slot.id = 0;
         slot.count = 0;
