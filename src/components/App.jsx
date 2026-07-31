@@ -275,7 +275,8 @@ export default function App() {
     return () => unsub();
   }, [currentUser]);
 
-  const showOverlay = !game.running && authStatus !== 'connecting';
+  const showOverlay = !game.running;
+  const showConnecting = showOverlay && authStatus === 'connecting';
   const showAuth = showOverlay && authStatus === 'logged_out';
   const showLobby = showOverlay && (authStatus === 'logged_in' || authStatus === 'unconfigured') && !isMasterAccount;
   const showMaster = showOverlay && authStatus === 'logged_in' && isMasterAccount;
@@ -283,9 +284,24 @@ export default function App() {
 
   return (
     <>
-      {/* AUTH / LOBBY / MASTER OVERLAY */}
+      {/* AUTH / LOBBY / MASTER / CONNECTING OVERLAY */}
       {showOverlay && (
         <div id="overlay">
+          {showConnecting && (
+            <div className="card" id="connectingCard" style={{ maxWidth: '440px', width: '90vw', padding: '35px 30px' }}>
+              <h1>VOXEL</h1>
+              <div className="tag">A MULTIPLAYER VOXEL WORLD</div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', margin: '24px 0 10px 0' }}>
+                <div style={{
+                  width: '32px', height: '32px', border: '3px solid rgba(214, 178, 120, 0.2)',
+                  borderTopColor: 'var(--gold-bright)', borderRadius: '50%', animation: 'spin 0.8s linear infinite'
+                }} />
+                <div style={{ fontSize: '12px', color: '#d8caae', letterSpacing: '1px', fontWeight: 600 }}>
+                  {syncMsg || 'Connecting to Firebase...'}
+                </div>
+              </div>
+            </div>
+          )}
           {showAuth && <AuthCard />}
           {showMaster && (
             <MasterDashboardCard userEmail={currentUser?.email || 'Master Admin'} />

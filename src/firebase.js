@@ -57,11 +57,23 @@ export function initFirebase(onStatusChange, onSyncConflict) {
 
     onStatusChange({ state: 'connecting', message: 'Connecting to Firebase...' });
 
-let docUnsubscribe = null;
+    let docUnsubscribe = null;
 
     if (authUnsubscribe) authUnsubscribe();
 
+    let hasResolved = false;
+    const fallbackTimer = setTimeout(() => {
+      if (!hasResolved) {
+        onStatusChange({ 
+          state: 'logged_out', 
+          message: 'Cloud connection timeout. Log in to sync.' 
+        });
+      }
+    }, 2500);
+
     authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      hasResolved = true;
+      clearTimeout(fallbackTimer);
       currentUser = user;
       if (user) {
         startPresenceHeartbeat();

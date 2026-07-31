@@ -174,12 +174,12 @@ export default function MasterDashboardCard({ userEmail }) {
   return (
     <div style={{
       width: 'min(1060px, 95vw)',
-      maxHeight: '94vh',
+      maxHeight: '92vh',
       background: 'rgba(14, 11, 8, 0.98)',
       border: '2px solid rgba(230, 180, 80, 0.45)',
       borderRadius: 14,
       boxShadow: '0 25px 90px rgba(0, 0, 0, 0.95), 0 0 40px rgba(230, 180, 80, 0.15)',
-      padding: '24px 28px',
+      padding: '20px 24px',
       color: '#f0e6d2',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       display: 'flex',
@@ -419,7 +419,7 @@ export default function MasterDashboardCard({ userEmail }) {
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(214,178,120,0.3)', color: '#a09075', textTransform: 'uppercase' }}>
+              <tr style={{ background: 'rgba(30,22,14,0.95)', borderBottom: '1px solid rgba(214,178,120,0.3)', color: '#a09075', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
                 <th style={{ padding: '8px', textAlign: 'left' }}>Room Name / ID</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>Owner</th>
                 <th style={{ padding: '8px', textAlign: 'left' }}>Privacy</th>
@@ -553,7 +553,7 @@ export default function MasterDashboardCard({ userEmail }) {
       <div style={{ flex: 1, overflowY: 'auto', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 8, background: 'rgba(0,0,0,0.3)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 11 }}>
           <thead>
-            <tr style={{ background: 'rgba(30,22,14,0.9)', borderBottom: '1px solid rgba(214,178,120,0.3)', color: '#d6b278', sticky: 'top' }}>
+            <tr style={{ background: 'rgba(30,22,14,0.95)', borderBottom: '1px solid rgba(214,178,120,0.3)', color: '#d6b278', position: 'sticky', top: 0, zIndex: 10 }}>
               <th style={{ padding: '10px 12px' }}>STATUS</th>
               <th style={{ padding: '10px 12px' }}>ROLE</th>
               <th style={{ padding: '10px 12px' }}>ACCOUNT EMAIL</th>
@@ -618,41 +618,43 @@ export default function MasterDashboardCard({ userEmail }) {
                     <td style={{ padding: '10px 12px', color: '#a09075' }}>
                       {u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Never'}
                     </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: 4, flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => handleToggleFreezeUser(u)}
-                        title="Freeze/unfreeze player movement"
-                        style={{
-                          background: isFrozen ? 'rgba(240,120,40,0.3)' : 'rgba(255,255,255,0.08)',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          color: isFrozen ? '#ffaa66' : '#d6b278',
-                          padding: '3px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer'
-                        }}
-                      >
-                        {isFrozen ? "❄️ Unfreeze" : "❄️ Freeze"}
-                      </button>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => handleToggleFreezeUser(u)}
+                          title="Freeze/unfreeze player movement"
+                          style={{
+                            background: isFrozen ? 'rgba(240,120,40,0.3)' : 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: isFrozen ? '#ffaa66' : '#d6b278',
+                            padding: '3px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer'
+                          }}
+                        >
+                          {isFrozen ? "❄️ Unfreeze" : "❄️ Freeze"}
+                        </button>
 
-                      <button
-                        onClick={() => handleRoleToggle(u)}
-                        style={{
-                          background: (u.role === 'admin' || u.role === 'master') ? 'rgba(180,60,60,0.2)' : 'rgba(60,180,80,0.2)',
-                          border: (u.role === 'admin' || u.role === 'master') ? '1px solid rgba(220,80,80,0.4)' : '1px solid rgba(80,220,100,0.4)',
-                          color: (u.role === 'admin' || u.role === 'master') ? '#ff9999' : '#88ff88',
-                          padding: '3px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer', fontWeight: 600
-                        }}
-                      >
-                        {(u.role === 'admin' || u.role === 'master') ? "Make Player" : "Make Admin"}
-                      </button>
+                        <button
+                          onClick={() => handleRoleToggle(u)}
+                          style={{
+                            background: (u.role === 'admin' || u.role === 'master') ? 'rgba(180,60,60,0.2)' : 'rgba(60,180,80,0.2)',
+                            border: (u.role === 'admin' || u.role === 'master') ? '1px solid rgba(220,80,80,0.4)' : '1px solid rgba(80,220,100,0.4)',
+                            color: (u.role === 'admin' || u.role === 'master') ? '#ff9999' : '#88ff88',
+                            padding: '3px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer', fontWeight: 600
+                          }}
+                        >
+                          {(u.role === 'admin' || u.role === 'master') ? "Make Player" : "Make Admin"}
+                        </button>
 
-                      <button
-                        onClick={() => setSelectedUser(selectedUser?.uid === u.uid ? null : u)}
-                        style={{
-                          background: 'rgba(214,178,120,0.15)', border: '1px solid rgba(214,178,120,0.4)',
-                          color: '#f5d77f', padding: '3px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer'
-                        }}
-                      >
-                        {selectedUser?.uid === u.uid ? "Hide Info" : "⚙️ Controls"}
-                      </button>
+                        <button
+                          onClick={() => setSelectedUser(selectedUser?.uid === u.uid ? null : u)}
+                          style={{
+                            background: 'rgba(214,178,120,0.15)', border: '1px solid rgba(214,178,120,0.4)',
+                            color: '#f5d77f', padding: '3px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer'
+                          }}
+                        >
+                          {selectedUser?.uid === u.uid ? "Hide Info" : "⚙️ Controls"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -665,7 +667,10 @@ export default function MasterDashboardCard({ userEmail }) {
       {/* ── USER SUPER-POWERS INSPECTOR MODAL ── */}
       {selectedUser && (
         <div style={{
-          marginTop: 12,
+          marginTop: 10,
+          flexShrink: 0,
+          maxHeight: '220px',
+          overflowY: 'auto',
           background: 'rgba(20,15,10,0.97)',
           border: '1px solid rgba(214,178,120,0.45)',
           borderRadius: 8,

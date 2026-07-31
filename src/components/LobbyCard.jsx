@@ -171,12 +171,12 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
   const mm = Math.floor((rawTime % 1) * 60).toString().padStart(2, '0');
 
   return (
-    <div className="card" id="lobbyCard" style={{ maxWidth: '640px', width: '92vw', padding: '25px 30px' }}>
-      <h1>VOXEL ECOSYSTEM</h1>
-      <div className="tag">A MULTIPLAYER VOXEL WORLD</div>
+    <div className="card" id="lobbyCard" style={{ maxWidth: '640px', width: '92vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden', padding: '20px 24px' }}>
+      <h1 style={{ flexShrink: 0 }}>VOXEL ECOSYSTEM</h1>
+      <div className="tag" style={{ flexShrink: 0 }}>A MULTIPLAYER VOXEL WORLD</div>
 
       {/* Navigation */}
-      <div className="dashboard-tabs">
+      <div className="dashboard-tabs" style={{ flexShrink: 0 }}>
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
         <button className="dash-tab" onClick={onOpenDirectory}>🔍 Directory</button>
         <button id="tabReviewBtn" className={`dash-tab ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>⭐ Reviews</button>

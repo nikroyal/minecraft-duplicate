@@ -85,9 +85,12 @@ body {
 }
 #overlay.hidden { display: none; }
 .card {
-  text-align: center; padding: 40px 46px;
-  border: 1px solid var(--panel-line); border-radius: 6px;
-  background: var(--panel); max-width: 440px;
+  text-align: center; padding: 24px 30px;
+  border: 1px solid var(--panel-line); border-radius: 10px;
+  background: var(--panel); max-width: 640px; width: 92vw;
+  max-height: 88vh; display: flex; flex-direction: column;
+  box-sizing: border-box; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.85);
 }
 .card h1 {
   font-size: 34px; letter-spacing: 6px; font-weight: 700;
@@ -548,9 +551,47 @@ body.touch #touch { display: block; }
   flex-direction: column;
   align-items: center;
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .dash-panel.hidden {
   display: none !important;
+}
+
+/* Custom Scrollbar for Dashboard Containers */
+.dash-panel::-webkit-scrollbar,
+.leaderboard-container::-webkit-scrollbar,
+.admin-table-container::-webkit-scrollbar,
+div::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dash-panel::-webkit-scrollbar-track,
+.leaderboard-container::-webkit-scrollbar-track,
+.admin-table-container::-webkit-scrollbar-track,
+div::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.25);
+  border-radius: 3px;
+}
+.dash-panel::-webkit-scrollbar-thumb,
+.leaderboard-container::-webkit-scrollbar-thumb,
+.admin-table-container::-webkit-scrollbar-thumb,
+div::-webkit-scrollbar-thumb {
+  background: rgba(214, 178, 120, 0.4);
+  border-radius: 3px;
+}
+.dash-panel::-webkit-scrollbar-thumb:hover,
+.leaderboard-container::-webkit-scrollbar-thumb:hover,
+.admin-table-container::-webkit-scrollbar-thumb:hover,
+div::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-bright);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Stats Grid */
