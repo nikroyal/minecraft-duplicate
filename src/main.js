@@ -36,7 +36,21 @@ import { playPlaceSound, playMineSound } from './audio.js';
 export const itemDrops = [];
 
 export function spawnItemDrop(id, count, x, y, z) {
-  if (!id || id <= 0 || count <= 0) return;
+  if (typeof id !== 'number' || isNaN(id) || (!BLOCKS[id] && !ITEMS[id])) return;
+  if (typeof count !== 'number' || isNaN(count) || count <= 0) return;
+  if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return;
+
+  // Max active entity cap protection (100 max active 3D drops) to prevent memory DoS attacks
+  if (itemDrops.length >= 100) {
+    const oldest = itemDrops.shift();
+    if (oldest && oldest.mesh) {
+      if (webgl.scene) webgl.scene.remove(oldest.mesh);
+      if (oldest.mesh.geometry) oldest.mesh.geometry.dispose();
+      if (oldest.mesh.material) oldest.mesh.material.dispose();
+    }
+  }
+
+  const safeCount = Math.min(64, Math.floor(count));
   if (typeof window !== 'undefined') window.__spawnItemDrop = spawnItemDrop;
   const col = thingColor(id);
   const placeable = isPlaceable(id);

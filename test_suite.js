@@ -544,6 +544,15 @@ async function runFullTestSuite() {
       if (player.invCount(7) !== initialPlanks) throw new Error("Invalid recipe modified inventory!");
     });
 
+    test("spawnItemDrop enforces maximum active entity cap of 100 drops to prevent entity DoS attacks", () => {
+      for (let i = 0; i < 150; i++) {
+        main.spawnItemDrop(7, 1, i, 40, i);
+      }
+      if (main.itemDrops.length > 100) {
+        throw new Error(`Item drops count ${main.itemDrops.length} exceeded max entity cap 100!`);
+      }
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
