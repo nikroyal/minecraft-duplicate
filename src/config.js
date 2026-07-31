@@ -428,10 +428,10 @@ export const BLOCK_TILES = {
   49:{all:"glass_pane"},
   50:{all:"wool_white"}, 51:{all:"wool_red"}, 52:{all:"wool_blue"},
   53:{all:"wool_green"}, 54:{all:"wool_yellow"}, 55:{all:"wool_black"},
-  56:{top:"wool_red", side:"dark_brick", bottom:"dark_brick"},
+  56:{top:"wool_red", side:"wool_red", bottom:"wool_red"},
   57:{top:"wool_red", side:"wool_white", bottom:"plank"},
-  89:{top:"dirt",side:"dirt",bottom:"dirt"},
-  90:{all:"leaves"}, 91:{all:"leaves"}, 92:{all:"leaves"}
+  89:{top:"terracotta",side:"dirt",bottom:"dirt"},
+  90:{all:"grass_side"}, 91:{all:"wool_yellow"}, 92:{all:"wool_yellow"}
 };
 
 export function tileFor(id, face){

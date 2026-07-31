@@ -334,20 +334,23 @@ export function updateMobs(dt){
         m.shootCd = 2.2 + Math.random() * 0.8;
         const mobEye = m.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
         const pTarget = player.pos.clone().add(new THREE.Vector3(0, 1.0, 0));
-        const arrDir = pTarget.sub(mobEye).normalize();
+        const spread = new THREE.Vector3((Math.random() - 0.5) * 0.12, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.12);
+        const arrDir = pTarget.sub(mobEye).normalize().add(spread).normalize();
         const spawnPos = mobEye.clone().add(arrDir.clone().multiplyScalar(0.6));
         spawnProjectile(spawnPos.x, spawnPos.y, spawnPos.z, arrDir, 18, false);
       }
     }
 
-    // Jump over obstacles when moving
+    // Jump over obstacles when moving (with jump cooldown to prevent hopping spam)
+    m.jumpCd = (m.jumpCd || 0) - dt;
     m.hitWall = false;
-    if(m.onGround && (wishX !== 0 || wishZ !== 0)){
+    if(m.onGround && m.jumpCd <= 0 && (wishX !== 0 || wishZ !== 0)){
       const aheadX = m.pos.x + wishX * 0.4;
       const aheadZ = m.pos.z + wishZ * 0.4;
       if(mobCollides(m, aheadX, m.pos.y, aheadZ)){
         m.vel.y = 7.5;
         m.onGround = false;
+        m.jumpCd = 0.6;
       }
     }
     
@@ -388,8 +391,8 @@ export function updateMobs(dt){
         continue;
       }
     } else if(m.type === "creeper" && m.fuseTimer > 0){
-      m.fuseTimer = 0;
-      stopHissSound();
+      m.fuseTimer = Math.max(0, m.fuseTimer - dt * 1.5); // Gradual fuse decay
+      if (m.fuseTimer === 0) stopHissSound();
       m.mesh.traverse(child => {
         if(child.material && child.material.emissive) child.material.emissive.setRGB(0, 0, 0);
       });

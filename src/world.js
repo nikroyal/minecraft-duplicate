@@ -1434,6 +1434,7 @@ export function buildCrackTexture(){
 export function showCrack(x,y,z,stage){
   if (!webgl.crackMesh) return;
   webgl.crackMesh.position.set(x+0.5,y+0.5,z+0.5);
+  webgl.crackMesh.scale.setScalar(1.002); // Prevent Z-fighting flickering against block surfaces
   webgl.crackTex.offset.x = stage/CRACK_STAGES;
   webgl.crackMesh.visible=true;
 }

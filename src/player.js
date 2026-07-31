@@ -383,7 +383,7 @@ export function updatePlayer(dt){
       player.onGround = true;
     }
     if(player.onGround){
-      player.coyoteTimer = 0.18;
+      player.coyoteTimer = 0.10;
     } else {
       player.coyoteTimer = Math.max(0, (player.coyoteTimer || 0) - dt);
     }
@@ -391,7 +391,7 @@ export function updatePlayer(dt){
 
   // Jump Input Buffering
   if(!blockInput && (keys["Space"] || touch.jump)){
-    player.jumpBuffer = 0.20;
+    player.jumpBuffer = 0.15;
   } else if((player.jumpBuffer || 0) > 0){
     player.jumpBuffer -= dt;
   }
@@ -432,7 +432,7 @@ export function updatePlayer(dt){
       player.vel.y = Math.min(player.vel.y + 16 * dt, 4.5); // Swimming up
       const upperAir = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.8), Math.floor(player.pos.z)) !== 8;
       if (upperAir) {
-        player.vel.y = Math.max(player.vel.y, 6.4);
+        player.vel.y = Math.max(player.vel.y, 2.8);
       }
     }
   }
@@ -510,6 +510,7 @@ export function hurtPlayer(amount, cause){
   const roundedDmg = Math.max(1, Math.round(amount));
   player.health = Math.max(0, player.health - roundedDmg);
   player.invuln = 0.5;
+  player.vel.y += 3.2; // Add vertical knockback
   playHitSound();
   flashDamage();
   updateStatsHUD();
