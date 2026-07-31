@@ -317,6 +317,13 @@ async function runFullTestSuite() {
       if (ui.uiState.furnaceOpen || ui.isMenuOpen()) throw new Error("closeFurnace failed");
     });
 
+    test("setOnboardingOpen toggles uiState.onboardingOpen and isMenuOpen", () => {
+      ui.setOnboardingOpen(true);
+      if (!ui.uiState.onboardingOpen || !ui.isMenuOpen()) throw new Error("setOnboardingOpen(true) failed");
+      ui.setOnboardingOpen(false);
+      if (ui.uiState.onboardingOpen || ui.isMenuOpen()) throw new Error("setOnboardingOpen(false) failed");
+    });
+
     test("unlockAchievement unlocks achievement keys in state", () => {
       ui.unlockAchievement("benchmark_test");
       if (!state.achievements["benchmark_test"]) throw new Error("unlockAchievement failed");

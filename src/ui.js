@@ -9,6 +9,7 @@ export const uiState = {
   craftOpen: false,
   chestOpen: false,
   furnaceOpen: false,
+  onboardingOpen: false,
   activeChestCoords: null,
   activeFurnaceCoords: null,
 };
@@ -16,6 +17,7 @@ export const uiState = {
 // Setters
 export function setChestOpen(v) { uiState.chestOpen = v; }
 export function setFurnaceOpen(v) { uiState.furnaceOpen = v; }
+export function setOnboardingOpen(v) { uiState.onboardingOpen = v; }
 export function setActiveChestCoords(v) { uiState.activeChestCoords = v; }
 export function setActiveFurnaceCoords(v) { uiState.activeFurnaceCoords = v; }
 
@@ -44,7 +46,7 @@ export function unlockAchievement(id, name, desc) {
 
 // Open/Close Actions
 export function getCraftOpen() { return uiState.craftOpen; }
-export function isMenuOpen() { return uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen || Boolean(uiState.wayfinderOpen); }
+export function isMenuOpen() { return uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen || Boolean(uiState.wayfinderOpen) || Boolean(uiState.onboardingOpen); }
 
 export function closeAllMenus() {
   uiState.craftOpen = false;

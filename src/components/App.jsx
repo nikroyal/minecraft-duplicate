@@ -20,8 +20,9 @@ import CraftingScreen from './CraftingScreen.jsx';
 import MasterDashboardCard from './MasterDashboardCard.jsx';
 import PlayerDirectoryModal from './PlayerDirectoryModal.jsx';
 import WayfinderModal from './WayfinderModal.jsx';
+import OnboardingAgentModal from './OnboardingAgentModal.jsx';
 import { 
-  uiState, setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
+  uiState, setChestOpen, setFurnaceOpen, setOnboardingOpen, setActiveChestCoords, setActiveFurnaceCoords,
   closeCraft, closeChest, closeFurnace, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
   lastAuthStatus, lastSyncConflict, activeAchievementNotification
 } from '../ui.js';
@@ -29,6 +30,7 @@ import {
 export default function App() {
   const [tick, setTick] = useState(0);
   const [showWayfinder, setShowWayfinder] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     window.__toggleWayfinder = () => {
@@ -42,9 +44,14 @@ export default function App() {
       uiState.wayfinderOpen = false;
       setShowWayfinder(false);
     };
+    window.__openOnboarding = () => {
+      setOnboardingOpen(true);
+      setShowOnboarding(true);
+    };
     return () => {
       window.__toggleWayfinder = null;
       window.__closeWayfinder = null;
+      window.__openOnboarding = null;
     };
   }, []);
 
@@ -335,6 +342,10 @@ export default function App() {
                 game.running = true;
                 game.paused = false;
                 initAudio();
+                if (typeof window !== 'undefined' && localStorage.getItem("hasCompletedOnboarding_v1") !== "true") {
+                  setOnboardingOpen(true);
+                  setShowOnboarding(true);
+                }
                 forceUpdate();
                 setTimeout(() => {
                   try {
@@ -470,6 +481,27 @@ export default function App() {
                 }}
               >
                 ▶ RESUME GAME
+              </button>
+
+              <button
+                onClick={() => {
+                  setOnboardingOpen(true);
+                  setShowOnboarding(true);
+                }}
+                style={{
+                  background: 'rgba(214,178,120,0.18)',
+                  border: '1px solid rgba(214,178,120,0.5)',
+                  color: '#f5d77f',
+                  padding: '10px 24px',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  letterSpacing: 1,
+                  transition: 'all 0.2s',
+                }}
+              >
+                📖 REPLAY GUIDE AGENT
               </button>
 
               <button
@@ -856,6 +888,16 @@ export default function App() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* ONBOARDING AGENT ASSISTANT MODAL */}
+      {showOnboarding && (
+        <OnboardingAgentModal
+          onComplete={() => {
+            setOnboardingOpen(false);
+            setShowOnboarding(false);
+          }}
+        />
       )}
     </>
   );
