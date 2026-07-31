@@ -23,8 +23,8 @@ service cloud.firestore {
     // 1. User Documents (Singleplayer Saves, Profile, Messages, Invites)
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == 'player') || isAdmin();
-      allow update: if (isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)) || isAdmin();
+      allow create: if (isOwner(userId) && (!request.resource.data.keys().hasAny(['role', 'inventoryAdditions', 'healthOverride', 'teleportTarget', 'kickSignal', 'frozen']) || request.resource.data.role == 'player')) || isAdmin();
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'inventoryAdditions', 'healthOverride', 'teleportTarget', 'kickSignal', 'frozen'])) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
 

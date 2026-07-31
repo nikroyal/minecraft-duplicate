@@ -511,6 +511,15 @@ async function runFullTestSuite() {
       if (state.player.flying !== false) throw new Error("Survival mode failed to restrict creative flight!");
     });
 
+    test("sanitizeSecurityInput strips zero-width control characters and suppresses repeat text spam", () => {
+      const zeroWidthInput = "Hello\u200BWorld\uFEFF!";
+      const spamInput = "A".repeat(50);
+      const cleanZero = firebase.sanitizeSecurityInput(zeroWidthInput);
+      const cleanSpam = firebase.sanitizeSecurityInput(spamInput);
+      if (cleanZero.includes('\u200B') || cleanZero.includes('\uFEFF')) throw new Error("Zero-width characters survived sanitization!");
+      if (cleanSpam.length > 10) throw new Error("Character repeat spam not suppressed!");
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
