@@ -9,7 +9,7 @@ An advanced, browser-based 3D Voxel Sandbox game built with **Three.js**, **Reac
 - **Infinite Voxel World**: Procedurally generated terrain with biomes, caves, mountains, trees, ores, water bodies, and custom sub-block geometry (slabs, stairs, trapdoors, fences, glass panes, crops).
 - **Minecraft Java Edition Water Shader**: Dedicated outer-shell greedy meshed water, animated UV scrolling (horizontal surface drift & vertical waterfalls), dual-layer normal map ripples, Schlick Fresnel reflections ($F_0 = 0.02$), tightened specular sun glints, and depth-based color transitions from vibrant turquoise shallow water to clear deep blue oceans.
 - **Authentic Texture Atlas System**: Procedural 16x16 pixel-art canvas painter rendering real texture faces for all 60+ blocks and ores (Diamond Ore cyan gems, Crafting Table tools, Furnace fire grates, Chest latches, TNT, Bookshelves, Wool colors) across 3D swatches, hotbar UI, held hand meshes, and floating 3D world item drops.
-- **Player Physics & Collision Engine**: Deterministic AABB collision resolution, ground support grid sampling, 1-block step-up climbing, jump buffering (150ms), coyote timer (120ms), and fluid swimming with water exit leaping.
+- **Player Physics & Collision Engine**: Deterministic AABB collision resolution, ground support grid sampling, 0.5-block step-up climbing (slabs/carpets), jump buffering (150ms), coyote timer (120ms), and fluid swimming with water exit leaping.
 - **Full Gameplay Loop**:
   - **Crafting**: 3x3 Crafting Table grid for tools, weapons, armor, furniture, and building materials.
   - **Smelting & Cooking**: 2-slot Furnace interface with fuel and input smelting progress.
@@ -46,7 +46,7 @@ An advanced, browser-based 3D Voxel Sandbox game built with **Three.js**, **Reac
 
 ### Ground Detection & Collision Resolution
 - **Ground Probing**: Probes a 4-point foot grid directly beneath the player's AABB (`py - 0.01`). The player is declared grounded (`onGround = true`) only when feet rest within $0.08$ blocks of a solid top surface.
-- **Step-Up Resolution**: Allows grounded players walking forward into 0.5-block slabs, carpets, trapdoors, or 1-block steps to smoothly climb onto the step top. Step-up is strictly disabled for airborne players to prevent mid-air wall levitation.
+- **Step-Up Resolution**: Allows grounded players walking forward into 0.5-block slabs, carpets, and trapdoors to smoothly climb onto the step top. 1-block steps and mountains require pressing `Space` to jump. Step-up is strictly disabled for airborne players to prevent mid-air wall levitation.
 - **Jump Buffering**: Pressing `Space` up to $150\text{ms}$ before touching the ground buffers the jump command, executing an instant jump upon landing.
 - **Coyote Timer**: Allows executing a jump up to $120\text{ms}$ after walking off a block edge.
 - **Fluid Swimming**: Submerging in water reduces gravity drag. Holding `Space` swims upward at $+4.5\text{ m/s}$. Reaching the water surface triggers a $+6.4\text{ m/s}$ exit leap boost onto adjacent land.

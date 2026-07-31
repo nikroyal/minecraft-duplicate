@@ -204,6 +204,57 @@ async function runFullTestSuite() {
       }
     });
 
+    test("player stops at 1-block step when walking without space jump", () => {
+      for (let x = 0; x < 20; x++) {
+        for (let z = 0; z < 20; z++) {
+          world.setBlock(x, 9, z, 1);
+          for (let y = 10; y < 20; y++) world.setBlock(x, y, z, 0);
+        }
+      }
+      world.setBlock(6, 10, 5, 1); // 1-block step at x=6, y=10
+      state.player.pos.set(5.5, 10.0, 5.5);
+      state.player.vel.set(0, 0, 0);
+      state.player.onGround = true;
+      state.player.yaw = -Math.PI / 2; // facing positive X
+      state.keys["KeyW"] = true;
+      state.keys["Space"] = false;
+      state.game.paused = false;
+
+      for (let i = 0; i < 10; i++) {
+        player.updatePlayer(0.016);
+      }
+      // Player should be stopped by wall at x=6 and remain on ground level y=10.0
+      if (state.player.pos.y > 10.05) {
+        throw new Error(`Player auto-stepped 1-block step without jumping! pos.y: ${state.player.pos.y}`);
+      }
+    });
+
+    test("player automatically steps up 0.5-block slab while walking", () => {
+      for (let x = 0; x < 20; x++) {
+        for (let z = 0; z < 20; z++) {
+          world.setBlock(x, 9, z, 1);
+          for (let y = 10; y < 20; y++) world.setBlock(x, y, z, 0);
+        }
+      }
+      const slabId = Number(Object.keys(config.BLOCKS).find(id => config.BLOCKS[id]?.shape === 'slab') || 201);
+      world.setBlock(6, 10, 5, slabId);
+      state.player.pos.set(5.68, 10.0, 5.5);
+      state.player.vel.set(0, 0, 0);
+      state.player.onGround = true;
+      state.player.yaw = -Math.PI / 2; // facing positive X
+      state.keys["KeyW"] = true;
+      state.keys["Space"] = false;
+      state.game.paused = false;
+
+      for (let i = 0; i < 10; i++) {
+        player.updatePlayer(0.016);
+      }
+      // Player should step up onto slab at y=10.5
+      if (state.player.pos.y < 10.4) {
+        throw new Error(`Player failed to step up 0.5-block slab! pos.y: ${state.player.pos.y}`);
+      }
+    });
+
     // TEST SUITE 4: MOBS & COMBAT SYSTEM
     console.log("\n--- TEST SUITE 4: MOBS & COMBAT SYSTEM ---");
     test("spawnMob creates pig, sheep, zombie, creeper, skeleton", () => {

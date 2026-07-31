@@ -16,7 +16,7 @@ const JUMP = 8.4;
 const SPEED = 4.6;
 const SPRINT = 7.4;
 const FLYSPEED = 10;
-const STEP_HEIGHT = 1.05;
+const STEP_HEIGHT = 0.6;
 
 export function spawnPlayer(){
   if (player.spawnPoint) {

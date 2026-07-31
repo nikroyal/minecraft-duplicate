@@ -705,7 +705,7 @@ export default function App() {
 
                     <h3>🏃 Movement &amp; Parkour Physics</h3>
                     <ul>
-                      <li><strong>Ground Step-Up:</strong> Step up 0.5-block slabs, carpets, trapdoors, and 1-block steps while walking grounded.</li>
+                      <li><strong>Ground Step-Up:</strong> Step up 0.5-block slabs, carpets, and trapdoors while walking grounded (1-block mountain steps require Space to jump).</li>
                       <li><strong>Jump Buffering:</strong> Pressing <span className="m-key">Space</span> up to 150ms before touching the ground triggers an instant jump upon landing.</li>
                       <li><strong>Coyote Timer:</strong> Allows jumping up to 120ms after walking off ledges or block edges.</li>
                       <li><strong>Fluid Swimming:</strong> Hold <span className="m-key">Space</span> to swim up. Leaping out of water at the surface gives a boost to land on terrain.</li>
