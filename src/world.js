@@ -163,6 +163,10 @@ export function getBlock(wx,wy,wz){
 }
 
 export function setBlock(wx,wy,wz,v, record, scheduleSaveCallback){
+  if (typeof wy !== 'number' || isNaN(wy) || wy < 0 || wy >= HEIGHT) return;
+  if (typeof v !== 'number' || isNaN(v) || v < 0 || v > 255) return;
+  if (wy === 0 && v === AIR && game.survival) return; // Protect bedrock at Y=0 in survival mode
+
   const cx=Math.floor(wx/CHUNK), cz=Math.floor(wz/CHUNK);
   let ch=getChunk(cx,cz);
   if(!ch) {
@@ -1666,5 +1670,27 @@ export function tickWater(){
   // Debug telemetry
   if (typeof window !== 'undefined') {
     window.__lastWaterTick = { changed: changed.size, dirtyChunks: dirtyChunks.size };
+  }
+}
+
+export function validateChestState() {
+  if (!world.chests) return;
+  for (const coords in world.chests) {
+    const slots = world.chests[coords];
+    if (!Array.isArray(slots)) {
+      delete world.chests[coords];
+      continue;
+    }
+    slots.forEach(slot => {
+      if (slot) {
+        if (typeof slot.id !== 'number' || isNaN(slot.id) || slot.id < 0 || slot.id > 255) slot.id = 0;
+        if (typeof slot.count !== 'number' || isNaN(slot.count) || slot.count <= 0) {
+          slot.id = 0;
+          slot.count = 0;
+        } else if (slot.count > 64) {
+          slot.count = 64;
+        }
+      }
+    });
   }
 }

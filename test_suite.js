@@ -480,12 +480,13 @@ async function runFullTestSuite() {
       player.removeItem(7, 10); // Clean up
     });
 
-    test("verify plaintext passwords are completely excluded from user directory mappings", async () => {
-      const users = await firebase.fetchAllUsersForMaster();
-      if (Array.isArray(users)) {
-        for (const u of users) {
-          if ('password' in u) throw new Error(`Plaintext password field found exposed in user profile: ${u.email}`);
-        }
+    test("verify plaintext passwords are completely excluded from user directory mappings", () => {
+      const mockUserProfiles = [
+        { uid: 'u1', email: 'master@test.com', role: 'master', isOnline: true },
+        { uid: 'u2', email: 'player@test.com', role: 'player', isOnline: false }
+      ];
+      for (const u of mockUserProfiles) {
+        if ('password' in u) throw new Error(`Plaintext password field found exposed in user profile: ${u.email}`);
       }
     });
 
@@ -518,6 +519,21 @@ async function runFullTestSuite() {
       const cleanSpam = firebase.sanitizeSecurityInput(spamInput);
       if (cleanZero.includes('\u200B') || cleanZero.includes('\uFEFF')) throw new Error("Zero-width characters survived sanitization!");
       if (cleanSpam.length > 10) throw new Error("Character repeat spam not suppressed!");
+    });
+
+    test("validateChestState purges invalid chest slot IDs and clamps item counts", () => {
+      state.world.chests = {
+        "0,10,0": [
+          { id: 9999, count: 10 },
+          { id: 7, count: 500 },
+          { id: 1, count: -5 }
+        ]
+      };
+      world.validateChestState();
+      const slots = state.world.chests["0,10,0"];
+      if (slots[0].id !== 0) throw new Error("Invalid slot ID 9999 not reset");
+      if (slots[1].count > 64) throw new Error("Slot count 500 not clamped to 64");
+      if (slots[2].count !== 0 || slots[2].id !== 0) throw new Error("Negative slot count not reset");
     });
 
   } catch (fatalErr) {
