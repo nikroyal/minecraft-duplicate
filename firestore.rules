@@ -23,16 +23,26 @@ service cloud.firestore {
     // 1. User Documents (Singleplayer Saves, Profile, Messages, Invites)
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == 'player') || isAdmin();
+      allow update: if (isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     // 2. Custom Team & Group Rooms
     match /rooms/{roomId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.ownerUid == request.auth.uid || 
+        isAdmin() || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['edits', 'chests', 'furnaces', 'members', 'lastActive'])
+      );
+      allow delete: if isSignedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin() || request.resource.data.deleted == true);
       
       // Presence sub-collection for real-time 3D multiplayer player coordinates
       match /presence/{playerId} {
-        allow read, write: if isSignedIn();
+        allow read: if isSignedIn();
+        allow write: if isOwner(playerId) || isAdmin();
       }
     }
 
@@ -43,8 +53,9 @@ service cloud.firestore {
 
     // 4. Community Reviews & Bug Reports
     match /reviews/{reviewId} {
-      allow create: if isSignedIn();
-      allow read, update, delete: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     // 5. Server Settings & Global Broadcast Banners
@@ -54,3 +65,4 @@ service cloud.firestore {
     }
   }
 }
+

@@ -3,6 +3,7 @@ import {
   getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
+  sendPasswordResetEmail,
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
@@ -182,15 +183,28 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
   }
 }
 
+export function sanitizeSecurityInput(str, maxLen = 1000) {
+  if (typeof str !== 'string') return '';
+  return str
+    .slice(0, maxLen)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&#34;')
+    .replace(/'/g, '&#39;')
+    .replace(/\//g, '&#x2F;')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
 export async function loginWithEmail(email, password) {
   if (!auth) return Promise.reject(new Error("Auth not initialized"));
   const res = await signInWithEmailAndPassword(auth, email, password);
   if (db && res && res.user) {
     try {
       const userDocRef = doc(db, 'users', res.user.uid);
-      await setDoc(userDocRef, { email, password, lastLoginAt: new Date().toISOString() }, { merge: true });
+      await setDoc(userDocRef, { email: sanitizeSecurityInput(email, 120), lastLoginAt: new Date().toISOString() }, { merge: true });
     } catch (e) {
-      console.warn("Failed to store password in Firestore on login:", e);
+      console.warn("Failed to store user state in Firestore on login:", e);
     }
   }
   return res;
@@ -202,12 +216,17 @@ export async function signupWithEmail(email, password) {
   if (db && res && res.user) {
     try {
       const userDocRef = doc(db, 'users', res.user.uid);
-      await setDoc(userDocRef, { email, password, role: 'player', createdAt: new Date().toISOString() }, { merge: true });
+      await setDoc(userDocRef, { email: sanitizeSecurityInput(email, 120), role: 'player', createdAt: new Date().toISOString() }, { merge: true });
     } catch (e) {
-      console.warn("Failed to store password in Firestore on signup:", e);
+      console.warn("Failed to store user state in Firestore on signup:", e);
     }
   }
   return res;
+}
+
+export async function resetUserPassword(email) {
+  if (!auth) return Promise.reject(new Error("Auth not initialized"));
+  return sendPasswordResetEmail(auth, email);
 }
 
 export async function logoutUser() {
@@ -374,7 +393,6 @@ export async function fetchAllUsersForMaster() {
       list.push({
         uid: docSnap.id,
         email: data.email || 'Unknown User',
-        password: data.password || '••••••••',
         role: data.role || 'player',
         isOnline: isRecentlyActive,
         lastActive: data.lastActive || null,
@@ -447,12 +465,14 @@ export function subscribeToWorldSettings(callback) {
 }
 
 export async function sendAdminBroadcast(text, senderEmail) {
-  if (!db || !text.trim()) return;
+  if (!db || !text || !text.trim()) return;
+  const sanitizedText = sanitizeSecurityInput(text.trim(), 500);
+  if (!sanitizedText) return;
   try {
     const msgObj = {
       id: 'b_' + Date.now(),
-      text: text.trim(),
-      sender: senderEmail || 'Admin Server',
+      text: sanitizedText,
+      sender: sanitizeSecurityInput(senderEmail || 'Admin Server', 100),
       timestamp: new Date().toISOString(),
       type: 'broadcast'
     };
@@ -475,12 +495,14 @@ export async function sendAdminBroadcast(text, senderEmail) {
 }
 
 export async function sendAdminDirectMessage(targetUid, text, senderEmail) {
-  if (!db || !targetUid || !text.trim()) return;
+  if (!db || !targetUid || !text || !text.trim()) return;
+  const sanitizedText = sanitizeSecurityInput(text.trim(), 500);
+  if (!sanitizedText) return;
   try {
     const msgObj = {
       id: 'msg_' + Date.now(),
-      text: text.trim(),
-      sender: senderEmail || 'Admin Server',
+      text: sanitizedText,
+      sender: sanitizeSecurityInput(senderEmail || 'Admin Server', 100),
       timestamp: new Date().toISOString(),
       type: 'direct'
     };
@@ -501,8 +523,8 @@ export async function sendAdminDirectMessage(targetUid, text, senderEmail) {
 export async function createTeamRoom(name, description, isPrivate = false) {
   if (!db || !currentUser) return null;
   try {
-    const cleanName = String(name || 'Team Room').trim().slice(0, 40).replace(/<[^>]*>?/gm, '');
-    const cleanDesc = String(description || 'Custom Voxel World').trim().slice(0, 100).replace(/<[^>]*>?/gm, '');
+    const cleanName = sanitizeSecurityInput(String(name || 'Team Room').trim(), 40);
+    const cleanDesc = sanitizeSecurityInput(String(description || 'Custom Voxel World').trim(), 100);
     const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
     const roomRef = doc(db, 'rooms', roomId);
     const roomData = {
@@ -619,8 +641,9 @@ export function subscribeToRoomPresence(roomId, callback) {
 export async function updateUserBio(bioText) {
   if (!db || !currentUser) return;
   try {
+    const cleanBio = sanitizeSecurityInput(String(bioText || '').trim(), 200);
     const userRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userRef, { bio: bioText.trim() }, { merge: true });
+    await setDoc(userRef, { bio: cleanBio }, { merge: true });
     console.log("Updated bio successfully.");
   } catch (err) {
     console.error("Failed to update bio:", err);
@@ -670,7 +693,7 @@ export function subscribeToUserInvites(uid, callback) {
 
 export async function submitGameReview(rating, text) {
   if (!db || !currentUser) return { success: false, msg: "Must be logged in to submit a review." };
-  const cleanText = (text || '').trim();
+  const cleanText = sanitizeSecurityInput((text || '').trim(), 1000);
   if (cleanText.length < 10) {
     return { success: false, msg: "Please write a descriptive review (minimum 10 characters)." };
   }

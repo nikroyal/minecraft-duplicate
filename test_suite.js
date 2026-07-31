@@ -445,6 +445,50 @@ async function runFullTestSuite() {
       if (world.getBlock(5, 0, 5) !== 30) throw new Error("Massive explosion destroyed bedrock");
     });
 
+    // TEST SUITE 15: SECURITY, SANITIZATION & ANTI-CHEAT VALIDATION
+    console.log("\n--- TEST SUITE 15: SECURITY, SANITIZATION & ANTI-CHEAT VALIDATION ---");
+    const firebase = await import('./src/firebase.js');
+
+    test("sanitizeSecurityInput escapes HTML and script injection attempts", () => {
+      const malicious = "<script>alert('hack')</script><iframe src=\"javascript:alert(1)\"></iframe>";
+      const clean = firebase.sanitizeSecurityInput(malicious);
+      if (clean.includes('<script>') || clean.includes('<iframe>') || clean.includes('"') || clean.includes("'")) {
+        throw new Error(`XSS payload not properly escaped! Result: ${clean}`);
+      }
+      if (!clean.includes('&lt;script&gt;')) throw new Error("Tag escaping failed");
+    });
+
+    test("anti-cheat addItem rejects invalid item IDs and negative/NaN quantities", () => {
+      const initialPlanks = player.invCount(7);
+      player.addItem(-999, 100); // Invalid item ID
+      player.addItem(7, -50);    // Negative quantity exploit attempt
+      player.addItem(7, NaN);    // NaN quantity exploit attempt
+      player.addItem(7, Infinity); // Infinity quantity exploit attempt
+      if (player.invCount(7) !== initialPlanks) {
+        throw new Error(`Inventory exploited by invalid addItem input! Count: ${player.invCount(7)}`);
+      }
+    });
+
+    test("anti-cheat removeItem rejects invalid item IDs and non-numeric quantities", () => {
+      player.addItem(7, 10);
+      const before = player.invCount(7);
+      player.removeItem(7, -100); // Attempt to add items using negative removal
+      player.removeItem(7, NaN);
+      if (player.invCount(7) !== before) {
+        throw new Error("Inventory altered by invalid removeItem input!");
+      }
+      player.removeItem(7, 10); // Clean up
+    });
+
+    test("verify plaintext passwords are completely excluded from user directory mappings", async () => {
+      const users = await firebase.fetchAllUsersForMaster();
+      if (Array.isArray(users)) {
+        for (const u of users) {
+          if ('password' in u) throw new Error(`Plaintext password field found exposed in user profile: ${u.email}`);
+        }
+      }
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);

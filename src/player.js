@@ -600,9 +600,11 @@ export function respawnPlayer(){
 
 export function invCount(id){ return inventory[id] || 0; }
 export function addItem(id, n=1){ 
-  if (n <= 0) return;
+  if (typeof id !== 'number' || isNaN(id) || (!BLOCKS[id] && !ITEMS[id])) return;
+  if (typeof n !== 'number' || isNaN(n) || !isFinite(n) || n <= 0) return;
+  const countToAdd = Math.floor(n);
   const current = inventory[id] || 0;
-  const next = current + n;
+  const next = current + countToAdd;
   if (next > 64) {
     inventory[id] = 64;
     const overflow = next - 64;
@@ -615,8 +617,10 @@ export function addItem(id, n=1){
   refreshCounts(); 
 }
 export function removeItem(id, n=1){ 
-  if (n <= 0) return;
-  inventory[id] = Math.max(0, (inventory[id] || 0) - n); 
+  if (typeof id !== 'number' || isNaN(id)) return;
+  if (typeof n !== 'number' || isNaN(n) || !isFinite(n) || n <= 0) return;
+  const countToRemove = Math.floor(n);
+  inventory[id] = Math.max(0, (inventory[id] || 0) - countToRemove); 
   if(inventory[id] === 0) delete inventory[id]; 
   refreshCounts(); 
 }
