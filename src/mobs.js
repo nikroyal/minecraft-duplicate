@@ -192,7 +192,9 @@ export function mobMoveAxis(m, axis, amt){
 }
 
 export function spawnMob(type, x, y, z){
-  if(game.mobs.length >= MAX_MOBS) return null;
+  if (!MOB_TYPES[type]) return null;
+  if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return null;
+  if (game.mobs.length >= MAX_MOBS) return null;
   const def = { ...MOB_TYPES[type] };
   const mesh = makeMobMesh(type);
   mesh.position.set(x, y, z);

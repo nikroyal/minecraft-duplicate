@@ -553,6 +553,12 @@ async function runFullTestSuite() {
       }
     });
 
+    test("spawnMob rejects invalid mob types and non-finite coordinates", () => {
+      const mob1 = mobs.spawnMob("invalid_dragon", 0, 40, 0);
+      const mob2 = mobs.spawnMob("zombie", NaN, 40, 0);
+      if (mob1 !== null || mob2 !== null) throw new Error("spawnMob allowed invalid mob type or NaN coordinate!");
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
