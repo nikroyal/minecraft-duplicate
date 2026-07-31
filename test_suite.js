@@ -536,6 +536,14 @@ async function runFullTestSuite() {
       if (slots[2].count !== 0 || slots[2].id !== 0) throw new Error("Negative slot count not reset");
     });
 
+    test("craft function rejects invalid or unverified recipe objects", () => {
+      const initialPlanks = player.invCount(7);
+      ui.craft(null);
+      ui.craft({});
+      ui.craft({ in: { 5: 1 }, out: 999999, qty: 10 });
+      if (player.invCount(7) !== initialPlanks) throw new Error("Invalid recipe modified inventory!");
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);

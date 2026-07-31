@@ -1,6 +1,7 @@
 import { keys, touch, player, inventory, hotbar, game, webgl, SAVE_KEY, world, reactBridge, toolDurability, crops, achievements } from './state.js';
-import { thingName, isPlaceable, craftableRecipes, BLOCKS } from './config.js';
-import { invCount, addItem, removeItem } from './player.js';
+import { thingName, isPlaceable, craftableRecipes, BLOCKS, ITEMS } from './config.js';
+import { invCount, addItem, removeItem, validateInventoryState } from './player.js';
+import { validateChestState } from './world.js';
 import { initFirebase, saveWorldToCloud, saveRoomWorldToCloud } from './firebase.js';
 
 // Mutable UI state - use setters to modify from outside (ES module immutability rule)
@@ -184,13 +185,14 @@ export function toast(msg) {
 
 // Craft Item
 export function craft(recipe) {
+  if (!recipe || !recipe.in || typeof recipe.out !== 'number' || (!BLOCKS[recipe.out] && !ITEMS[recipe.out])) return;
   for (const id in recipe.in) {
     if (invCount(Number(id)) < recipe.in[id]) return;
   }
   for (const id in recipe.in) {
     removeItem(Number(id), recipe.in[id]);
   }
-  addItem(recipe.out, recipe.qty);
+  addItem(recipe.out, Math.max(1, Math.min(64, recipe.qty || 1)));
 
   if (isPlaceable(recipe.out) && !hotbar.includes(recipe.out)) {
     let slot = hotbar.findIndex(id => invCount(id) === 0);
@@ -209,6 +211,10 @@ export function craft(recipe) {
 
 // Save / Load Progress
 export function saveWorld() {
+  // Execute pre-save anti-tamper state sanitization
+  validateInventoryState();
+  validateChestState();
+
   let minedBlocks = 0;
   let placedBlocks = 0;
   const edits = world.edits || {};
