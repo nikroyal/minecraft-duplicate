@@ -1,6 +1,32 @@
 import React, { useState } from 'react';
 import { loginWithEmail, signupWithEmail } from '../firebase.js';
 
+function formatAuthErrorMessage(err) {
+  if (!err) return "An unknown error occurred. Please try again.";
+  const code = (err.code || err.message || '').toLowerCase();
+
+  if (code.includes('user-not-found') || code.includes('invalid-credential') || code.includes('wrong-password')) {
+    return "⚠️ Account not found or password incorrect. Check your email & password, or click Register to create a new account!";
+  }
+  if (code.includes('invalid-email')) {
+    return "⚠️ Please enter a valid email address (e.g. player@example.com).";
+  }
+  if (code.includes('email-already-in-use')) {
+    return "⚠️ This email is already registered! Please click Sign In instead.";
+  }
+  if (code.includes('weak-password')) {
+    return "⚠️ Password is too weak. Please use at least 6 characters.";
+  }
+  if (code.includes('network-request-failed')) {
+    return "⚠️ Connection error. Please check your internet connection and try again.";
+  }
+  if (code.includes('too-many-requests')) {
+    return "⚠️ Too many attempts. Please wait a moment before trying again.";
+  }
+
+  return err.message ? err.message.replace(/^Firebase:\s*/i, '').replace(/\(auth\/[a-z-]+\)\.?/i, '').trim() : "Authentication failed.";
+}
+
 export default function AuthCard({ authStatus }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -9,26 +35,35 @@ export default function AuthCard({ authStatus }) {
 
   const showError = (msg) => {
     setError(msg);
-    setTimeout(() => setError(''), 6000);
+    setTimeout(() => setError(''), 7000);
+  };
+
+  const validateEmail = (val) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(val);
   };
 
   const handleSignIn = () => {
-    if (!email.trim() || !password) return showError("Please enter email and password.");
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) return showError("Please enter both email and password.");
+    if (!validateEmail(cleanEmail)) return showError("⚠️ Please enter a valid email format (e.g. player@example.com).");
     setLoading(true);
-    loginWithEmail(email.trim(), password)
+    loginWithEmail(cleanEmail, password)
       .catch(err => {
-        showError(err.message);
+        showError(formatAuthErrorMessage(err));
       })
       .finally(() => setLoading(false));
   };
 
   const handleRegister = () => {
-    if (!email.trim() || !password) return showError("Please enter email and password.");
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) return showError("Please enter both email and password.");
+    if (!validateEmail(cleanEmail)) return showError("⚠️ Please enter a valid email format (e.g. player@example.com).");
     if (password.length < 6) return showError("Password must be at least 6 characters.");
     setLoading(true);
-    signupWithEmail(email.trim(), password)
+    signupWithEmail(cleanEmail, password)
       .catch(err => {
-        showError(err.message);
+        showError(formatAuthErrorMessage(err));
       })
       .finally(() => setLoading(false));
   };
