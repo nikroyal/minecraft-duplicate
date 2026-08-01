@@ -591,24 +591,25 @@ export default function App() {
             </button>
           )}
 
-          {/* Sliding Side-Panel Overlay */}
-          {showChatSidePanel && (
-            <div style={{
-              position: 'fixed', top: '16px', right: '16px', bottom: '16px',
-              width: '380px', maxWidth: '90vw', zIndex: 130
-            }}>
-              <ChatPanel
-                currentUser={currentUser}
-                isSidePanel={true}
-                initialTargetUser={chatTargetUser}
-                onClose={() => {
-                  setShowChatSidePanel(false);
-                  uiState.chatOpen = false;
-                }}
-              />
-            </div>
-          )}
         </>
+      )}
+
+      {/* Sliding Side-Panel Overlay — Available in both Lobby and In-Game */}
+      {showChatSidePanel && (
+        <div style={{
+          position: 'fixed', top: '16px', right: '16px', bottom: '16px',
+          width: '380px', maxWidth: '90vw', zIndex: 9999
+        }}>
+          <ChatPanel
+            currentUser={currentUser}
+            isSidePanel={true}
+            initialTargetUser={chatTargetUser}
+            onClose={() => {
+              setShowChatSidePanel(false);
+              uiState.chatOpen = false;
+            }}
+          />
+        </div>
       )}
 
       {/* CHEST MODAL */}

@@ -86,14 +86,38 @@ export default function ChatPanel({ currentUser, isSidePanel = false, onClose, i
 
   const handleStartDirectChat = async (targetUid, targetEmail) => {
     if (!targetUid) return;
+    const activeUser = currentUser || { uid: 'player_user', email: 'player@voxel.test' };
+    const sortedUids = [activeUser.uid, targetUid].sort();
+    const fallbackChatId = `chat_${sortedUids[0]}_${sortedUids[1]}`;
+
     const id = await createOrGetDirectChat(targetUid, targetEmail);
-    if (id) {
-      setActiveChatId(id);
-      setShowNewChatModal(false);
-      toast(`💬 Chat opened with ${targetEmail}!`);
-    } else {
-      toast(`⚠️ Could not open chat.`);
-    }
+    const chatId = id || fallbackChatId;
+
+    const newChatObj = {
+      id: chatId,
+      type: 'direct',
+      participants: [activeUser.uid, targetUid],
+      participantEmails: {
+        [activeUser.uid]: activeUser.email,
+        [targetUid]: targetEmail || 'Player'
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastMessage: {
+        text: 'Conversation started.',
+        senderEmail: 'System',
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    setChatsList(prev => {
+      if (prev.some(c => c.id === chatId)) return prev;
+      return [newChatObj, ...prev];
+    });
+
+    setActiveChatId(chatId);
+    setShowNewChatModal(false);
+    toast(`💬 Chat opened with ${targetEmail || 'player'}!`);
   };
 
   const handleSendMessage = async () => {

@@ -44,6 +44,8 @@ export default function PlayerDirectoryModal({ currentUser, onClose, onOpenChatW
     setEditingBio(false);
   };
 
+  const [sentFriendRequests, setSentFriendRequests] = useState({});
+
   const handleInvite = async (targetPlayer) => {
     let roomId = game.activeRoomId;
     let roomName = game.activeRoomInfo?.name || 'Voxel Team Room';
@@ -65,15 +67,14 @@ export default function PlayerDirectoryModal({ currentUser, onClose, onOpenChatW
 
     setInvitingState(prev => ({ ...prev, [targetPlayer.uid]: 'sending' }));
 
-    const ok = await sendRoomInvite(targetPlayer.uid, roomId, roomName);
-    if (ok) {
-      toast(`✉️ Sent room invite to ${targetPlayer.email}!`);
+    const res = await sendRoomInvite(targetPlayer.uid, roomId, roomName);
+    toast(res?.msg || (res?.success ? `✉️ Sent room invite to ${targetPlayer.email}!` : `⚠️ Could not send invite.`));
+    if (res?.success) {
       setInvitingState(prev => ({ ...prev, [targetPlayer.uid]: 'sent' }));
       setTimeout(() => {
         setInvitingState(prev => ({ ...prev, [targetPlayer.uid]: null }));
-      }, 4000);
+      }, 5000);
     } else {
-      toast(`⚠️ Could not send invite to ${targetPlayer.email}. (Rate limit active)`);
       setInvitingState(prev => ({ ...prev, [targetPlayer.uid]: null }));
     }
   };
@@ -82,6 +83,9 @@ export default function PlayerDirectoryModal({ currentUser, onClose, onOpenChatW
     setFriendActionLoading(prev => ({ ...prev, [targetPlayer.uid]: true }));
     const res = await sendFriendRequest(targetPlayer.uid, targetPlayer.email);
     toast(res.msg);
+    if (res.success) {
+      setSentFriendRequests(prev => ({ ...prev, [targetPlayer.uid]: true }));
+    }
     setFriendActionLoading(prev => ({ ...prev, [targetPlayer.uid]: false }));
   };
 
@@ -254,13 +258,17 @@ export default function PlayerDirectoryModal({ currentUser, onClose, onOpenChatW
                         {!isFriend && (
                           <button
                             onClick={() => handleAddFriend(p)}
-                            disabled={friendActionLoading[p.uid]}
+                            disabled={friendActionLoading[p.uid] || sentFriendRequests[p.uid]}
                             style={{
-                              background: 'rgba(214,178,120,0.15)', border: '1px solid var(--slot-line)', color: '#ccc',
-                              padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+                              background: sentFriendRequests[p.uid] ? 'rgba(76,217,100,0.22)' : 'rgba(214,178,120,0.15)',
+                              border: sentFriendRequests[p.uid] ? '1px solid #4cd964' : '1px solid var(--slot-line)',
+                              color: sentFriendRequests[p.uid] ? '#4cd964' : '#ccc',
+                              padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold',
+                              cursor: sentFriendRequests[p.uid] ? 'default' : 'pointer',
+                              transition: 'all 0.2s'
                             }}
                           >
-                            + Add Friend
+                            {friendActionLoading[p.uid] ? "⏳ Sending..." : sentFriendRequests[p.uid] ? "✅ Request Sent" : "➕ Add Friend"}
                           </button>
                         )}
                         <button
@@ -270,11 +278,12 @@ export default function PlayerDirectoryModal({ currentUser, onClose, onOpenChatW
                             background: inviteStatus === 'sent' ? 'rgba(57,255,20,0.25)' : 'rgba(76,217,100,0.18)',
                             border: inviteStatus === 'sent' ? '1px solid #39ff14' : '1px solid #4cd964',
                             color: inviteStatus === 'sent' ? '#39ff14' : '#4cd964',
-                            padding: '6px 12px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer',
+                            padding: '6px 12px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold',
+                            cursor: inviteStatus === 'sent' ? 'default' : 'pointer',
                             transition: 'all 0.2s'
                           }}
                         >
-                          {inviteStatus === 'sending' ? '⏳ Sending...' : inviteStatus === 'sent' ? '✓ Invited!' : '✉️ Send Room Invite'}
+                          {inviteStatus === 'sending' ? '⏳ Sending...' : inviteStatus === 'sent' ? '✅ Invite Sent!' : '✉️ Send Room Invite'}
                         </button>
                       </div>
                     )}
