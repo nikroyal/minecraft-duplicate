@@ -84,6 +84,12 @@ export default function App() {
   const [userMessages, setUserMessages] = useState([]);
   const [latestBroadcastBanner, setLatestBroadcastBanner] = useState(null);
 
+  // Retention & Cosmetics Modals State
+  const [showDailyModal, setShowDailyModal] = useState(false);
+  const [showCosmeticsModal, setShowCosmeticsModal] = useState(false);
+  const [starterQuestState, setStarterQuestState] = useState({ currentIndex: 0, progress: {} });
+  const [bgmActive, setBgmActive] = useState(false);
+
   // Check if current user is a Master Admin Account (strictly based on Firestore document 'role' field)
   const isMasterAccount = userRole === 'admin' || userRole === 'master';
 
