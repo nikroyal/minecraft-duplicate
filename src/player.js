@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { keys, touch, player, inventory, hotbar, game, webgl } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, reactBridge } from './state.js';
 import { 
   CHUNK, HEIGHT, SEA, isSolid, isFood, ITEMS, BLOCKS, thingName, surfaceHeight,
   AIR, SHAPE_OF
