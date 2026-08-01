@@ -46,12 +46,13 @@ export function unlockAchievement(id, name, desc) {
 
 // Open/Close Actions
 export function getCraftOpen() { return uiState.craftOpen; }
-export function isMenuOpen() { return uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen || Boolean(uiState.wayfinderOpen) || Boolean(uiState.onboardingOpen); }
+export function isMenuOpen() { return uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen || Boolean(uiState.wayfinderOpen) || Boolean(uiState.onboardingOpen) || Boolean(uiState.chatOpen); }
 
 export function closeAllMenus() {
   uiState.craftOpen = false;
   uiState.chestOpen = false;
   uiState.furnaceOpen = false;
+  uiState.chatOpen = false;
   if (uiState.wayfinderOpen) {
     uiState.wayfinderOpen = false;
     if (window.__closeWayfinder) window.__closeWayfinder();

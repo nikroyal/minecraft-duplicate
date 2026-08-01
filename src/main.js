@@ -1713,6 +1713,10 @@ export function bootGame() {
           uiState.onboardingOpen = false;
           if (window.__closeOnboarding) window.__closeOnboarding();
         }
+        if (uiState.chatOpen) {
+          uiState.chatOpen = false;
+          if (window.__closeChatSidePanel) window.__closeChatSidePanel();
+        }
         // When closing any modal, ensure pause overlay is shown if pointer is unlocked
         if (game.running && !document.pointerLockElement) {
           game.paused = true;
@@ -1743,6 +1747,14 @@ export function bootGame() {
     }
 
     if(player.dead || !game.running) return;
+
+    // Toggle Chat Side-Panel with 'KeyC' or 'KeyT'
+    if (e.code === "KeyC" || e.code === "KeyT" || e.key === "c" || e.key === "C" || e.key === "t" || e.key === "T") {
+      e.preventDefault();
+      if (document.pointerLockElement) document.exitPointerLock();
+      if (window.__toggleChatSidePanel) window.__toggleChatSidePanel();
+      return;
+    }
 
     // Toggle/Open Crafting with 'KeyE' — works in-game or while paused
     if(e.code === "KeyE" || e.key === "e" || e.key === "E"){

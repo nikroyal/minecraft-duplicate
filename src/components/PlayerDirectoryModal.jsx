@@ -6,7 +6,7 @@ import {
 import { game } from '../state.js';
 import { toast } from '../ui.js';
 
-export default function PlayerDirectoryModal({ currentUser, onClose }) {
+export default function PlayerDirectoryModal({ currentUser, onClose, onOpenChatWithUser }) {
   const [activeTab, setActiveTab] = useState('directory'); // 'directory' or 'friends'
   const [searchQuery, setSearchQuery] = useState('');
   const [playersList, setPlayersList] = useState([]);
@@ -239,12 +239,24 @@ export default function PlayerDirectoryModal({ currentUser, onClose }) {
 
                     {!isMe && (
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          onClick={() => {
+                            if (onOpenChatWithUser) onOpenChatWithUser(p);
+                            onClose();
+                          }}
+                          style={{
+                            background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)',
+                            padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+                          }}
+                        >
+                          💬 Chat
+                        </button>
                         {!isFriend && (
                           <button
                             onClick={() => handleAddFriend(p)}
                             disabled={friendActionLoading[p.uid]}
                             style={{
-                              background: 'rgba(214,178,120,0.15)', border: '1px solid var(--gold)', color: 'var(--gold-bright)',
+                              background: 'rgba(214,178,120,0.15)', border: '1px solid var(--slot-line)', color: '#ccc',
                               padding: '6px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
                             }}
                           >
@@ -348,6 +360,19 @@ export default function PlayerDirectoryModal({ currentUser, onClose }) {
                         </div>
 
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            onClick={() => {
+                              if (onOpenChatWithUser) onOpenChatWithUser(f);
+                              onClose();
+                            }}
+                            style={{
+                              background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)',
+                              padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+                            }}
+                          >
+                            💬 Chat
+                          </button>
+
                           <button
                             onClick={() => handleInvite(f)}
                             disabled={inviteStatus === 'sending' || inviteStatus === 'sent'}

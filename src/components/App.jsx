@@ -21,6 +21,7 @@ import MasterDashboardCard from './MasterDashboardCard.jsx';
 import PlayerDirectoryModal from './PlayerDirectoryModal.jsx';
 import WayfinderModal from './WayfinderModal.jsx';
 import OnboardingAgentModal from './OnboardingAgentModal.jsx';
+import ChatPanel from './ChatPanel.jsx';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setOnboardingOpen, setActiveChestCoords, setActiveFurnaceCoords,
   closeCraft, closeChest, closeFurnace, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
@@ -31,6 +32,8 @@ export default function App() {
   const [tick, setTick] = useState(0);
   const [showWayfinder, setShowWayfinder] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showChatSidePanel, setShowChatSidePanel] = useState(false);
+  const [chatTargetUser, setChatTargetUser] = useState(null);
 
   useEffect(() => {
     window.__toggleWayfinder = () => {
@@ -48,10 +51,24 @@ export default function App() {
       setOnboardingOpen(true);
       setShowOnboarding(true);
     };
+    window.__toggleChatSidePanel = (targetUser = null) => {
+      if (targetUser) setChatTargetUser(targetUser);
+      setShowChatSidePanel(prev => {
+        const next = !prev;
+        uiState.chatOpen = next;
+        return next;
+      });
+    };
+    window.__closeChatSidePanel = () => {
+      setShowChatSidePanel(false);
+      uiState.chatOpen = false;
+    };
     return () => {
       window.__toggleWayfinder = null;
       window.__closeWayfinder = null;
       window.__openOnboarding = null;
+      window.__toggleChatSidePanel = null;
+      window.__closeChatSidePanel = null;
     };
   }, []);
 
@@ -366,6 +383,11 @@ export default function App() {
         <PlayerDirectoryModal
           currentUser={currentUser}
           onClose={() => setShowPlayerDirectory(false)}
+          onOpenChatWithUser={(user) => {
+            setChatTargetUser(user);
+            setShowChatSidePanel(true);
+            uiState.chatOpen = true;
+          }}
         />
       )}
 
@@ -547,6 +569,48 @@ export default function App() {
             coordsStr={coordsStr}
             clockStr={clockStr}
           />
+
+          {/* In-Game HUD Chat Button */}
+          {!game.paused && (
+            <button
+              onClick={() => {
+                if (document.pointerLockElement) document.exitPointerLock();
+                setShowChatSidePanel(prev => {
+                  const next = !prev;
+                  uiState.chatOpen = next;
+                  return next;
+                });
+              }}
+              style={{
+                position: 'fixed', top: '12px', right: '12px', zIndex: 120,
+                background: 'rgba(20, 16, 12, 0.9)', border: '1px solid var(--gold)',
+                borderRadius: '8px', color: 'var(--gold-bright)', padding: '6px 12px',
+                fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
+              }}
+            >
+              💬 CHAT [T]
+            </button>
+          )}
+
+          {/* Sliding Side-Panel Overlay */}
+          {showChatSidePanel && (
+            <div style={{
+              position: 'fixed', top: '16px', right: '16px', bottom: '16px',
+              width: '380px', maxWidth: '90vw', zIndex: 130
+            }}>
+              <ChatPanel
+                currentUser={currentUser}
+                isSidePanel={true}
+                initialTargetUser={chatTargetUser}
+                onClose={() => {
+                  setShowChatSidePanel(false);
+                  uiState.chatOpen = false;
+                }}
+              />
+            </div>
+          )}
         </>
       )}
 

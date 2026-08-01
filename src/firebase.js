@@ -845,6 +845,126 @@ export function subscribeToUserFriends(uid, callback) {
   });
 }
 
+// ── REAL-TIME CHAT PAGES & DIRECT MESSAGING SYSTEM ──
+
+export async function createOrGetDirectChat(targetUid, targetEmail) {
+  if (!db || !currentUser || !targetUid) return null;
+  
+  // Predictable 1-on-1 chatId sorted by UIDs
+  const sortedUids = [currentUser.uid, targetUid].sort();
+  const chatId = `chat_${sortedUids[0]}_${sortedUids[1]}`;
+
+  try {
+    const chatRef = doc(db, 'chats', chatId);
+    const snap = await getDoc(chatRef);
+
+    if (!snap.exists()) {
+      const initialChatData = {
+        id: chatId,
+        type: 'direct',
+        participants: [currentUser.uid, targetUid],
+        participantEmails: {
+          [currentUser.uid]: currentUser.email,
+          [targetUid]: targetEmail || 'Player'
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastMessage: {
+          text: 'Conversation started.',
+          senderEmail: 'System',
+          timestamp: new Date().toISOString()
+        }
+      };
+      await setDoc(chatRef, initialChatData);
+    }
+    return chatId;
+  } catch (err) {
+    console.error("Failed to create/get direct chat:", err);
+    return null;
+  }
+}
+
+export async function sendChatMessage(chatId, text) {
+  if (!db || !currentUser || !chatId || !text || !text.trim()) return false;
+  const cleanText = sanitizeSecurityInput(text.trim(), 1000);
+  if (!cleanText) return false;
+
+  try {
+    const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const msgRef = doc(db, 'chats', chatId, 'messages', msgId);
+    const nowIso = new Date().toISOString();
+
+    const msgObj = {
+      id: msgId,
+      text: cleanText,
+      senderUid: currentUser.uid,
+      senderEmail: currentUser.email,
+      timestamp: nowIso
+    };
+
+    await setDoc(msgRef, msgObj);
+
+    // Update lastMessage on parent chat doc for conversation list sorting & snippets
+    const chatRef = doc(db, 'chats', chatId);
+    await setDoc(chatRef, {
+      updatedAt: nowIso,
+      lastMessage: {
+        text: cleanText,
+        senderUid: currentUser.uid,
+        senderEmail: currentUser.email,
+        timestamp: nowIso
+      }
+    }, { merge: true });
+
+    return true;
+  } catch (err) {
+    console.error("Failed to send chat message:", err);
+    return false;
+  }
+}
+
+export function subscribeToUserChats(uid, callback) {
+  if (!db || !uid) return () => {};
+  try {
+    const chatsCol = collection(db, 'chats');
+    return onSnapshot(chatsCol, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (Array.isArray(data.participants) && data.participants.includes(uid)) {
+          list.push(data);
+        }
+      });
+      list.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      callback(list);
+    }, (err) => {
+      console.warn("User chats listener error:", err);
+    });
+  } catch (e) {
+    return () => {};
+  }
+}
+
+export function subscribeToChatMessages(chatId, callback) {
+  if (!db || !chatId) return () => {};
+  try {
+    const msgsCol = collection(db, 'chats', chatId, 'messages');
+    return onSnapshot(msgsCol, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data());
+      });
+      list.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+      callback(list);
+    }, (err) => {
+      console.warn("Chat messages listener error:", err);
+    });
+  } catch (e) {
+    return () => {};
+  }
+}
+
+
 
 // ── REVIEWS & FEEDBACK SYSTEM ──
 

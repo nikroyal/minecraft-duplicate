@@ -11,6 +11,8 @@ import {
 import { updateLobbyAvatarPreview, toast } from '../ui.js';
 import { initAudio } from '../audio.js';
 
+import ChatPanel from './ChatPanel.jsx';
+
 export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus, onStartGame, scheduleSave, onOpenDirectory }) {
   const [activeTab, setActiveTab] = useState('play');
   const [resetStep, setResetStep] = useState(null);
@@ -27,7 +29,6 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
     if (currentUser && (r.ownerUid === currentUser.uid || (r.members || []).includes(currentUser.uid))) return true;
     return false;
   });
-
 
   // Review & Feedback State
   const [reviewRating, setReviewRating] = useState(10);
@@ -189,6 +190,7 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
       <div className="dashboard-tabs" style={{ flexShrink: 0 }}>
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
         <button className="dash-tab" onClick={onOpenDirectory}>🔍 Directory</button>
+        <button id="tabChatBtn" className={`dash-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>💬 Chat Hub</button>
         <button id="tabReviewBtn" className={`dash-tab ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>⭐ Reviews</button>
         <button id="tabStatsBtn" className={`dash-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>📊 My Stats</button>
         <button id="tabLeaderboardBtn" className={`dash-tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>🥇 Leaderboard</button>
@@ -352,6 +354,13 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
             <button className="minor-btn" onClick={handleTeleportSurface}>↑ Teleport to surface</button>
             <button className="minor-btn danger" onClick={() => setResetStep(0)}>Reset world</button>
           </div>
+        </div>
+      )}
+
+      {/* CHAT HUB PANEL */}
+      {activeTab === 'chat' && (
+        <div style={{ height: '340px', marginTop: '10px' }}>
+          <ChatPanel currentUser={currentUser} />
         </div>
       )}
 
