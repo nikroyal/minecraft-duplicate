@@ -51,13 +51,10 @@ export default function App() {
       setOnboardingOpen(true);
       setShowOnboarding(true);
     };
-    window.__toggleChatSidePanel = (targetUser = null) => {
+    window.__openChatSidePanel = (targetUser = null) => {
       if (targetUser) setChatTargetUser(targetUser);
-      setShowChatSidePanel(prev => {
-        const next = !prev;
-        uiState.chatOpen = next;
-        return next;
-      });
+      setShowChatSidePanel(true);
+      uiState.chatOpen = true;
     };
     window.__closeChatSidePanel = () => {
       setShowChatSidePanel(false);
@@ -67,7 +64,7 @@ export default function App() {
       window.__toggleWayfinder = null;
       window.__closeWayfinder = null;
       window.__openOnboarding = null;
-      window.__toggleChatSidePanel = null;
+      window.__openChatSidePanel = null;
       window.__closeChatSidePanel = null;
     };
   }, []);

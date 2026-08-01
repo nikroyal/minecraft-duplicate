@@ -290,7 +290,14 @@ export default function ChatPanel({ currentUser, isSidePanel = false, onClose, i
               disabled={!activeChatId || sending}
               value={inputText}
               onChange={e => setInputText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  handleSendMessage();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  if (onClose) onClose();
+                }
+              }}
               style={{
                 flex: 1, padding: '7px 10px', borderRadius: '4px',
                 background: 'rgba(0,0,0,0.5)', border: '1px solid var(--slot-line)',

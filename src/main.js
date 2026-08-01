@@ -1697,8 +1697,23 @@ export function bootGame() {
       return;
     }
 
-    // If a menu is open, capture E, Escape, G, V keys to close it
+    // If a menu is open, handle key shortcuts
     if(isMenuOpen()){
+      if (uiState.chatOpen) {
+        // While chatting, ONLY Escape key closes chat mode!
+        if (e.code === "Escape" || e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          uiState.chatOpen = false;
+          if (window.__closeChatSidePanel) window.__closeChatSidePanel();
+          if (game.running && !document.pointerLockElement) {
+            game.paused = true;
+          }
+          if (reactBridge.updateUI) reactBridge.updateUI();
+        }
+        return;
+      }
+
       if(e.code === "KeyE" || e.code === "Escape" || e.code === "KeyG" || e.code === "KeyV" || e.key === "e" || e.key === "E" || e.key === "g" || e.key === "G" || e.key === "v" || e.key === "V"){
         e.preventDefault();
         e.stopPropagation();
@@ -1712,10 +1727,6 @@ export function bootGame() {
         if (uiState.onboardingOpen) {
           uiState.onboardingOpen = false;
           if (window.__closeOnboarding) window.__closeOnboarding();
-        }
-        if (uiState.chatOpen) {
-          uiState.chatOpen = false;
-          if (window.__closeChatSidePanel) window.__closeChatSidePanel();
         }
         // When closing any modal, ensure pause overlay is shown if pointer is unlocked
         if (game.running && !document.pointerLockElement) {
@@ -1748,11 +1759,13 @@ export function bootGame() {
 
     if(player.dead || !game.running) return;
 
-    // Toggle Chat Side-Panel with 'KeyC' or 'KeyT'
+    // Open Chat Mode with 'KeyT' or 'KeyC'
     if (e.code === "KeyC" || e.code === "KeyT" || e.key === "c" || e.key === "C" || e.key === "t" || e.key === "T") {
       e.preventDefault();
-      if (document.pointerLockElement) document.exitPointerLock();
-      if (window.__toggleChatSidePanel) window.__toggleChatSidePanel();
+      if (!uiState.chatOpen) {
+        if (document.pointerLockElement) document.exitPointerLock();
+        if (window.__openChatSidePanel) window.__openChatSidePanel();
+      }
       return;
     }
 
