@@ -168,16 +168,33 @@ export function updateItemDrops(dt) {
           const healAmt = 4 * d.count;
           player.health = Math.min(20, player.health + healAmt);
           toast(`❤️ Collected Heart Pickup! Restored +${healAmt} HP (+${healAmt / 2} Hearts)!`);
+          webgl.scene.remove(d.mesh);
+          if (d.mesh.geometry) d.mesh.geometry.dispose();
+          if (d.mesh.material) d.mesh.material.dispose();
+          itemDrops.splice(i, 1);
+          if (reactBridge.updateUI) reactBridge.updateUI();
+          continue;
         } else {
-          addItem(d.id, d.count);
-          toast(`Picked up +${d.count} ${thingName(d.id)}`);
+          const added = addItem(d.id, d.count);
+          if (added > 0) {
+            d.count -= added;
+            toast(`Picked up +${added} ${thingName(d.id)}`);
+            if (reactBridge.updateUI) reactBridge.updateUI();
+          }
+          if (d.count <= 0) {
+            webgl.scene.remove(d.mesh);
+            if (d.mesh.geometry) d.mesh.geometry.dispose();
+            if (d.mesh.material) d.mesh.material.dispose();
+            itemDrops.splice(i, 1);
+            continue;
+          } else {
+            // Inventory is full for this item! Push drop back slightly with 1.2s cooldown
+            d.state = 'resting';
+            d.spawnTime = now + 1200; // 1.2s pickup cooldown
+            d.onGround = false;
+            d.vel.set((Math.random() - 0.5) * 2.0, 2.5, (Math.random() - 0.5) * 2.0);
+          }
         }
-        webgl.scene.remove(d.mesh);
-        if (d.mesh.geometry) d.mesh.geometry.dispose();
-        if (d.mesh.material) d.mesh.material.dispose();
-        itemDrops.splice(i, 1);
-        if (reactBridge.updateUI) reactBridge.updateUI();
-        continue;
       }
     } else {
       // Standard Voxel Terrain Physics & Gravity

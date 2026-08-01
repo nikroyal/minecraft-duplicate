@@ -624,21 +624,19 @@ export function respawnPlayer(){
 
 export function invCount(id){ return inventory[id] || 0; }
 export function addItem(id, n=1){ 
-  if (typeof id !== 'number' || isNaN(id) || (!BLOCKS[id] && !ITEMS[id])) return;
-  if (typeof n !== 'number' || isNaN(n) || !isFinite(n) || n <= 0) return;
+  if (typeof id !== 'number' || isNaN(id) || (!BLOCKS[id] && !ITEMS[id])) return 0;
+  if (typeof n !== 'number' || isNaN(n) || !isFinite(n) || n <= 0) return 0;
   const countToAdd = Math.floor(n);
   const current = inventory[id] || 0;
-  const next = current + countToAdd;
-  if (next > 64) {
-    inventory[id] = 64;
-    const overflow = next - 64;
-    if (typeof window.__spawnItemDrop === 'function') {
-      window.__spawnItemDrop(id, overflow, player.pos.x, player.pos.y + 0.5, player.pos.z);
-    }
-  } else {
-    inventory[id] = next;
+  if (current >= 64) {
+    refreshCounts();
+    return 0;
   }
+  const spaceLeft = 64 - current;
+  const added = Math.min(countToAdd, spaceLeft);
+  inventory[id] = current + added;
   refreshCounts(); 
+  return added;
 }
 export function removeItem(id, n=1){ 
   if (typeof id !== 'number' || isNaN(id)) return;
