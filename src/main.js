@@ -19,6 +19,7 @@ import {
   getIntersectingColliders, getSupportingSurface
 } from './player.js';
 import { updatePlayerPresenceInRoom } from './firebase.js';
+import { initAntiCheatShield } from './anticheat.js';
 import { 
   MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob 
 } from './mobs.js';
@@ -1957,8 +1958,9 @@ export function bootGame() {
     selectSlot(s);
   });
 
-  // Boot UI
+  // Boot UI & Anti-Cheat Security Shield
   initUI(placeBlock, mining);
+  initAntiCheatShield();
 
   // Load world
   const loaded = loadWorld();
