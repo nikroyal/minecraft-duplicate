@@ -11,10 +11,13 @@ import {
   deleteTeamRoom,
   updateRoomPrivacy,
   fetchGameReviews,
-  deleteGameReview
+  deleteGameReview,
+  subscribeToAllChatsForAdmin,
+  subscribeToChatMessages
 } from '../firebase.js';
 import { game } from '../state.js';
 import { initAudio } from '../audio.js';
+import AdminHandbookModal from './AdminHandbookModal.jsx';
 
 export default function MasterDashboardCard({ userEmail }) {
   const [users, setUsers] = useState([]);
@@ -25,7 +28,11 @@ export default function MasterDashboardCard({ userEmail }) {
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'online', 'offline'
   const [selectedUser, setSelectedUser] = useState(null);
   const [lastRefreshed, setLastRefreshed] = useState(null);
-  const [adminTab, setAdminTab] = useState('users'); // 'users', 'rooms', 'reviews'
+  const [adminTab, setAdminTab] = useState('users'); // 'users', 'rooms', 'reviews', 'chats'
+  const [allChatThreads, setAllChatThreads] = useState([]);
+  const [selectedAdminChatId, setSelectedAdminChatId] = useState(null);
+  const [adminChatMessages, setAdminChatMessages] = useState([]);
+  const [showHandbookModal, setShowHandbookModal] = useState(false);
 
   // Admin controls state
   const [broadcastText, setBroadcastText] = useState('');
@@ -40,6 +47,24 @@ export default function MasterDashboardCard({ userEmail }) {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (adminTab === 'chats') {
+      const unsub = subscribeToAllChatsForAdmin((threads) => {
+        setAllChatThreads(threads);
+      });
+      return () => unsub();
+    }
+  }, [adminTab]);
+
+  useEffect(() => {
+    if (selectedAdminChatId) {
+      const unsub = subscribeToChatMessages(selectedAdminChatId, (msgs) => {
+        setAdminChatMessages(msgs);
+      });
+      return () => unsub();
+    }
+  }, [selectedAdminChatId]);
 
   const loadReviews = async () => {
     const data = await fetchGameReviews();
@@ -219,6 +244,17 @@ export default function MasterDashboardCard({ userEmail }) {
           )}
 
           <button
+            onClick={() => setShowHandbookModal(true)}
+            style={{
+              background: 'rgba(214,178,120,0.25)', border: '1px solid var(--gold)',
+              color: 'var(--gold-bright)', padding: '8px 14px', borderRadius: 6, fontWeight: 700,
+              cursor: 'pointer', fontSize: 12, transition: 'all 0.2s',
+            }}
+          >
+            📖 Admin Manual
+          </button>
+
+          <button
             onClick={logoutUser}
             style={{
               background: 'rgba(180,40,40,0.25)', border: '1px solid rgba(220,60,60,0.5)',
@@ -365,11 +401,24 @@ export default function MasterDashboardCard({ userEmail }) {
             padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer', flexShrink: 0
           }}
         >
-          ⭐ Reviews & Feedback ({reviews.length})
+          ⭐ Reviews ({reviews.length})
+        </button>
+
+        <button
+          onClick={() => setAdminTab('chats')}
+          className={`dash-tab ${adminTab === 'chats' ? 'active' : ''}`}
+          style={{
+            background: adminTab === 'chats' ? 'rgba(214,178,120,0.25)' : 'transparent',
+            border: adminTab === 'chats' ? '1px solid var(--gold)' : '1px solid transparent',
+            color: adminTab === 'chats' ? 'var(--gold-bright)' : '#aaa',
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer', flexShrink: 0
+          }}
+        >
+          💬 All Chats Stream ({allChatThreads.length})
         </button>
       </div>
 
-      {adminTab === 'reviews' ? (
+      {adminTab === 'reviews' && (
         /* ── COMMUNITY REVIEWS INBOX ── */
         <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 8, padding: 14, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -395,26 +444,28 @@ export default function MasterDashboardCard({ userEmail }) {
                     <span style={{ fontSize: 9, color: '#777' }}>{rev.timestamp ? new Date(rev.timestamp).toLocaleString() : ''}</span>
                     <button
                       onClick={async () => {
-                        if (confirm("Delete this review?")) {
+                        if (confirm(`Delete review from ${rev.email}?`)) {
                           await deleteGameReview(rev.id);
                           showFeedback("Deleted review.");
                           loadReviews();
                         }
                       }}
-                      style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '2px 6px', borderRadius: 3, fontSize: 9, cursor: 'pointer' }}
+                      style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '2px 8px', borderRadius: 4, fontSize: 9, cursor: 'pointer' }}
                     >
                       🗑️ Delete
                     </button>
                   </div>
                 </div>
-                <div style={{ fontSize: 11, color: '#fff', lineHeight: 1.5, background: 'rgba(0,0,0,0.3)', padding: 8, borderRadius: 4 }}>
-                  "{rev.text}"
+                <div style={{ fontSize: 11, color: '#eee', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                  {rev.text}
                 </div>
               </div>
             ))
           )}
         </div>
-      ) : adminTab === 'rooms' ? (
+      )}
+
+      {adminTab === 'rooms' && (
         /* ── TEAM ROOMS MANAGEMENT TABLE ── */
         <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 8, padding: 12, textAlign: 'left' }}>
           <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: 10 }}>
@@ -491,8 +542,10 @@ export default function MasterDashboardCard({ userEmail }) {
             </tbody>
           </table>
         </div>
-      ) : (
-        <>
+      )}
+
+      {adminTab === 'users' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* ── SEARCH & FILTER CONTROL BAR ── */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
@@ -733,7 +786,75 @@ export default function MasterDashboardCard({ userEmail }) {
           </div>
         </div>
       )}
-      </>
+      </div>
+      )}
+
+      {adminTab === 'chats' && (
+        /* ── LIVE ALL CHATS SURVEILLANCE PANEL ── */
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', gap: 14, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(214,178,120,0.2)', borderRadius: 8, padding: 14, textAlign: 'left' }}>
+          {/* Threads list (left) */}
+          <div style={{ width: '220px', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: 4 }}>
+              💬 Chat Channels ({allChatThreads.length})
+            </div>
+            {allChatThreads.length === 0 ? (
+              <div style={{ color: '#888', fontSize: 10, textAlign: 'center', padding: 16 }}>No chat channels active</div>
+            ) : (
+              allChatThreads.map(thread => (
+                <div
+                  key={thread.id}
+                  onClick={() => setSelectedAdminChatId(thread.id)}
+                  style={{
+                    padding: '8px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 10,
+                    background: selectedAdminChatId === thread.id ? 'rgba(214,178,120,0.2)' : 'rgba(255,255,255,0.03)',
+                    border: selectedAdminChatId === thread.id ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.06)'
+                  }}
+                >
+                  <div style={{ fontWeight: 'bold', color: '#fff' }}>
+                    {thread.isDirect ? `✉️ DM: ${thread.id.slice(0, 12)}...` : `🌐 Room: ${thread.name || thread.id}`}
+                  </div>
+                  <div style={{ color: '#aaa', fontSize: 9, marginTop: 2 }}>
+                    Last active: {new Date(thread.updatedAt || 0).toLocaleTimeString()}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Messages Live Stream (right) */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: 8 }}>
+              {selectedAdminChatId ? `📡 Surveillance Stream: ${selectedAdminChatId}` : 'Select a Chat Channel to monitor in real-time'}
+            </div>
+            <div style={{ flex: 1, maxHeight: '340px', overflowY: 'auto', background: 'rgba(0,0,0,0.4)', borderRadius: 6, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {!selectedAdminChatId ? (
+                <div style={{ color: '#777', fontSize: 11, textAlign: 'center', margin: 'auto' }}>
+                  👈 Click any chat channel on the left to monitor player messages live.
+                </div>
+              ) : adminChatMessages.length === 0 ? (
+                <div style={{ color: '#777', fontSize: 11, textAlign: 'center', margin: 'auto' }}>
+                  No messages recorded in this channel yet.
+                </div>
+              ) : (
+                adminChatMessages.map((msg, idx) => (
+                  <div key={idx} style={{ fontSize: 11, padding: '4px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
+                    <span style={{ color: 'var(--gold-bright)', fontWeight: 'bold', marginRight: 6 }}>
+                      {msg.senderEmail || msg.sender}:
+                    </span>
+                    <span style={{ color: '#eee' }}>{msg.text}</span>
+                    <span style={{ color: '#777', fontSize: 9, marginLeft: 8 }}>
+                      {new Date(msg.timestamp || Date.now()).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHandbookModal && (
+        <AdminHandbookModal onClose={() => setShowHandbookModal(false)} />
       )}
     </div>
   );

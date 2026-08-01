@@ -992,6 +992,25 @@ export function subscribeToChatMessages(chatId, callback) {
   }
 }
 
+export function subscribeToAllChatsForAdmin(callback) {
+  if (!db) return () => {};
+  try {
+    const chatsCol = collection(db, 'chats');
+    return onSnapshot(chatsCol, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      callback(list);
+    }, (err) => {
+      console.warn("All chats admin listener error:", err);
+    });
+  } catch (e) {
+    return () => {};
+  }
+}
+
 
 
 // ── REVIEWS & FEEDBACK SYSTEM ──
