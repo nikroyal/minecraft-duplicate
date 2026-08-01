@@ -1312,16 +1312,99 @@ function loop(now){
     }
   }
 
-  if(game.running && !game.paused){
+  if (game.running && !game.paused) {
+    let targetInfo = null;
+
+    // 1. Check if looking at or close to a mob
+    let closestMob = null;
+    let closestMobDist = 3.5;
+    if (Array.isArray(game.mobs)) {
+      for (const m of game.mobs) {
+        if (m.dead) continue;
+        const d = m.pos.distanceTo(player.pos);
+        if (d < closestMobDist) {
+          closestMobDist = d;
+          closestMob = m;
+        }
+      }
+    }
+
+    // 2. Check if close to a dropped item entity
+    let closestDrop = null;
+    let closestDropDist = 2.8;
+    for (const d of itemDrops) {
+      const dist = d.pos.distanceTo(player.pos);
+      if (dist < closestDropDist) {
+        closestDropDist = dist;
+        closestDrop = d;
+      }
+    }
+
+    // 3. Voxel block raycast
     const r = raycastVoxel(6);
-    if(r){ 
+    if (r) { 
       webgl.highlight.visible = true; 
       webgl.highlight.position.set(r.hit[0]+0.5, r.hit[1]+0.5, r.hit[2]+0.5); 
       const bid = getBlock(r.hit[0], r.hit[1], r.hit[2]);
       window.__targetBlockId = bid;
+      if (bid > 0) {
+        targetInfo = {
+          type: 'block',
+          name: thingName(bid),
+          action: '⛏️ Left Click to Mine • 📦 Right Click to Place'
+        };
+      }
     } else {
       webgl.highlight.visible = false;
       window.__targetBlockId = 0;
+    }
+
+    if (closestMob && closestMobDist < 3.2) {
+      targetInfo = {
+        type: 'mob',
+        name: `${closestMob.def?.name || 'Mob'} (${closestMob.hp}/${closestMob.def?.maxHp || 10} HP)`,
+        action: '⚔️ Left Click to Attack'
+      };
+    } else if (closestDrop && closestDropDist < 2.8 && !targetInfo) {
+      targetInfo = {
+        type: 'item',
+        name: `${thingName(closestDrop.id)} ×${closestDrop.count}`,
+        action: '🧲 Walk near to magnet-collect'
+      };
+    }
+
+    window.__hudTargetInfo = targetInfo;
+
+    // 4. Project saved Waypoints (Base 🏡, Farm 🌾) to 2D Screen Space for 3D Markers
+    if (webgl.camera && typeof window !== 'undefined') {
+      const waypoints = typeof window.__getWaypoints === 'function' ? window.__getWaypoints() : [];
+      const projectedWaypoints = [];
+
+      for (const wp of waypoints) {
+        if (!wp || typeof wp.x !== 'number') continue;
+        const wpVec = new THREE.Vector3(wp.x + 0.5, wp.y + 1.2, wp.z + 0.5);
+        const dist = Math.round(wpVec.distanceTo(player.pos));
+        
+        // Project 3D pos to normalized device coordinates
+        const proj = wpVec.clone().project(webgl.camera);
+        // Check if in front of camera
+        if (proj.z < 1.0) {
+          const screenX = (proj.x * 0.5 + 0.5) * window.innerWidth;
+          const screenY = (-(proj.y * 0.5) + 0.5) * window.innerHeight;
+          // Check within screen bounds
+          if (screenX >= 25 && screenX <= window.innerWidth - 25 && screenY >= 25 && screenY <= window.innerHeight - 25) {
+            projectedWaypoints.push({
+              id: wp.id || wp.name,
+              name: wp.name,
+              icon: wp.icon || '📍',
+              dist,
+              x: Math.round(screenX),
+              y: Math.round(screenY)
+            });
+          }
+        }
+      }
+      window.__projectedWaypoints = projectedWaypoints;
     }
   }
 

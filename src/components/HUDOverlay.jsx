@@ -203,6 +203,123 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
         </div>
       )}
 
+      {/* 🎯 INTUITIVE TARGET & ACTION BADGE (Center HUD under crosshair) */}
+      {typeof window !== 'undefined' && window.__hudTargetInfo && (
+        <div style={{
+          position: 'fixed',
+          top: '55%',
+          left: '50%',
+          transform: 'translate(-50%, 20px)',
+          zIndex: 120,
+          pointerEvents: 'none',
+          userSelect: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '2px',
+          animation: 'fadeIn 0.15s ease-out'
+        }}>
+          <div style={{
+            background: 'rgba(14, 11, 8, 0.88)',
+            border: '1px solid var(--gold)',
+            borderRadius: '6px',
+            padding: '4px 12px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--gold-bright)' }}>
+              {window.__hudTargetInfo.name}
+            </span>
+          </div>
+          <div style={{
+            fontSize: '9px',
+            color: '#eee',
+            background: 'rgba(0,0,0,0.6)',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            letterSpacing: '0.5px'
+          }}>
+            {window.__hudTargetInfo.action}
+          </div>
+        </div>
+      )}
+
+      {/* 🏷️ 3D FLOATING WORLD WAYPOINTS (Base 🏡, Farm 🌾, Markers) */}
+      {typeof window !== 'undefined' && Array.isArray(window.__projectedWaypoints) && window.__projectedWaypoints.map(wp => (
+        <div
+          key={wp.id}
+          style={{
+            position: 'fixed',
+            left: `${wp.x}px`,
+            top: `${wp.y}px`,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 115,
+            pointerEvents: 'none',
+            userSelect: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          <div style={{
+            background: 'rgba(20, 16, 12, 0.92)',
+            border: '1px solid var(--gold)',
+            borderRadius: '16px',
+            padding: '3px 10px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.8)',
+            color: '#fff',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap'
+          }}>
+            <span>{wp.icon}</span>
+            <span style={{ color: 'var(--gold-bright)' }}>{wp.name}</span>
+            <span style={{ color: '#aaa', fontSize: '9px' }}>({wp.dist}m)</span>
+          </div>
+          {/* Indicator triangle */}
+          <div style={{
+            width: 0, height: 0,
+            borderLeft: '5px solid transparent',
+            borderRight: '5px solid transparent',
+            borderTop: '6px solid var(--gold)'
+          }} />
+        </div>
+      ))}
+
+      {/* ⌨️ BOTTOM CONTEXT HOTKEY ACTION BAR */}
+      <div style={{
+        position: 'fixed',
+        bottom: '84px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 110,
+        pointerEvents: 'none',
+        userSelect: 'none',
+        background: 'rgba(10, 8, 5, 0.65)',
+        border: '1px solid rgba(214,178,120,0.25)',
+        borderRadius: '6px',
+        padding: '3px 14px',
+        display: 'flex',
+        gap: '12px',
+        fontSize: '9px',
+        color: '#ccc',
+        backdropFilter: 'blur(3px)',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
+      }}>
+        <span><strong style={{ color: 'var(--gold-bright)' }}>[WASD]</strong> Move</span>
+        <span><strong style={{ color: 'var(--gold-bright)' }}>[LMB]</strong> Mine / Attack</span>
+        <span><strong style={{ color: 'var(--gold-bright)' }}>[RMB]</strong> Place</span>
+        <span><strong style={{ color: 'var(--gold-bright)' }}>[E]</strong> Crafting</span>
+        <span><strong style={{ color: 'var(--gold-bright)' }}>[T]</strong> Chat</span>
+        <span><strong style={{ color: 'var(--gold-bright)' }}>[Esc]</strong> Pause</span>
+      </div>
+
       {/* Physics Debug Telemetry Panel (F3 Toggle) */}
       {typeof window !== 'undefined' && window.__physicsDebug && window.__physicsTelemetry && (
         <div style={{

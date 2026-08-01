@@ -272,6 +272,7 @@ export function clearPathTrail() {
 const WAYPOINTS_KEY = 'voxel_waypoints_v1';
 
 export function getSavedWaypoints() {
+  if (typeof window !== 'undefined') window.__getWaypoints = getSavedWaypoints;
   try {
     if (typeof localStorage === 'undefined') return [];
     const raw = localStorage.getItem(WAYPOINTS_KEY);
