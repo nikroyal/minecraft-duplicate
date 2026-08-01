@@ -21,11 +21,19 @@ export default function ChatPanel({ currentUser, isSidePanel = false, onClose, i
   const [loadingDirectory, setLoadingDirectory] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Auto-scroll messages to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Focus input when active chat changes
+  useEffect(() => {
+    if (activeChatId && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [activeChatId]);
 
   // Subscribe to user chats list
   useEffect(() => {
@@ -276,6 +284,7 @@ export default function ChatPanel({ currentUser, isSidePanel = false, onClose, i
           {/* Message Input Box */}
           <div style={{ padding: '8px 10px', background: 'rgba(30, 22, 14, 0.95)', borderTop: '1px solid var(--slot-line)', display: 'flex', gap: '6px' }}>
             <input
+              ref={inputRef}
               type="text"
               placeholder={activeChatId ? "Type a message..." : "Select a chat to type..."}
               disabled={!activeChatId || sending}
