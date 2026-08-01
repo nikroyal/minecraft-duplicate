@@ -139,6 +139,21 @@ export function generateChunk(ch){
   // pre-made structures
   carveStructures(ch, ox, oz);
   
+  // Spawn Starter Chest in home chunk (0,0)
+  if (ch.cx === 0 && ch.cz === 0) {
+    const h = surfaceHeight(10, 8);
+    ch.set(10, h + 1, 8, 43);
+    const chestKey = `10,${h + 1},8`;
+    if (!world.chests[chestKey]) {
+      world.chests[chestKey] = [
+        { id: 20, count: 5 },
+        { id: 110, count: 5 },
+        { id: 105, count: 1 },
+        { id: 7, count: 10 }
+      ];
+    }
+  }
+
   // apply persisted edits
   for(const k in world.edits){
     const [ex,ey,ez]=k.split(",").map(Number);

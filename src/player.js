@@ -494,6 +494,12 @@ export function updatePlayer(dt){
     player.stepTimer = 0;
   }
 
+  // Cosmetic Particle Trail Emitter
+  if (game.particleTrail && game.particleTrail !== 'none' && webgl.scene && posDisplacement > 0.005) {
+    emitCosmeticTrailParticle(player.pos.x, player.pos.y, player.pos.z, game.particleTrail);
+  }
+  updateCosmeticParticles(dt);
+
   // Void handling
   if(player.pos.y < -30){
     if (game.survival) {
@@ -685,6 +691,49 @@ export function validateInventoryState(){
       delete inventory[k];
     } else if (count > 64) {
       inventory[k] = 64;
+    }
+  }
+}
+
+const activeParticles = [];
+
+function emitCosmeticTrailParticle(x, y, z, trailType) {
+  if (!webgl.scene) return;
+  
+  let color = 0xffa500; // Flame
+  if (trailType === 'ender') color = 0x9333ea;
+  else if (trailType === 'emerald') color = 0x10b981;
+  else if (trailType === 'rainbow') color = Math.floor(Math.random() * 0xffffff);
+
+  const geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8 });
+  const pMesh = new THREE.Mesh(geo, mat);
+  
+  pMesh.position.set(x + (Math.random() - 0.5) * 0.4, y + 0.2 + Math.random() * 0.4, z + (Math.random() - 0.5) * 0.4);
+  webgl.scene.add(pMesh);
+
+  activeParticles.push({ mesh: pMesh, life: 0.4 });
+  if (activeParticles.length > 30) {
+    const old = activeParticles.shift();
+    if (old && old.mesh) {
+      webgl.scene.remove(old.mesh);
+      old.mesh.geometry.dispose();
+      old.mesh.material.dispose();
+    }
+  }
+}
+
+export function updateCosmeticParticles(dt) {
+  for (let i = activeParticles.length - 1; i >= 0; i--) {
+    const p = activeParticles[i];
+    p.life -= dt;
+    p.mesh.position.y += dt * 0.4;
+    p.mesh.material.opacity = Math.max(0, p.life / 0.4);
+    if (p.life <= 0) {
+      webgl.scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      activeParticles.splice(i, 1);
     }
   }
 }

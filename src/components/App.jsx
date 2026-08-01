@@ -168,6 +168,16 @@ export default function App() {
   useEffect(() => {
     if (!currentUser || !currentUser.uid) return;
 
+    // Auto-open Daily Rewards modal on first daily login
+    try {
+      const todayStr = new Date().toDateString();
+      const lastLogin = localStorage.getItem('voxel_daily_last_date');
+      if (lastLogin !== todayStr) {
+        setShowDailyModal(true);
+        localStorage.setItem('voxel_daily_last_date', todayStr);
+      }
+    } catch (e) {}
+
     // 2. Subscribe to User Document (Freeze, Teleport, Give Items, Heal, Messages)
     const unsubUser = subscribeToUserDoc(currentUser.uid, (userData) => {
       if (!userData) return;
