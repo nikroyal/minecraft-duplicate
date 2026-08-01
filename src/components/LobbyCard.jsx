@@ -23,13 +23,6 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
 
   const isUserAdmin = userRole === 'admin' || userRole === 'master';
 
-  const visibleRooms = roomsList.filter(r => {
-    if (!r.isPrivate) return true;
-    if (isUserAdmin) return true; // Admins can see all hidden/private rooms!
-    if (currentUser && (r.ownerUid === currentUser.uid || (r.members || []).includes(currentUser.uid))) return true;
-    return false;
-  });
-
   // Review & Feedback State
   const [reviewRating, setReviewRating] = useState(10);
   const [reviewText, setReviewText] = useState('');
@@ -50,6 +43,13 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
   const [avatarShirt, setAvatarShirt] = useState(player.avatar?.shirtColor || '#008080');
   const [avatarPants, setAvatarPants] = useState(player.avatar?.pantsColor || '#3c4e8c');
   const [avatarSkin, setAvatarSkin] = useState(player.avatar?.skinColor || '#dfcfb7');
+
+  const visibleRooms = roomsList.filter(r => {
+    if (!r.isPrivate) return true;
+    if (isUserAdmin) return true; // Admins can see all hidden/private rooms!
+    if (currentUser && (r.ownerUid === currentUser.uid || (r.members || []).includes(currentUser.uid))) return true;
+    return false;
+  });
 
   useEffect(() => {
     const unsub = subscribeToRoomsDirectory((list) => {

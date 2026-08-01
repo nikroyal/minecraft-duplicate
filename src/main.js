@@ -33,6 +33,9 @@ import {
 import { playPlaceSound, playMineSound } from './audio.js';
 import { activeNavigation, findPath, updatePathTrail } from './pathfinder.js';
 
+export const itemDrops = [];
+if (typeof window !== 'undefined') window.itemDrops = itemDrops;
+
 // Helper: Voxel terrain collision check for item entity bounding box (half-width hw, height hh)
 function itemCollides(px, py, pz, hw = 0.12, hh = 0.24) {
   const minX = Math.floor(px - hw);
