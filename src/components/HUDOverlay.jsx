@@ -6,7 +6,10 @@ import Swatch3D from './Swatch3D.jsx';
 
 import { selectSlot } from '../ui.js';
 
-export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsStr, clockStr }) {
+export default function HUDOverlay({ 
+  selectedSlot, targetBlockName, fps, coordsStr, clockStr, 
+  notificationsCount = 0, unreadChatCount = 0, onOpenNotifications, onOpenChat 
+}) {
   const activeSelected = selectedSlot !== undefined ? selectedSlot : game.selected;
   const hp = Math.max(0, player.health);
   const hunger = Math.max(0, player.hunger);
@@ -48,9 +51,8 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',
-        gap: '4px',
+        gap: '6px',
         zIndex: 120,
-        pointerEvents: 'none',
         userSelect: 'none',
       }}>
         {/* Clock pill */}
@@ -67,6 +69,7 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           color: '#f0e6cc',
           letterSpacing: '0.06em',
           backdropFilter: 'blur(4px)',
+          pointerEvents: 'none',
         }}>
           <span style={{ fontSize: '16px', lineHeight: 1 }}>{timeIcon}</span>
           <span style={{ fontWeight: 700 }}>{clockStr || '--:--'}</span>
@@ -81,12 +84,56 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           fontFamily: '"Courier New", monospace',
           color: 'rgba(200,185,155,0.75)',
           letterSpacing: '0.04em',
+          pointerEvents: 'none',
         }}>
           {coordsStr}&nbsp;&nbsp;|&nbsp;&nbsp;{fps} fps
         </div>
+
+        {/* In-Game Notifications & Chat Counter Buttons */}
+        <div style={{ display: 'flex', gap: '6px', pointerEvents: 'auto', marginTop: '2px' }}>
+          <button
+            onClick={onOpenNotifications}
+            title="Open Notification Center"
+            style={{
+              background: notificationsCount > 0 ? 'rgba(214,178,120,0.35)' : 'rgba(0,0,0,0.55)',
+              border: `1px solid ${notificationsCount > 0 ? 'var(--gold)' : 'rgba(255,255,255,0.15)'}`,
+              borderRadius: '6px', padding: '5px 9px', color: '#fff', fontSize: '10px',
+              fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)'
+            }}
+          >
+            <span>🔔 NOTIFICATIONS</span>
+            <span style={{
+              background: notificationsCount > 0 ? 'var(--gold-bright)' : 'rgba(255,255,255,0.2)',
+              color: '#000', borderRadius: '10px', padding: '1px 6px', fontSize: '9px', fontWeight: 800
+            }}>
+              {notificationsCount}
+            </span>
+          </button>
+
+          <button
+            onClick={onOpenChat}
+            title="Toggle Chat Panel"
+            style={{
+              background: unreadChatCount > 0 ? 'rgba(0,122,255,0.35)' : 'rgba(0,0,0,0.55)',
+              border: `1px solid ${unreadChatCount > 0 ? '#3897f0' : 'rgba(255,255,255,0.15)'}`,
+              borderRadius: '6px', padding: '5px 9px', color: '#fff', fontSize: '10px',
+              fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)'
+            }}
+          >
+            <span>💬 CHAT</span>
+            <span style={{
+              background: unreadChatCount > 0 ? '#3897f0' : 'rgba(255,255,255,0.2)',
+              color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '9px', fontWeight: 800
+            }}>
+              {unreadChatCount}
+            </span>
+          </button>
+        </div>
       </div>
 
-      {/* Target Block HUD */}
+      {/* Target Block HUD (integrated with XP & Mob Kills) */}
       <div id="targetHud" className={`target-hud ${targetBlockName ? 'visible' : ''}`} style={{ display: targetBlockName ? 'block' : 'none' }}>
         <span id="targetName">
           <span style={{ opacity: 0.65, fontSize: '10px', letterSpacing: '1px', marginRight: '5px' }}>TARGET:</span>
@@ -200,50 +247,6 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
       {selectedId > 0 && (
         <div id="activeItemName" className="active-item-name">
           {thingName(selectedId)}
-        </div>
-      )}
-
-      {/* 🎯 INTUITIVE TARGET & ACTION BADGE (Center HUD under crosshair) */}
-      {typeof window !== 'undefined' && window.__hudTargetInfo && (
-        <div style={{
-          position: 'fixed',
-          top: '55%',
-          left: '50%',
-          transform: 'translate(-50%, 20px)',
-          zIndex: 120,
-          pointerEvents: 'none',
-          userSelect: 'none',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '2px',
-          animation: 'fadeIn 0.15s ease-out'
-        }}>
-          <div style={{
-            background: 'rgba(14, 11, 8, 0.88)',
-            border: '1px solid var(--gold)',
-            borderRadius: '6px',
-            padding: '4px 12px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--gold-bright)' }}>
-              {window.__hudTargetInfo.name}
-            </span>
-          </div>
-          <div style={{
-            fontSize: '9px',
-            color: '#eee',
-            background: 'rgba(0,0,0,0.6)',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            letterSpacing: '0.5px'
-          }}>
-            {window.__hudTargetInfo.action}
-          </div>
         </div>
       )}
 

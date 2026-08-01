@@ -25,6 +25,7 @@ import ChatPanel from './ChatPanel.jsx';
 import StarterQuestHUD from './StarterQuestHUD.jsx';
 import DailyLoginModal from './DailyLoginModal.jsx';
 import CosmeticsModal from './CosmeticsModal.jsx';
+import NotificationCenterModal from './NotificationCenterModal.jsx';
 import { toggleAmbientBGM } from '../audio.js';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setOnboardingOpen, setActiveChestCoords, setActiveFurnaceCoords,
@@ -89,6 +90,12 @@ export default function App() {
   const [showCosmeticsModal, setShowCosmeticsModal] = useState(false);
   const [starterQuestState, setStarterQuestState] = useState({ currentIndex: 0, progress: {} });
   const [bgmActive, setBgmActive] = useState(false);
+
+  // Notification Center & Requests State
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState([]);
+  const [incomingRoomInvites, setIncomingRoomInvites] = useState([]);
+  const [sideNotificationPopup, setSideNotificationPopup] = useState(null);
 
   // Check if current user is a Master Admin Account (strictly based on Firestore document 'role' field)
   const isMasterAccount = userRole === 'admin' || userRole === 'master';
@@ -195,6 +202,34 @@ export default function App() {
       if (Array.isArray(userData.messages)) {
         setUserMessages(userData.messages);
       }
+
+      // Friend Requests & Room Invites Sync + Side Popup Trigger
+      const reqs = Array.isArray(userData.friendRequests) ? userData.friendRequests : [];
+      const invs = Array.isArray(userData.invites) ? userData.invites : [];
+
+      setIncomingFriendRequests(prev => {
+        if (reqs.length > prev.length && reqs.length > 0) {
+          const newest = reqs[reqs.length - 1];
+          setSideNotificationPopup({
+            id: Date.now(),
+            title: '📩 New Friend Request!',
+            body: `${newest.senderEmail || 'A player'} wants to add you as a friend.`
+          });
+        }
+        return reqs;
+      });
+
+      setIncomingRoomInvites(prev => {
+        if (invs.length > prev.length && invs.length > 0) {
+          const newest = invs[invs.length - 1];
+          setSideNotificationPopup({
+            id: Date.now(),
+            title: '✉️ New Team Room Invite!',
+            body: `${newest.senderEmail || 'A player'} invited you to join '${newest.roomName || 'World Room'}'.`
+          });
+        }
+        return invs;
+      });
 
       // Teleport signal
       if (userData.teleportTarget) {
@@ -373,6 +408,8 @@ export default function App() {
               currentUser={currentUser}
               syncStatus={syncMsg}
               scheduleSave={scheduleSave}
+              notificationsCount={incomingFriendRequests.length + incomingRoomInvites.length}
+              onOpenNotifications={() => setShowNotificationsModal(true)}
               onOpenDirectory={() => setShowPlayerDirectory(true)}
               onOpenDailyRewards={() => setShowDailyModal(true)}
               onOpenCosmetics={() => setShowCosmeticsModal(true)}
@@ -587,6 +624,20 @@ export default function App() {
             fps={fps}
             coordsStr={coordsStr}
             clockStr={clockStr}
+            notificationsCount={incomingFriendRequests.length + incomingRoomInvites.length}
+            unreadChatCount={0}
+            onOpenNotifications={() => {
+              if (document.pointerLockElement) document.exitPointerLock();
+              setShowNotificationsModal(true);
+            }}
+            onOpenChat={() => {
+              if (document.pointerLockElement) document.exitPointerLock();
+              setShowChatSidePanel(prev => {
+                const next = !prev;
+                uiState.chatOpen = next;
+                return next;
+              });
+            }}
           />
 
           {/* Starter Quest HUD Banner */}
@@ -669,6 +720,67 @@ export default function App() {
         <CosmeticsModal
           onClose={() => setShowCosmeticsModal(false)}
         />
+      )}
+
+      {/* NOTIFICATION CENTER MODAL */}
+      {showNotificationsModal && (
+        <NotificationCenterModal
+          currentUser={currentUser}
+          friendRequests={incomingFriendRequests}
+          roomInvites={incomingRoomInvites}
+          onClose={() => setShowNotificationsModal(false)}
+          onJoinRoom={(roomId, roomName) => {
+            game.roomName = roomName;
+            game.roomId = roomId;
+            game.mode = 'room';
+            game.running = true;
+            game.paused = false;
+            initAudio();
+            forceUpdate();
+            toast(`🚀 Joined Room '${roomName}'!`);
+          }}
+        />
+      )}
+
+      {/* ONLINE SIDE NOTIFICATION TOAST POPUP */}
+      {sideNotificationPopup && (
+        <div
+          style={{
+            position: 'fixed', bottom: '24px', right: '24px', zIndex: 1200,
+            background: 'linear-gradient(135deg, rgba(20,24,30,0.98), rgba(10,12,16,0.99))',
+            border: '2px solid var(--gold)', borderRadius: '12px', padding: '14px 18px',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.8)', color: '#fff', width: '320px',
+            display: 'flex', flexDirection: 'column', gap: '8px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--gold-bright)' }}>
+              {sideNotificationPopup.title}
+            </span>
+            <button
+              onClick={() => setSideNotificationPopup(null)}
+              style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '14px' }}
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{ fontSize: '11px', color: '#ddd' }}>
+            {sideNotificationPopup.body}
+          </div>
+          <button
+            onClick={() => {
+              if (document.pointerLockElement) document.exitPointerLock();
+              setShowNotificationsModal(true);
+              setSideNotificationPopup(null);
+            }}
+            style={{
+              background: 'var(--gold)', color: '#000', border: 'none', borderRadius: '6px',
+              padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', alignSelf: 'flex-end'
+            }}
+          >
+            Open Center 🔔
+          </button>
+        </div>
       )}
 
       {/* Sliding Side-Panel Overlay — Available in both Lobby and In-Game */}

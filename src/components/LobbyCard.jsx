@@ -13,7 +13,7 @@ import { initAudio } from '../audio.js';
 
 import ChatPanel from './ChatPanel.jsx';
 
-export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus, onStartGame, scheduleSave, onOpenDirectory, onOpenDailyRewards, onOpenCosmetics }) {
+export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus, onStartGame, scheduleSave, onOpenDirectory, onOpenDailyRewards, onOpenCosmetics, notificationsCount = 0, onOpenNotifications }) {
   const [activeTab, setActiveTab] = useState('play');
   const [resetStep, setResetStep] = useState(null);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -189,6 +189,7 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
       {/* Navigation */}
       <div className="dashboard-tabs" style={{ flexShrink: 0, flexWrap: 'wrap' }}>
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
+        <button className="dash-tab" style={{ background: notificationsCount > 0 ? 'rgba(214,178,120,0.35)' : 'rgba(214,178,120,0.15)', border: '1px solid var(--gold)', color: 'var(--gold-bright)' }} onClick={onOpenNotifications}>🔔 Notifications ({notificationsCount})</button>
         <button className="dash-tab" style={{ background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)' }} onClick={onOpenDailyRewards}>🎁 Daily Gift</button>
         <button className="dash-tab" style={{ background: 'rgba(6,182,212,0.2)', border: '1px solid #06b6d4', color: '#06b6d4' }} onClick={onOpenCosmetics}>✨ Wardrobe</button>
         <button className={`dash-tab ${activeTab === 'showcase' ? 'active' : ''}`} onClick={() => setActiveTab('showcase')}>🏆 Showcase</button>

@@ -15,29 +15,36 @@ export const DAILY_REWARDS = [
 export default function DailyLoginModal({ currentUser, onClose }) {
   const [streak, setStreak] = useState(1);
   const [claimedDays, setClaimedDays] = useState({});
+  const [lastClaimedDate, setLastClaimedDate] = useState('');
+
+  const todayStr = new Date().toDateString();
 
   useEffect(() => {
     try {
       const savedStreak = parseInt(localStorage.getItem('voxel_daily_streak') || '1', 10);
       const savedClaimed = JSON.parse(localStorage.getItem('voxel_daily_claimed') || '{}');
+      const savedLastDate = localStorage.getItem('voxel_daily_last_claimed_date') || '';
       setStreak(savedStreak);
       setClaimedDays(savedClaimed);
+      setLastClaimedDate(savedLastDate);
     } catch (e) {}
   }, []);
 
   const handleClaim = (day) => {
-    if (claimedDays[day]) return;
+    if (claimedDays[day] || lastClaimedDate === todayStr) {
+      return toast("⏳ You have already claimed today's reward! Come back tomorrow.");
+    }
 
     const newClaimed = { ...claimedDays, [day]: true };
     setClaimedDays(newClaimed);
+    setLastClaimedDate(todayStr);
 
     try {
       localStorage.setItem('voxel_daily_claimed', JSON.stringify(newClaimed));
-      if (day >= streak) {
-        const nextStreak = Math.min(7, streak + 1);
-        setStreak(nextStreak);
-        localStorage.setItem('voxel_daily_streak', nextStreak.toString());
-      }
+      localStorage.setItem('voxel_daily_last_claimed_date', todayStr);
+      const nextStreak = Math.min(7, day + 1);
+      setStreak(nextStreak);
+      localStorage.setItem('voxel_daily_streak', nextStreak.toString());
     } catch (e) {}
 
     // Give items in game state
@@ -45,10 +52,14 @@ export default function DailyLoginModal({ currentUser, onClose }) {
     else if (day === 2) { inventory[111] = (inventory[111] || 0) + 5; inventory[20] = (inventory[20] || 0) + 10; }
     else if (day === 3) { inventory[7] = (inventory[7] || 0) + 20; }
     else if (day === 4) { inventory[108] = (inventory[108] || 0) + 1; }
-    else if (day === 5) { inventory[106] = (inventory[106] || 0) + 1; }
+    else if (day === 5) { inventory[106] = (inventory[106] || 0) + 3; inventory[105] = (inventory[105] || 0) + 1; }
+    else if (day === 6) { inventory[110] = (inventory[110] || 0) + 10; }
+    else if (day === 7) { game.particleTrail = 'flame'; }
 
     toast(`🎁 Claimed Day ${day} Daily Reward! Check inventory!`);
   };
+
+  const hasClaimedToday = lastClaimedDate === todayStr;
 
   return (
     <div style={{
@@ -81,7 +92,7 @@ export default function DailyLoginModal({ currentUser, onClose }) {
           7-Day Daily Login Streaks
         </h2>
         <p style={{ color: '#bbb', fontSize: '12px', margin: '6px 0 20px 0' }}>
-          Log in every day to claim exclusive tools, diamonds, cosmetics, and rewards!
+          Log in every 24 hours to claim tools, diamonds, cosmetics, and rewards!
         </p>
 
         {/* 7-Day Grid */}
@@ -91,7 +102,8 @@ export default function DailyLoginModal({ currentUser, onClose }) {
         }}>
           {DAILY_REWARDS.map(r => {
             const isClaimed = !!claimedDays[r.day];
-            const isAvailable = r.day <= streak && !isClaimed;
+            const isTodayTarget = r.day === streak;
+            const isAvailable = isTodayTarget && !isClaimed && !hasClaimedToday;
 
             return (
               <div
@@ -134,7 +146,7 @@ export default function DailyLoginModal({ currentUser, onClose }) {
                     color: isClaimed || isAvailable ? '#000' : '#666'
                   }}
                 >
-                  {isClaimed ? '✓ Claimed' : isAvailable ? '🎁 Claim Now' : '🔒 Locked'}
+                  {isClaimed ? '✓ Claimed' : isAvailable ? '🎁 Claim Now' : isTodayTarget && hasClaimedToday ? '⏳ Tomorrow' : '🔒 Locked'}
                 </button>
               </div>
             );
