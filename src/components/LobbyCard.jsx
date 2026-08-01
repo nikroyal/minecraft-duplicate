@@ -13,7 +13,7 @@ import { initAudio } from '../audio.js';
 
 import ChatPanel from './ChatPanel.jsx';
 
-export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus, onStartGame, scheduleSave, onOpenDirectory }) {
+export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus, onStartGame, scheduleSave, onOpenDirectory, onOpenDailyRewards, onOpenCosmetics }) {
   const [activeTab, setActiveTab] = useState('play');
   const [resetStep, setResetStep] = useState(null);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -187,14 +187,17 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
       <div className="tag" style={{ flexShrink: 0 }}>A MULTIPLAYER VOXEL WORLD</div>
 
       {/* Navigation */}
-      <div className="dashboard-tabs" style={{ flexShrink: 0 }}>
+      <div className="dashboard-tabs" style={{ flexShrink: 0, flexWrap: 'wrap' }}>
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
+        <button className="dash-tab" style={{ background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)' }} onClick={onOpenDailyRewards}>🎁 Daily Gift</button>
+        <button className="dash-tab" style={{ background: 'rgba(6,182,212,0.2)', border: '1px solid #06b6d4', color: '#06b6d4' }} onClick={onOpenCosmetics}>✨ Wardrobe</button>
+        <button className={`dash-tab ${activeTab === 'showcase' ? 'active' : ''}`} onClick={() => setActiveTab('showcase')}>🏆 Showcase</button>
         <button className="dash-tab" onClick={onOpenDirectory}>🔍 Directory</button>
         <button id="tabChatBtn" className={`dash-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>💬 Chat Hub</button>
         <button id="tabReviewBtn" className={`dash-tab ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>⭐ Reviews</button>
         <button id="tabStatsBtn" className={`dash-tab ${activeTab === 'stats' ? 'active' : ''}`} onClick={() => setActiveTab('stats')}>📊 My Stats</button>
         <button id="tabLeaderboardBtn" className={`dash-tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>🥇 Leaderboard</button>
-        <button id="tabAchievementsBtn" className={`dash-tab ${activeTab === 'achievements' ? 'active' : ''}`} onClick={() => setActiveTab('achievements')}>🏆 Achievements</button>
+        <button id="tabAchievementsBtn" className={`dash-tab ${activeTab === 'achievements' ? 'active' : ''}`} onClick={() => setActiveTab('achievements')}>🏆 Badges</button>
         <button id="tabAvatarBtn" className={`dash-tab ${activeTab === 'avatar' ? 'active' : ''}`} onClick={() => setActiveTab('avatar')}>👕 Avatar</button>
       </div>
 
@@ -500,6 +503,33 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'showcase' && (
+        <div className="dash-panel" style={{ flex: 1, overflowY: 'auto', padding: '10px 4px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: '12px' }}>
+            🏆 Community Builds of the Week
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px' }}>
+            {[
+              { title: '🏰 Dragon Skytower', author: 'Alex_Master', votes: 142, icon: '🏰' },
+              { title: '⛩️ Zen Lotus Temple', author: 'SakuraVoxel', votes: 118, icon: '⛩️' },
+              { title: '🌋 Obsidian Nether Spire', author: 'DarkArchitect', votes: 95, icon: '🌋' }
+            ].map((b, idx) => (
+              <div key={idx} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '6px' }}>{b.icon}</div>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}>{b.title}</div>
+                <div style={{ fontSize: '10px', color: '#aaa', margin: '4px 0 10px 0' }}>By {b.author}</div>
+                <button
+                  onClick={() => toast(`⭐ Voted for ${b.title}!`)}
+                  style={{ background: 'var(--gold)', color: '#000', border: 'none', padding: '6px 14px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  ⭐ Vote ({b.votes})
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}

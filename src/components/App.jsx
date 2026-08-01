@@ -22,6 +22,10 @@ import PlayerDirectoryModal from './PlayerDirectoryModal.jsx';
 import WayfinderModal from './WayfinderModal.jsx';
 import OnboardingAgentModal from './OnboardingAgentModal.jsx';
 import ChatPanel from './ChatPanel.jsx';
+import StarterQuestHUD from './StarterQuestHUD.jsx';
+import DailyLoginModal from './DailyLoginModal.jsx';
+import CosmeticsModal from './CosmeticsModal.jsx';
+import { toggleAmbientBGM } from '../audio.js';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setOnboardingOpen, setActiveChestCoords, setActiveFurnaceCoords,
   closeCraft, closeChest, closeFurnace, scheduleSave, craft, updateLobbyAvatarPreview, toast, deathCause,
@@ -354,6 +358,8 @@ export default function App() {
               syncStatus={syncMsg}
               scheduleSave={scheduleSave}
               onOpenDirectory={() => setShowPlayerDirectory(true)}
+              onOpenDailyRewards={() => setShowDailyModal(true)}
+              onOpenCosmetics={() => setShowCosmeticsModal(true)}
               onStartGame={() => {
                 game.running = true;
                 game.paused = false;
@@ -567,31 +573,86 @@ export default function App() {
             clockStr={clockStr}
           />
 
-          {/* In-Game HUD Chat Button */}
+          {/* Starter Quest HUD Banner */}
           {!game.paused && (
-            <button
-              onClick={() => {
-                if (document.pointerLockElement) document.exitPointerLock();
-                setShowChatSidePanel(prev => {
-                  const next = !prev;
-                  uiState.chatOpen = next;
-                  return next;
-                });
-              }}
-              style={{
-                position: 'fixed', top: '12px', right: '12px', zIndex: 120,
-                background: 'rgba(20, 16, 12, 0.9)', border: '1px solid var(--gold)',
-                borderRadius: '8px', color: 'var(--gold-bright)', padding: '6px 12px',
-                fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
-              }}
-            >
-              💬 CHAT [T]
-            </button>
+            <StarterQuestHUD questState={starterQuestState} />
+          )}
+
+          {/* In-Game HUD Buttons */}
+          {!game.paused && (
+            <div style={{ position: 'fixed', top: '12px', right: '12px', zIndex: 120, display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  const playing = toggleAmbientBGM();
+                  setBgmActive(playing);
+                  toast(playing ? "🎵 Ambient Background Music Started!" : "🔇 Background Music Muted.");
+                }}
+                style={{
+                  background: bgmActive ? 'rgba(57,255,20,0.2)' : 'rgba(20, 16, 12, 0.9)',
+                  border: bgmActive ? '1px solid #39ff14' : '1px solid var(--gold)',
+                  borderRadius: '8px', color: bgmActive ? '#39ff14' : 'var(--gold-bright)', padding: '6px 12px',
+                  fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
+                }}
+              >
+                {bgmActive ? '🎵 MUSIC ON' : '🔇 MUSIC OFF'}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (document.pointerLockElement) document.exitPointerLock();
+                  setShowCosmeticsModal(true);
+                }}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.2)', border: '1px solid #06b6d4',
+                  borderRadius: '8px', color: '#06b6d4', padding: '6px 12px',
+                  fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
+                }}
+              >
+                ✨ WARDROBE
+              </button>
+
+              <button
+                onClick={() => {
+                  if (document.pointerLockElement) document.exitPointerLock();
+                  setShowChatSidePanel(prev => {
+                    const next = !prev;
+                    uiState.chatOpen = next;
+                    return next;
+                  });
+                }}
+                style={{
+                  background: 'rgba(20, 16, 12, 0.9)', border: '1px solid var(--gold)',
+                  borderRadius: '8px', color: 'var(--gold-bright)', padding: '6px 12px',
+                  fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
+                }}
+              >
+                💬 CHAT [T]
+              </button>
+            </div>
           )}
 
         </>
+      )}
+
+      {/* DAILY LOGIN REWARDS MODAL */}
+      {showDailyModal && (
+        <DailyLoginModal
+          currentUser={currentUser}
+          onClose={() => setShowDailyModal(false)}
+        />
+      )}
+
+      {/* COSMETICS & WARDROBE MODAL */}
+      {showCosmeticsModal && (
+        <CosmeticsModal
+          onClose={() => setShowCosmeticsModal(false)}
+        />
       )}
 
       {/* Sliding Side-Panel Overlay — Available in both Lobby and In-Game */}

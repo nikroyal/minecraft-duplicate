@@ -397,3 +397,56 @@ export function playAchievementSound() {
     };
   } catch(e){}
 }
+
+let bgmInterval = null;
+let isBgmPlaying = false;
+
+export function toggleAmbientBGM() {
+  if (isBgmPlaying) {
+    stopAmbientBGM();
+    return false;
+  } else {
+    startAmbientBGM();
+    return true;
+  }
+}
+
+export function startAmbientBGM() {
+  if (isBgmPlaying) return;
+  isBgmPlaying = true;
+
+  const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25]; // C major pentatonic
+  bgmInterval = setInterval(() => {
+    if (!isBgmPlaying) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const freq = notes[Math.floor(Math.random() * notes.length)];
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.0);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 3.0);
+      setTimeout(() => safeDisconnect(osc, gain), 3200);
+    } catch (e) {}
+  }, 2400);
+}
+
+export function stopAmbientBGM() {
+  isBgmPlaying = false;
+  if (bgmInterval) {
+    clearInterval(bgmInterval);
+    bgmInterval = null;
+  }
+}
