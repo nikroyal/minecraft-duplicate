@@ -33,8 +33,26 @@ import {
 import { playPlaceSound, playMineSound } from './audio.js';
 import { activeNavigation, findPath, updatePathTrail } from './pathfinder.js';
 
-// ---- 3D Item Drops System ----
-export const itemDrops = [];
+// Helper: Voxel terrain collision check for item entity bounding box (half-width hw, height hh)
+function itemCollides(px, py, pz, hw = 0.12, hh = 0.24) {
+  const minX = Math.floor(px - hw);
+  const maxX = Math.floor(px + hw);
+  const minY = Math.floor(py);
+  const maxY = Math.floor(py + hh);
+  const minZ = Math.floor(pz - hw);
+  const maxZ = Math.floor(pz + hw);
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        if (isSolid(getBlock(x, y, z))) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
 
 export function spawnItemDrop(id, count, x, y, z) {
   if (typeof id !== 'number' || isNaN(id) || (!BLOCKS[id] && !ITEMS[id])) return;
@@ -83,14 +101,22 @@ export function spawnItemDrop(id, count, x, y, z) {
     mesh = new THREE.Mesh(geo, mat);
   }
 
-  mesh.position.set(x, y + 0.2, z);
+  mesh.position.set(x, y + 0.1, z);
   if (webgl.scene) webgl.scene.add(mesh);
 
   const drop = {
-    id, count, mesh,
-    pos: new THREE.Vector3(x, y + 0.2, z),
-    vel: new THREE.Vector3((Math.random() - 0.5) * 1.5, 2.5, (Math.random() - 0.5) * 1.5),
+    id, count: safeCount, mesh,
+    pos: new THREE.Vector3(x, y + 0.1, z),
+    vel: new THREE.Vector3(
+      (Math.random() - 0.5) * 1.5,
+      2.0 + Math.random() * 0.5,
+      (Math.random() - 0.5) * 1.5
+    ),
     spawnTime: performance.now(),
+    onGround: false,
+    collidedHoriz: false,
+    collidedVert: false,
+    state: 'falling' // 'falling', 'resting', 'attracting'
   };
   itemDrops.push(drop);
 }
@@ -99,17 +125,39 @@ export function updateItemDrops(dt) {
   if (!webgl.scene || itemDrops.length === 0) return;
   const now = performance.now();
   const playerTarget = player.pos.clone().add(new THREE.Vector3(0, 0.8, 0));
+  const safeDt = Math.min(dt, 0.05);
+
+  const hw = 0.12;
+  const hh = 0.24;
+  const gravityAccel = -22.0;
 
   for (let i = itemDrops.length - 1; i >= 0; i--) {
     const d = itemDrops[i];
-    d.mesh.rotation.y += dt * 3.5;
+    d.mesh.rotation.y += safeDt * 3.5;
 
     const dist = d.pos.distanceTo(playerTarget);
-    // Realistic magnet pull triggers within 2.5 blocks radius
-    if (dist < 2.5 && now - d.spawnTime > 150 && !player.dead) {
-      // Smooth magnetic pull towards player hands
-      d.pos.lerp(playerTarget, dt * 10.0);
+    const isPickupEligible = (dist < 2.5 && now - d.spawnTime > 150 && !player.dead);
+
+    d.collidedHoriz = false;
+    d.collidedVert = false;
+
+    if (isPickupEligible) {
+      d.state = 'attracting';
+      d.onGround = false;
+
+      // Blend magnetic attraction force with existing velocity & physics (no freezing)
+      const dir = playerTarget.clone().sub(d.pos).normalize();
+      const magnetStrength = 26.0;
+      d.vel.addScaledVector(dir, magnetStrength * safeDt);
+
+      // Apply light gravity & air damping during attraction pull
+      d.vel.y += -8.0 * safeDt;
+      d.vel.multiplyScalar(Math.pow(0.88, safeDt * 60));
+
+      // Update position with physics velocity
+      d.pos.addScaledVector(d.vel, safeDt);
       d.mesh.position.copy(d.pos);
+
       // Collect item when within 1.2 block radius
       if (dist < 1.2) {
         if (d.id === 150) {
@@ -128,13 +176,63 @@ export function updateItemDrops(dt) {
         continue;
       }
     } else {
-      d.vel.y += -22 * dt; // Gravity
-      d.pos.addScaledVector(d.vel, dt);
-      const bx = Math.floor(d.pos.x), by = Math.floor(d.pos.y), bz = Math.floor(d.pos.z);
-      if (isSolid(getBlock(bx, by, bz))) {
-        d.pos.y = by + 1.05; // Rest on top of block surface
-        d.vel.set(0, 0, 0);
+      // Standard Voxel Terrain Physics & Gravity
+      if (!d.onGround) {
+        d.vel.y += gravityAccel * safeDt;
+        d.vel.x *= Math.pow(0.98, safeDt * 60);
+        d.vel.z *= Math.pow(0.98, safeDt * 60);
+      } else {
+        // Ground friction
+        d.vel.x *= Math.pow(0.5, safeDt * 60);
+        d.vel.z *= Math.pow(0.5, safeDt * 60);
+        if (Math.hypot(d.vel.x, d.vel.z) < 0.01) {
+          d.vel.x = 0;
+          d.vel.z = 0;
+        }
       }
+
+      // Axis 1: Move X
+      const newX = d.pos.x + d.vel.x * safeDt;
+      if (itemCollides(newX, d.pos.y, d.pos.z, hw, hh)) {
+        d.vel.x = -d.vel.x * 0.3;
+        d.collidedHoriz = true;
+      } else {
+        d.pos.x = newX;
+      }
+
+      // Axis 2: Move Z
+      const newZ = d.pos.z + d.vel.z * safeDt;
+      if (itemCollides(d.pos.x, d.pos.y, newZ, hw, hh)) {
+        d.vel.z = -d.vel.z * 0.3;
+        d.collidedHoriz = true;
+      } else {
+        d.pos.z = newZ;
+      }
+
+      // Axis 3: Move Y
+      const newY = d.pos.y + d.vel.y * safeDt;
+      if (itemCollides(d.pos.x, newY, d.pos.z, hw, hh)) {
+        d.collidedVert = true;
+        if (d.vel.y < 0) {
+          // Landing on top of solid block
+          d.onGround = true;
+          d.vel.y = 0;
+          const landingY = Math.floor(newY);
+          d.pos.y = landingY + 1.0;
+        } else {
+          // Hitting ceiling
+          d.vel.y = 0;
+        }
+      } else {
+        d.pos.y = newY;
+        // Check if block underneath was removed/mined
+        const isSupported = itemCollides(d.pos.x, d.pos.y - 0.05, d.pos.z, hw, 0.05);
+        if (!isSupported) {
+          d.onGround = false;
+        }
+      }
+
+      d.state = d.onGround ? 'resting' : 'falling';
       d.mesh.position.copy(d.pos);
     }
   }
@@ -1378,6 +1476,23 @@ function loop(now){
       collidersCount: colliders.length,
       collidersList: colliders.map(c => `${c.name} [${c.x},${c.y},${c.z}]`).join(", ") || "None",
       cameraSync,
+      // Dropped Item Entities Telemetry
+      droppedItemsCount: itemDrops.length,
+      droppedItemsList: itemDrops.map((d, idx) => ({
+        id: d.id,
+        name: thingName(d.id),
+        count: d.count,
+        posX: d.pos.x.toFixed(2),
+        posY: d.pos.y.toFixed(2),
+        posZ: d.pos.z.toFixed(2),
+        velX: d.vel.x.toFixed(2),
+        velY: d.vel.y.toFixed(2),
+        velZ: d.vel.z.toFixed(2),
+        gravityState: !d.onGround ? 'ACTIVE' : 'INACTIVE',
+        collidedHoriz: d.collidedHoriz ? 'YES' : 'NO',
+        collidedVert: d.collidedVert ? 'YES' : 'NO',
+        mode: d.state ? d.state.toUpperCase() : 'FALLING'
+      })),
       // Chunk pipeline sync
       dirtyChunks: dirtyChunkCount,
       dirtyCxCz: dirtyCxCz.slice(0, 6).join(" ") || "None",

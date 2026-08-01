@@ -231,9 +231,18 @@ export default function HUDOverlay({ selectedSlot, targetBlockName, fps, coordsS
           <div><strong>Position:</strong> ({window.__physicsTelemetry.posX}, {window.__physicsTelemetry.posY}, {window.__physicsTelemetry.posZ})</div>
           <div><strong>In Water:</strong> {window.__physicsTelemetry.inWater ? 'YES' : 'NO'} | <strong>Flying:</strong> {window.__physicsTelemetry.flying ? 'YES' : 'NO'}</div>
           <div><strong>Camera Sync:</strong> <span style={{ color: '#4cd964' }}>{window.__physicsTelemetry.cameraSync}</span></div>
-          <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#33ff33' }}>
-            <strong>Active Colliders ({window.__physicsTelemetry.collidersCount}):</strong> {window.__physicsTelemetry.collidersList}
+          <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#6fe6e0' }}>
+            <strong>📦 DROPPED ITEM ENTITIES ({window.__physicsTelemetry.droppedItemsCount || 0}):</strong>
           </div>
+          {window.__physicsTelemetry.droppedItemsList && window.__physicsTelemetry.droppedItemsList.length > 0 ? (
+            window.__physicsTelemetry.droppedItemsList.slice(0, 5).map((item, i) => (
+              <div key={i} style={{ fontSize: '11px', color: item.mode === 'ATTRACTING' ? '#39ff14' : item.mode === 'FALLING' ? '#ffaa00' : '#d8caae' }}>
+                #{i + 1} {item.name}×{item.count} | Pos: ({item.posX}, {item.posY}, {item.posZ}) | Vel: ({item.velX}, {item.velY}, {item.velZ}) | Gravity: {item.gravityState} | Collide(H:{item.collidedHoriz}, V:{item.collidedVert}) | Mode: <strong>{item.mode}</strong>
+              </div>
+            ))
+          ) : (
+            <div style={{ fontSize: '11px', color: '#888' }}>No active item entity drops nearby.</div>
+          )}
           <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #444', color: '#ffaa00' }}>
             <strong>⚠ CHUNK PIPELINE SYNC</strong>
           </div>
