@@ -1375,12 +1375,43 @@ function loop(now){
 
     window.__hudTargetInfo = targetInfo;
 
-    // 4. Project saved Waypoints (Base 🏡, Farm 🌾) to 2D Screen Space for 3D Markers
+    // 4. Project saved Waypoints (Base 🏡, Farm 🌾, Online Teammates 👤) to 2D Screen Space for 3D Markers
     if (webgl.camera && typeof window !== 'undefined') {
       const waypoints = typeof window.__getWaypoints === 'function' ? window.__getWaypoints() : [];
       const projectedWaypoints = [];
 
-      for (const wp of waypoints) {
+      // Combine local waypoints with online players & shared bases
+      const waypointsList = [...waypoints];
+
+      if (Array.isArray(game.otherPlayersList)) {
+        for (const op of game.otherPlayersList) {
+          if (!op || !op.pos || typeof op.pos.x !== 'number') continue;
+          const shortEmail = op.email ? op.email.split('@')[0] : 'Player';
+          waypointsList.push({
+            id: `player_${op.uid}`,
+            name: shortEmail,
+            icon: '👤',
+            x: op.pos.x,
+            y: op.pos.y,
+            z: op.pos.z
+          });
+
+          if (Array.isArray(op.bases)) {
+            for (const b of op.bases) {
+              waypointsList.push({
+                id: `op_base_${b.id || Math.random()}`,
+                name: `${shortEmail}'s ${b.name || 'Base'}`,
+                icon: b.icon || '🏡',
+                x: b.x,
+                y: b.y,
+                z: b.z
+              });
+            }
+          }
+        }
+      }
+
+      for (const wp of waypointsList) {
         if (!wp || typeof wp.x !== 'number') continue;
         const wpVec = new THREE.Vector3(wp.x + 0.5, wp.y + 1.2, wp.z + 0.5);
         const dist = Math.round(wpVec.distanceTo(player.pos));

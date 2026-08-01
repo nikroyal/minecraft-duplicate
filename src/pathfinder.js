@@ -304,10 +304,18 @@ export function deleteWaypoint(id) {
   return waypoints;
 }
 
-export function saveHomeBase(x, y, z) {
+export function saveHomeBase(x, y, z, ownerEmail = null) {
   let waypoints = getSavedWaypoints().filter(w => w.name !== 'My Base' && w.icon !== '🏡');
   const safeName = 'My Base';
-  const newWp = { id: 'base_' + Date.now(), name: safeName, x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), icon: '🏡' };
+  const newWp = { 
+    id: 'base_' + Date.now(), 
+    name: safeName, 
+    x: Math.floor(x), 
+    y: Math.floor(y), 
+    z: Math.floor(z), 
+    icon: '🏡',
+    ownerEmail: ownerEmail || (typeof window !== 'undefined' && window.__currentUserEmail) || 'Me'
+  };
   waypoints.unshift(newWp);
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(WAYPOINTS_KEY, JSON.stringify(waypoints));
@@ -316,10 +324,18 @@ export function saveHomeBase(x, y, z) {
   return waypoints;
 }
 
-export function saveFarm(x, y, z) {
+export function saveFarm(x, y, z, ownerEmail = null) {
   let waypoints = getSavedWaypoints().filter(w => w.name !== 'My Farm' && w.icon !== '🌾');
   const safeName = 'My Farm';
-  const newWp = { id: 'farm_' + Date.now(), name: safeName, x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), icon: '🌾' };
+  const newWp = { 
+    id: 'farm_' + Date.now(), 
+    name: safeName, 
+    x: Math.floor(x), 
+    y: Math.floor(y), 
+    z: Math.floor(z), 
+    icon: '🌾',
+    ownerEmail: ownerEmail || (typeof window !== 'undefined' && window.__currentUserEmail) || 'Me'
+  };
   waypoints.unshift(newWp);
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(WAYPOINTS_KEY, JSON.stringify(waypoints));
