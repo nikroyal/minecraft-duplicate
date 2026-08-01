@@ -142,6 +142,7 @@ export const ITEMS = {
   146: { name: "Bow",           color: 0x9a7b4a, tool: "bow" },
   147: { name: "Arrow",         color: 0xd8d8d8 },
   148: { name: "Gunpowder",     color: 0x4a4a4a },
+  150: { name: "Heart",         color: 0xff2244, food: 0, heal: 4 },
 };
 
 for (const id in ITEMS) {

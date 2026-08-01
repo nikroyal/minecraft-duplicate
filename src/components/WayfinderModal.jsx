@@ -10,7 +10,9 @@ import {
   activeNavigation,
   getSavedWaypoints,
   saveWaypoint,
-  deleteWaypoint
+  deleteWaypoint,
+  saveHomeBase,
+  saveFarm
 } from '../pathfinder.js';
 import { toast } from '../ui.js';
 
@@ -320,7 +322,33 @@ export default function WayfinderModal({ currentUser, onClose }) {
               {/* Presets & Bookmarks */}
               <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--slot-line)', borderRadius: '6px', padding: '12px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: '8px' }}>
-                  📍 Quick Presets
+                  🏡 My Base & Farm Quick Controls
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
+                  <button
+                    onClick={() => {
+                      const updated = saveHomeBase(player.pos.x, player.pos.y, player.pos.z);
+                      setWaypoints(updated);
+                    }}
+                    style={{ padding: '8px 10px', background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center' }}
+                  >
+                    📍 Set Current Position as My Base 🏡
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const updated = saveFarm(player.pos.x, player.pos.y, player.pos.z);
+                      setWaypoints(updated);
+                    }}
+                    style={{ padding: '8px 10px', background: 'rgba(76,217,100,0.18)', border: '1px solid #4cd964', color: '#4cd964', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', textAlign: 'center' }}
+                  >
+                    📍 Set Current Position as My Farm 🌾
+                  </button>
+                </div>
+
+                <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: '8px' }}>
+                  📍 Presets & Saved Locations
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', marginBottom: '12px' }}>
@@ -341,13 +369,13 @@ export default function WayfinderModal({ currentUser, onClose }) {
 
                 {/* Save Custom Waypoint */}
                 <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#fff', marginBottom: '6px' }}>
-                  Bookmark Current Location:
+                  Bookmark Custom Location:
                 </div>
 
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                   <input
                     type="text"
-                    placeholder="Waypoint Name (e.g. Secret Base)"
+                    placeholder="Waypoint Name (e.g. Secret Mineshaft)"
                     value={newWpName}
                     onChange={e => setNewWpName(e.target.value)}
                     style={{ flex: 1, padding: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--slot-line)', color: '#fff', borderRadius: '4px', fontSize: '10px' }}
@@ -362,25 +390,29 @@ export default function WayfinderModal({ currentUser, onClose }) {
 
                 {/* Saved Waypoints List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {waypoints.map(wp => (
-                    <div key={wp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.04)', padding: '6px 8px', borderRadius: '4px' }}>
-                      <span style={{ fontSize: '10px', color: '#fff' }}>{wp.icon} <strong>{wp.name}</strong> ({wp.x}, {wp.y}, {wp.z})</span>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                          onClick={() => handleStartPathfinding(wp.x, wp.y, wp.z, wp.name, wp.icon)}
-                          style={{ background: 'rgba(57,255,20,0.18)', border: '1px solid #39ff14', color: '#39ff14', padding: '2px 6px', borderRadius: '3px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer' }}
-                        >
-                          🧭 Trace
-                        </button>
-                        <button
-                          onClick={() => handleDeleteWp(wp.id)}
-                          style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '2px 6px', borderRadius: '3px', fontSize: '9px', cursor: 'pointer' }}
-                        >
-                          🗑️
-                        </button>
+                  {waypoints.length === 0 ? (
+                    <div style={{ fontSize: '10px', color: '#888', textAlign: 'center', padding: '8px' }}>No saved waypoints yet. Click "Set as My Base" or "+ Save Here" to save infinite locations!</div>
+                  ) : (
+                    waypoints.map(wp => (
+                      <div key={wp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.04)', padding: '6px 8px', borderRadius: '4px' }}>
+                        <span style={{ fontSize: '10px', color: '#fff' }}>{wp.icon} <strong>{wp.name}</strong> ({wp.x}, {wp.y}, {wp.z})</span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            onClick={() => handleStartPathfinding(wp.x, wp.y, wp.z, wp.name, wp.icon)}
+                            style={{ background: 'rgba(57,255,20,0.18)', border: '1px solid #39ff14', color: '#39ff14', padding: '2px 6px', borderRadius: '3px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer' }}
+                          >
+                            🧭 Trace Path
+                          </button>
+                          <button
+                            onClick={() => handleDeleteWp(wp.id)}
+                            style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '2px 6px', borderRadius: '3px', fontSize: '9px', cursor: 'pointer' }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
 
               </div>

@@ -335,6 +335,8 @@ export default function App() {
           {showLobby && (
             <LobbyCard
               userEmail={currentUser?.email || 'Offline Player'}
+              userRole={userRole}
+              currentUser={currentUser}
               syncStatus={syncMsg}
               scheduleSave={scheduleSave}
               onOpenDirectory={() => setShowPlayerDirectory(true)}

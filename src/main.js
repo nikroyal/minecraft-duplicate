@@ -112,8 +112,14 @@ export function updateItemDrops(dt) {
       d.mesh.position.copy(d.pos);
       // Collect item when within 1.2 block radius
       if (dist < 1.2) {
-        addItem(d.id, d.count);
-        toast(`Picked up +${d.count} ${thingName(d.id)}`);
+        if (d.id === 150) {
+          const healAmt = 4 * d.count;
+          player.health = Math.min(20, player.health + healAmt);
+          toast(`❤️ Collected Heart Pickup! Restored +${healAmt} HP (+${healAmt / 2} Hearts)!`);
+        } else {
+          addItem(d.id, d.count);
+          toast(`Picked up +${d.count} ${thingName(d.id)}`);
+        }
         webgl.scene.remove(d.mesh);
         if (d.mesh.geometry) d.mesh.geometry.dispose();
         if (d.mesh.material) d.mesh.material.dispose();
@@ -1532,7 +1538,11 @@ export function bootGame() {
 
   // Action listeners (left/right click)
   window.addEventListener("mousedown", (e) => {
-    if(player.dead || !game.running || isMenuOpen()) return;
+    // CRITICAL: Ignore mousedown when game is paused, dead, not running, menu open, or target is UI element!
+    if (player.dead || !game.running || game.paused || isMenuOpen()) return;
+
+    const isCanvas = (e.target === webgl.renderer?.domElement || e.target.id === 'game' || e.target.tagName === 'CANVAS');
+    if (!isCanvas) return;
 
     if(document.pointerLockElement !== webgl.renderer.domElement){
       // Click on canvas when pointer not locked: re-acquire lock
@@ -1584,6 +1594,15 @@ export function bootGame() {
           uiState.wayfinderOpen = false;
           if (window.__closeWayfinder) window.__closeWayfinder();
         }
+        if (uiState.onboardingOpen) {
+          uiState.onboardingOpen = false;
+          if (window.__closeOnboarding) window.__closeOnboarding();
+        }
+        // When closing any modal, ensure pause overlay is shown if pointer is unlocked
+        if (game.running && !document.pointerLockElement) {
+          game.paused = true;
+        }
+        if (reactBridge.updateUI) reactBridge.updateUI();
       }
       return;
     }

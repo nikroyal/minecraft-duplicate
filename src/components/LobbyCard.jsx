@@ -11,13 +11,23 @@ import {
 import { updateLobbyAvatarPreview, toast } from '../ui.js';
 import { initAudio } from '../audio.js';
 
-export default function LobbyCard({ userEmail, syncStatus, onStartGame, scheduleSave, onOpenDirectory }) {
+export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus, onStartGame, scheduleSave, onOpenDirectory }) {
   const [activeTab, setActiveTab] = useState('play');
   const [resetStep, setResetStep] = useState(null);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [leaderboardList, setLeaderboardList] = useState([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+
+  const isUserAdmin = userRole === 'admin' || userRole === 'master';
+
+  const visibleRooms = roomsList.filter(r => {
+    if (!r.isPrivate) return true;
+    if (isUserAdmin) return true; // Admins can see all hidden/private rooms!
+    if (currentUser && (r.ownerUid === currentUser.uid || (r.members || []).includes(currentUser.uid))) return true;
+    return false;
+  });
+
 
   // Review & Feedback State
   const [reviewRating, setReviewRating] = useState(10);
@@ -252,11 +262,12 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
               </div>
 
               <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {roomsList.length === 0 ? (
-                  <div style={{ color: '#aaa', fontSize: '10px', textAlign: 'center', padding: '12px' }}>No public team rooms found. Click "+ Create Room" to make one!</div>
+                {visibleRooms.length === 0 ? (
+                  <div style={{ color: '#aaa', fontSize: '10px', textAlign: 'center', padding: '12px' }}>No team rooms found. Click "+ Create Room" to make one!</div>
                 ) : (
-                  roomsList.map(r => {
+                  visibleRooms.map(r => {
                     const isSelected = selectedRoomId === r.id;
+                    const isPrivate = Boolean(r.isPrivate);
                     return (
                       <div
                         key={r.id}
@@ -268,8 +279,13 @@ export default function LobbyCard({ userEmail, syncStatus, onStartGame, schedule
                         }}
                       >
                         <div>
-                          <div style={{ fontSize: '11px', fontWeight: 'bold', color: isSelected ? 'var(--gold-bright)' : '#fff' }}>
-                            {r.isPrivate ? '🔒' : '🌐'} {r.name}
+                          <div style={{ fontSize: '11px', fontWeight: 'bold', color: isSelected ? 'var(--gold-bright)' : '#fff', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>{isPrivate ? '🔒' : '🌐'} {r.name}</span>
+                            {isPrivate && isUserAdmin && (
+                              <span style={{ fontSize: '8px', background: 'rgba(255,60,60,0.2)', color: '#ff9999', padding: '1px 4px', borderRadius: '3px', border: '1px solid rgba(255,60,60,0.4)' }}>
+                                👑 ADMIN VIEW
+                              </span>
+                            )}
                           </div>
                           <div style={{ fontSize: '9px', color: '#aaa' }}>{r.description || 'Custom room'} • Owner: {r.ownerEmail}</div>
                         </div>

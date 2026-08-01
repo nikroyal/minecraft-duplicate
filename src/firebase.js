@@ -729,6 +729,123 @@ export function subscribeToUserInvites(uid, callback) {
   });
 }
 
+// ── FRIENDS SYSTEM ──
+
+export async function sendFriendRequest(targetUid, targetEmail) {
+  if (!db || !currentUser || !targetUid) return { success: false, msg: "Must be logged in." };
+  if (targetUid === currentUser.uid) return { success: false, msg: "You cannot add yourself as a friend." };
+
+  try {
+    const targetRef = doc(db, 'users', targetUid);
+    const targetSnap = await getDoc(targetRef);
+    if (!targetSnap.exists()) return { success: false, msg: "User account not found." };
+
+    const reqObj = {
+      id: 'freq_' + Date.now(),
+      senderUid: currentUser.uid,
+      senderEmail: currentUser.email,
+      timestamp: new Date().toISOString(),
+      type: 'friend_request'
+    };
+
+    const existingReqs = Array.isArray(targetSnap.data().friendRequests) ? targetSnap.data().friendRequests : [];
+    // Prevent duplicate request
+    if (existingReqs.some(r => r.senderUid === currentUser.uid)) {
+      return { success: false, msg: "Friend request already sent." };
+    }
+
+    const updated = [reqObj, ...existingReqs].slice(0, 20);
+    await setDoc(targetRef, { friendRequests: updated }, { merge: true });
+    return { success: true, msg: `Friend request sent to ${targetEmail || 'player'}!` };
+  } catch (err) {
+    console.error("Failed to send friend request:", err);
+    return { success: false, msg: "Failed to send friend request due to network error." };
+  }
+}
+
+export async function acceptFriendRequest(senderUid, senderEmail) {
+  if (!db || !currentUser || !senderUid) return false;
+  try {
+    const myRef = doc(db, 'users', currentUser.uid);
+    const mySnap = await getDoc(myRef);
+    const myData = mySnap.exists() ? mySnap.data() : {};
+
+    const existingFriends = Array.isArray(myData.friends) ? myData.friends : [];
+    const newFriendObj = { uid: senderUid, email: senderEmail || 'Friend', addedAt: new Date().toISOString() };
+    const updatedMyFriends = [newFriendObj, ...existingFriends.filter(f => f.uid !== senderUid)];
+
+    const existingReqs = Array.isArray(myData.friendRequests) ? myData.friendRequests : [];
+    const updatedMyReqs = existingReqs.filter(r => r.senderUid !== senderUid);
+
+    await setDoc(myRef, { friends: updatedMyFriends, friendRequests: updatedMyReqs }, { merge: true });
+
+    // Also add to sender's friends list
+    const senderRef = doc(db, 'users', senderUid);
+    const senderSnap = await getDoc(senderRef);
+    if (senderSnap.exists()) {
+      const senderFriends = Array.isArray(senderSnap.data().friends) ? senderSnap.data().friends : [];
+      const updatedSenderFriends = [{ uid: currentUser.uid, email: currentUser.email, addedAt: new Date().toISOString() }, ...senderFriends.filter(f => f.uid !== currentUser.uid)];
+      await setDoc(senderRef, { friends: updatedSenderFriends }, { merge: true });
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Failed to accept friend request:", err);
+    return false;
+  }
+}
+
+export async function declineFriendRequest(senderUid) {
+  if (!db || !currentUser || !senderUid) return false;
+  try {
+    const myRef = doc(db, 'users', currentUser.uid);
+    const mySnap = await getDoc(myRef);
+    if (mySnap.exists()) {
+      const existingReqs = Array.isArray(mySnap.data().friendRequests) ? mySnap.data().friendRequests : [];
+      const updatedMyReqs = existingReqs.filter(r => r.senderUid !== senderUid);
+      await setDoc(myRef, { friendRequests: updatedMyReqs }, { merge: true });
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to decline friend request:", err);
+    return false;
+  }
+}
+
+export async function removeFriend(friendUid) {
+  if (!db || !currentUser || !friendUid) return false;
+  try {
+    const myRef = doc(db, 'users', currentUser.uid);
+    const mySnap = await getDoc(myRef);
+    if (mySnap.exists()) {
+      const existingFriends = Array.isArray(mySnap.data().friends) ? mySnap.data().friends : [];
+      const updatedFriends = existingFriends.filter(f => f.uid !== friendUid);
+      await setDoc(myRef, { friends: updatedFriends }, { merge: true });
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to remove friend:", err);
+    return false;
+  }
+}
+
+export function subscribeToUserFriends(uid, callback) {
+  if (!db || !uid) return () => {};
+  const userRef = doc(db, 'users', uid);
+  return onSnapshot(userRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      callback({
+        friends: Array.isArray(data.friends) ? data.friends : [],
+        friendRequests: Array.isArray(data.friendRequests) ? data.friendRequests : []
+      });
+    } else {
+      callback({ friends: [], friendRequests: [] });
+    }
+  });
+}
+
+
 // ── REVIEWS & FEEDBACK SYSTEM ──
 
 export async function submitGameReview(rating, text) {

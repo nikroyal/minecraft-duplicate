@@ -529,13 +529,22 @@ export function attackMob(targetMob, customDamage){
   best.vel.y = 3.5;
   
   if(best.hp <= 0){
-    if(best.def.drop && game.survival){
-      spawnItemDrop(best.def.drop, best.def.dropN || 1, best.pos.x, best.pos.y + 0.5, best.pos.z);
-      spawnXpOrbs(best.pos.x, best.pos.y + 0.5, best.pos.z, Math.floor(Math.random() * 3) + 3);
-      toast(`${best.def.name} defeated!`);
+    const isAnimal = best.type === 'pig' || best.type === 'sheep';
+    if (isAnimal) {
+      player.health = Math.min(20, player.health + 4);
+      player.hunger = Math.min(20, player.hunger + 2);
+      toast(`❤️ Defeated ${best.def.name}! Restored +4 HP (+2 Hearts)!`);
     } else {
-      toast(`${best.def.name} defeated`);
+      toast(`💥 Defeated ${best.def.name}!`);
     }
+
+    // Always spawn Heart pickups and drops regardless of mode
+    spawnItemDrop(150, isAnimal ? 2 : 1, best.pos.x, best.pos.y + 0.5, best.pos.z);
+    if (best.def.drop) {
+      spawnItemDrop(best.def.drop, best.def.dropN || 1, best.pos.x + 0.2, best.pos.y + 0.5, best.pos.z + 0.2);
+    }
+    spawnXpOrbs(best.pos.x, best.pos.y + 0.5, best.pos.z, Math.floor(Math.random() * 3) + 3);
+
     const idx = game.mobs.indexOf(best);
     if(idx >= 0) removeMob(idx);
   }
