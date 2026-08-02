@@ -450,6 +450,9 @@ export default function App() {
               onStartGame={() => {
                 game.running = true;
                 game.paused = false;
+                for (const ch of world.chunks.values()) {
+                  ch.dirty = true;
+                }
                 initAudio();
                 if (typeof window !== 'undefined' && localStorage.getItem("hasCompletedOnboarding_v1") !== "true") {
                   setOnboardingOpen(true);

@@ -1062,7 +1062,12 @@ export function makeWaterMesh(g) {
 }
 
 export function makeMesh(g, mode){
-  if(g.idx.length===0) return null;
+  if(!g || !Array.isArray(g.pos) || g.pos.length===0 || !Array.isArray(g.idx) || g.idx.length===0) return null;
+  
+  // Guard against NaN values in geometry buffers
+  for(let i=0; i<g.pos.length; i++){ if(isNaN(g.pos[i])) g.pos[i] = 0; }
+  for(let i=0; i<g.col.length; i++){ if(isNaN(g.col[i])) g.col[i] = 0.8; }
+
   const geo=new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(g.pos,3));
   geo.setAttribute("color",    new THREE.Float32BufferAttribute(g.col,3));
@@ -1114,13 +1119,15 @@ export function makeMesh(g, mode){
 
 export function disposeMesh(m){ 
   if(m){ 
-    webgl.scene.remove(m); 
+    if (webgl.scene) webgl.scene.remove(m); 
     if (m.geometry) m.geometry.dispose(); 
     // Do NOT dispose shared materials!
   } 
 }
 
 export function updateChunkMesh(ch){
+  if (!webgl.scene || !ch) return; // Do NOT clear dirty flag if webgl.scene is missing!
+
   const g = buildChunkMesh(ch);
   const wG = buildWaterGreedyMesh(ch);
 

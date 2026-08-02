@@ -1765,6 +1765,11 @@ export function bootGame() {
 
   initParticles();
 
+  // Mark all existing chunks dirty so they are guaranteed to rebuild into webgl.scene
+  for (const ch of world.chunks.values()) {
+    ch.dirty = true;
+  }
+
   // Resize handler
   window.addEventListener("resize", () => {
     webgl.camera.aspect = window.innerWidth/window.innerHeight;
