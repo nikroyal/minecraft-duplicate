@@ -54,8 +54,11 @@ export function unlockAchievement(id, name, desc) {
 }
 
 // Open/Close Actions
-export function getCraftOpen() { return uiState.craftOpen; }
-export function isMenuOpen() { return uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen || Boolean(uiState.wayfinderOpen) || Boolean(uiState.onboardingOpen) || Boolean(uiState.chatOpen); }
+export function getCraftOpen() { return Boolean(uiState?.craftOpen); }
+export function isMenuOpen() { 
+  if (!uiState) return false;
+  return Boolean(uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen || uiState.wayfinderOpen || uiState.onboardingOpen || uiState.chatOpen); 
+}
 
 export function safePointerLock() {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return;

@@ -409,7 +409,7 @@ export default function App() {
   const showAuth = showOverlay && authStatus === 'logged_out';
   const showLobby = showOverlay && (authStatus === 'logged_in' || authStatus === 'unconfigured') && !isMasterAccount;
   const showMaster = showOverlay && authStatus === 'logged_in' && isMasterAccount;
-  const showPaused = game.running && game.paused && !uiState.craftOpen && !uiState.chestOpen && !uiState.furnaceOpen;
+  const showPaused = game.running && game.paused && !uiState?.craftOpen && !uiState?.chestOpen && !uiState?.furnaceOpen;
 
   return (
     <>
@@ -771,23 +771,23 @@ export default function App() {
       )}
 
       {/* CHEST MODAL */}
-      {uiState.chestOpen && (
+      {Boolean(uiState?.chestOpen) && (
         <ChestScreen
-          coordsStr={uiState.activeChestCoords}
+          coordsStr={uiState?.activeChestCoords}
           onClose={handleCloseChest}
         />
       )}
 
       {/* FURNACE MODAL */}
-      {uiState.furnaceOpen && (
+      {Boolean(uiState?.furnaceOpen) && (
         <FurnaceScreen
-          coordsStr={uiState.activeFurnaceCoords}
+          coordsStr={uiState?.activeFurnaceCoords}
           onClose={handleCloseFurnace}
         />
       )}
 
       {/* CRAFTING & HANDBOOK MODAL */}
-      {uiState.craftOpen && (
+      {Boolean(uiState?.craftOpen) && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 100,
           display: 'flex', alignItems: 'center', justifyContent: 'center',

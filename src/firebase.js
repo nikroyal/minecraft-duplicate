@@ -43,6 +43,7 @@ export function initFirebase(onStatusChange, onSyncConflict) {
       
       try {
         db = initializeFirestore(app, {
+          experimentalAutoDetectLongPolling: true,
           localCache: persistentLocalCache({
             tabManager: persistentMultipleTabManager()
           })
