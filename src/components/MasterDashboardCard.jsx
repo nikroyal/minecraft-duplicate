@@ -417,7 +417,57 @@ export default function MasterDashboardCard({ userEmail }) {
         >
           💬 All Chats Stream ({allChatThreads.length})
         </button>
+
+        <button
+          onClick={() => setAdminTab('manual')}
+          className={`dash-tab ${adminTab === 'manual' ? 'active' : ''}`}
+          style={{
+            background: adminTab === 'manual' ? 'rgba(214,178,120,0.25)' : 'rgba(214,178,120,0.1)',
+            border: adminTab === 'manual' ? '1px solid var(--gold)' : '1px solid rgba(214,178,120,0.4)',
+            color: 'var(--gold-bright)',
+            padding: '8px 16px', borderRadius: 6, fontWeight: 'bold', fontSize: 11, cursor: 'pointer', flexShrink: 0
+          }}
+        >
+          📖 Operations Manual
+        </button>
       </div>
+
+      {adminTab === 'manual' && (
+        /* ── EMBEDDED OPERATIONS MANUAL ── */
+        <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(10,8,5,0.7)', border: '1px solid rgba(214,178,120,0.3)', borderRadius: 8, padding: 18, textAlign: 'left', lineHeight: 1.6, fontSize: 12, color: '#e0d0b8' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, borderBottom: '1px solid rgba(214,178,120,0.3)', paddingBottom: 10 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, color: 'var(--gold-bright)' }}>📜 Master Admin Operations & Protocol Handbook</h2>
+              <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>Official Administrative Governance Guide for Voxel Ecosystem</div>
+            </div>
+            <button
+              onClick={() => setShowHandbookModal(true)}
+              style={{ background: 'var(--gold)', color: '#000', border: 'none', padding: '6px 12px', borderRadius: 4, fontWeight: 'bold', cursor: 'pointer', fontSize: 11 }}
+            >
+              ↗️ Pop-Out Modal View
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(214,178,120,0.2)', padding: 12, borderRadius: 6 }}>
+              <h3 style={{ color: 'var(--gold-bright)', marginTop: 0, fontSize: 13 }}>👑 1. Master Privileges & Authority</h3>
+              <p style={{ margin: 0, fontSize: 11, color: '#ccc' }}>Full administrative governance over the Voxel Ecosystem. Master Dashboard gives live command over player states, room instances, real-time chat surveillance, global broadcasts, and server time.</p>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(214,178,120,0.2)', padding: 12, borderRadius: 6 }}>
+              <h3 style={{ color: 'var(--gold-bright)', marginTop: 0, fontSize: 13 }}>👥 2. User & Moderation Controls</h3>
+              <p style={{ margin: 0, fontSize: 11, color: '#ccc' }}>Freeze/unfreeze movement, heal HP, give items, teleport players, promote/demote roles, or message players directly.</p>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(214,178,120,0.2)', padding: 12, borderRadius: 6 }}>
+              <h3 style={{ color: 'var(--gold-bright)', marginTop: 0, fontSize: 13 }}>🌐 3. Room & World Inspector</h3>
+              <p style={{ margin: 0, fontSize: 11, color: '#ccc' }}>Stealth enter any active world/room, toggle public/private privacy, or reset Global Nexus world data to clean state.</p>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(214,178,120,0.2)', padding: 12, borderRadius: 6 }}>
+              <h3 style={{ color: 'var(--gold-bright)', marginTop: 0, fontSize: 13 }}>💬 4. Live Chat Oversight</h3>
+              <p style={{ margin: 0, fontSize: 11, color: '#ccc' }}>Monitor all public world chat, team room chats, and 1-on-1 private messages across the network for safety.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {adminTab === 'reviews' && (
         /* ── COMMUNITY REVIEWS INBOX ── */
