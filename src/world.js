@@ -8,7 +8,7 @@ import {
 } from './config.js';
 
 // Streaming queue & static meshing buffers
-export let genQueue = [];
+export const genQueue = [];
 const sharedMeshMask = new Uint8Array(HEIGHT * CHUNK);
 const sharedSurfaceRow = new Uint8Array(HEIGHT * CHUNK);
 
@@ -1140,13 +1140,15 @@ export function updateChunkLoading(){
     if(!world.chunks.has(k)){
       const ch=createChunkInstance(cx,cz);
       world.chunks.set(k,ch);
-      genQueue.push(ch);
+      if (Array.isArray(genQueue)) genQueue.push(ch);
     }
   }
-  genQueue.sort((a,b)=>{
-    const da=(a.cx-pcx)**2+(a.cz-pcz)**2, db=(b.cx-pcx)**2+(b.cz-pcz)**2;
-    return da-db;
-  });
+  if (Array.isArray(genQueue)) {
+    genQueue.sort((a,b)=>{
+      const da=(a.cx-pcx)**2+(a.cz-pcz)**2, db=(b.cx-pcx)**2+(b.cz-pcz)**2;
+      return da-db;
+    });
+  }
   for(const [k,ch] of world.chunks){
     if(!needed.has(k)){
       disposeMesh(ch.opaqueMesh); disposeMesh(ch.cutoutMesh); disposeMesh(ch.waterMesh); disposeMesh(ch.alphaMesh);
@@ -1157,7 +1159,7 @@ export function updateChunkLoading(){
 
 export function processGenBudget(){
   let genBudget=2;
-  while(genBudget>0 && genQueue.length){
+  while(genBudget>0 && Array.isArray(genQueue) && genQueue.length){
     const ch=genQueue.shift();
     if(!ch.generated){
       generateChunk(ch);
@@ -1179,7 +1181,7 @@ export function processGenBudget(){
     if(ch.generated && ch.dirty) dirty.push(ch);
   }
   dirty.sort((a,b)=>((a.cx-pcx)**2+(a.cz-pcz)**2)-((b.cx-pcx)**2+(b.cz-pcz)**2));
-  const queueEmpty = genQueue.length===0;
+  const queueEmpty = !Array.isArray(genQueue) || genQueue.length===0;
   for(const ch of dirty){
     if(meshBudget<=0) break;
     const nAll = ["1,0","-1,0","0,1","0,-1"].every(d=>{

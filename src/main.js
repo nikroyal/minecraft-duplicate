@@ -2022,9 +2022,11 @@ export function bootGame() {
 
   // pre-generate spawn area
   updateChunkLoading();
-  for(let i=0; i<40 && genQueue.length; i++){
-    const ch = genQueue.shift();
-    if(!ch.generated) generateChunk(ch);
+  if (Array.isArray(genQueue)) {
+    for(let i=0; i<40 && genQueue.length; i++){
+      const ch = genQueue.shift();
+      if(ch && !ch.generated) generateChunk(ch);
+    }
   }
   for(const ch of world.chunks.values()){
     if(ch.generated){ computeChunkLight(ch); updateChunkMesh(ch); }
