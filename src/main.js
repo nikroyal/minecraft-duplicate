@@ -1050,7 +1050,15 @@ export function placeBlock(){
     return;
   }
 
-  const [x, y, z] = r.prev;
+  // Target placement coordinates:
+  // If aiming at water (hitBlockId 8 or 9) and Shift is not pressed, place directly into target water cell (r.hit)
+  const isShift = Boolean(keys["ShiftLeft"] || keys["ShiftRight"]);
+  let x = r.prev[0], y = r.prev[1], z = r.prev[2];
+  if ((hitBlockId === 8 || hitBlockId === 9) && !isShift) {
+    x = r.hit[0];
+    y = r.hit[1];
+    z = r.hit[2];
+  }
   const id = heldId;
   
   if(!isPlaceable(heldId)){ toast(`${thingName(heldId)} can't be placed`); return; }

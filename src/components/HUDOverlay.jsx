@@ -8,7 +8,8 @@ import { selectSlot } from '../ui.js';
 
 export default function HUDOverlay({ 
   selectedSlot, targetBlockName, fps, coordsStr, clockStr, 
-  notificationsCount = 0, unreadChatCount = 0, onOpenNotifications, onOpenChat 
+  notificationsCount = 0, unreadChatCount = 0, onOpenNotifications, onOpenChat,
+  bgmActive = false, onToggleBGM
 }) {
   const activeSelected = selectedSlot !== undefined ? selectedSlot : game.selected;
   const hp = Math.max(0, player.health);
@@ -131,6 +132,31 @@ export default function HUDOverlay({
             </span>
           </button>
         </div>
+
+        {/* Ambient Music Toggle Button */}
+        <button
+          onClick={onToggleBGM}
+          title="Toggle Ambient Background Music"
+          style={{
+            background: bgmActive ? 'rgba(57,255,20,0.25)' : 'rgba(0,0,0,0.55)',
+            border: `1px solid ${bgmActive ? '#39ff14' : 'rgba(255,255,255,0.15)'}`,
+            borderRadius: '6px',
+            padding: '4px 9px',
+            color: bgmActive ? '#39ff14' : '#ccc',
+            fontSize: '9px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(4px)',
+            pointerEvents: 'auto',
+            marginTop: '2px',
+          }}
+        >
+          {bgmActive ? '🎵 MUSIC ON' : '🔇 MUSIC OFF'}
+        </button>
       </div>
 
       {/* Target Block HUD (integrated with XP & Mob Kills) */}

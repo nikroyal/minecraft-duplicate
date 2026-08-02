@@ -635,6 +635,12 @@ export default function App() {
             clockStr={clockStr}
             notificationsCount={incomingFriendRequests.length + incomingRoomInvites.length}
             unreadChatCount={0}
+            bgmActive={bgmActive}
+            onToggleBGM={() => {
+              const playing = toggleAmbientBGM();
+              setBgmActive(playing);
+              toast(playing ? "🎵 Ambient Background Music Started!" : "🔇 Background Music Muted.");
+            }}
             onOpenNotifications={() => {
               if (document.pointerLockElement) document.exitPointerLock();
               setShowNotificationsModal(true);
@@ -648,29 +654,6 @@ export default function App() {
               });
             }}
           />
-
-          {/* Music Button positioned safely below top right HUD overlay */}
-          {!game.paused && (
-            <div style={{ position: 'fixed', top: '75px', right: '14px', zIndex: 120 }}>
-              <button
-                onClick={() => {
-                  const playing = toggleAmbientBGM();
-                  setBgmActive(playing);
-                  toast(playing ? "🎵 Ambient Background Music Started!" : "🔇 Background Music Muted.");
-                }}
-                style={{
-                  background: bgmActive ? 'rgba(57,255,20,0.2)' : 'rgba(20, 16, 12, 0.9)',
-                  border: bgmActive ? '1px solid #39ff14' : '1px solid var(--gold)',
-                  borderRadius: '8px', color: bgmActive ? '#39ff14' : 'var(--gold-bright)', padding: '5px 10px',
-                  fontSize: '10px', fontWeight: 'bold', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
-                }}
-              >
-                {bgmActive ? '🎵 MUSIC ON' : '🔇 MUSIC OFF'}
-              </button>
-            </div>
-          )}
 
         </>
       )}
