@@ -914,7 +914,9 @@ export function placeBlock(){
   }
   const heldId = hotbar[game.selected];
   const isBucket = (heldId === 144 || heldId === 145);
-  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"] || isPlaceable(heldId);
+  // Always include water in raycast for placeable blocks so the ray hits the water
+  // voxel directly rather than the solid floor beneath it.
+  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"] || isPlaceable(heldId) || (heldId > 0 && BLOCKS[heldId]);
   const r = raycastVoxel(6, includeWater);
   if(!r) return;
   
@@ -1061,13 +1063,18 @@ export function placeBlock(){
   }
 
   // Target placement coordinates:
-  // If aiming at water (hitBlockId 8 or 9) and Shift is not pressed, place directly into target water cell (r.hit)
-  const isShift = Boolean(keys["ShiftLeft"] || keys["ShiftRight"]);
-  let x = r.prev[0], y = r.prev[1], z = r.prev[2];
-  if ((hitBlockId === 8 || hitBlockId === 9) && !isShift) {
+  // If the ray hit a water block, place INTO that water cell (replacing it).
+  // Otherwise place at r.prev (the empty cell adjacent to the hit block).
+  let x, y, z;
+  if (hitBlockId === 8 || hitBlockId === 9) {
+    // Replace the water block directly
     x = r.hit[0];
     y = r.hit[1];
     z = r.hit[2];
+  } else {
+    x = r.prev[0];
+    y = r.prev[1];
+    z = r.prev[2];
   }
   const id = heldId;
   
