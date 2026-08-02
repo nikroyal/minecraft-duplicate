@@ -8,20 +8,50 @@ import {
 import { spawnItemDrop, spawnXpOrbs, spawnProjectile } from './main.js';
 import { toast, scheduleSave } from './ui.js';
 import { playHissSound, stopHissSound, playExplodeSound, playHitSound, playPigSound, playSheepSound, playZombieSound } from './audio.js';
+import { findPath } from './pathfinder.js';
 
 const GRAV = -26;
 
 export const MOB_TYPES = {
-  pig:      { name:"Pig",      color:0xe89090, w:0.9, h:0.9, hp:8,  hostile:false, drop:133, dropN:2, speed:1.8 },
-  sheep:    { name:"Sheep",    color:0xe8e8e0, w:0.9, h:1.1, hp:8,  hostile:false, drop:50,  dropN:1, speed:1.6 },
-  zombie:   { name:"Zombie",   color:0x4a7a4a, w:0.6, h:1.8, hp:14, hostile:true,  drop:133, dropN:1, speed:2.6, dmg:3 },
-  creeper:  { name:"Creeper",  color:0x2e8b57, w:0.6, h:1.7, hp:16, hostile:true,  drop:148, dropN:2, speed:2.4, dmg:0 },
-  skeleton: { name:"Skeleton", color:0xd0d0d0, w:0.6, h:1.8, hp:16, hostile:true,  drop:147, dropN:3, speed:2.2, dmg:2 }
+  pig:      { name:"Pig",      color:0xe89090, w:0.9, h:0.9,  hp:8,  hostile:false, drop:133, dropN:2, speed:1.8 },
+  sheep:    { name:"Sheep",    color:0xe8e8e0, w:0.9, h:1.1,  hp:8,  hostile:false, drop:50,  dropN:1, speed:1.6 },
+  zombie:   { name:"Zombie",   color:0x4a7a4a, w:0.6, h:1.8,  hp:14, hostile:true,  drop:133, dropN:1, speed:2.6, dmg:3 },
+  creeper:  { name:"Creeper",  color:0x2e8b57, w:0.6, h:1.7,  hp:16, hostile:true,  drop:148, dropN:2, speed:2.4, dmg:0 },
+  skeleton: { name:"Skeleton", color:0xd0d0d0, w:0.6, h:1.8,  hp:16, hostile:true,  drop:147, dropN:3, speed:2.2, dmg:2 },
+  spider:   { name:"Spider",   color:0x333333, w:1.2, h:0.75, hp:10, hostile:true,  drop:115, dropN:2, speed:3.2, dmg:2, canClimb:true },
 };
 
-const MAX_MOBS = 14;
+const MAX_MOBS = 16;
 let mobSpawnTimer = 0;
 
+// ---- LOS raycast through voxels -------------------------------------------------
+function hasLineOfSight(from, to, maxDist = 20) {
+  const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
+  const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  if (dist > maxDist) return false;
+  const steps = Math.ceil(dist * 2);
+  const ix = dx / steps, iy = dy / steps, iz = dz / steps;
+  let cx = from.x, cy = from.y, cz = from.z;
+  for (let s = 0; s < steps; s++) {
+    cx += ix; cy += iy; cz += iz;
+    const b = getBlock(Math.floor(cx), Math.floor(cy), Math.floor(cz));
+    if (b !== 0 && b !== 8 && isSolid(b)) return false;
+  }
+  return true;
+}
+
+// ---- Water depth check ----------------------------------------------------------
+function waterDepthAt(x, z) {
+  let depth = 0;
+  for (let y = 60; y >= 1; y--) {
+    const b = getBlock(Math.floor(x), y, Math.floor(z));
+    if (b === 8) { depth++; }
+    else if (b !== 0) break;
+  }
+  return depth;
+}
+
+// ---- Mesh builders --------------------------------------------------------------
 export function makeMobMesh(type){
   const t = MOB_TYPES[type];
   const group = new THREE.Group();
@@ -30,119 +60,123 @@ export function makeMobMesh(type){
   const mat = new THREE.MeshLambertMaterial({ color: t.color });
   
   if(type === "pig"){
-    // Body
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 1.2), mat);
     body.position.set(0, 0.525, 0);
     group.add(body);
-    
-    // Head
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
     head.position.set(0, 0.65, -0.7);
     group.add(head);
-    
-    // Snout
     const snoutMat = new THREE.MeshLambertMaterial({ color: 0xd87070 });
     const snout = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 0.15), snoutMat);
     snout.position.set(0, 0.6, -0.98);
     group.add(snout);
-    
-    // 4 legs
     for(let dx of [-0.3, 0.3]) for(let dz of [-0.4, 0.4]){
-      const legGeo = new THREE.BoxGeometry(0.22, 0.4, 0.22);
-      const leg = new THREE.Mesh(legGeo, mat);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.4, 0.22), mat);
       leg.position.set(dx, 0.2, dz);
       group.add(leg);
     }
   } else if(type === "sheep"){
-    // Wool body
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 1.3), mat);
     body.position.set(0, 0.65, 0);
     group.add(body);
-    
-    // Head
     const headMat = new THREE.MeshLambertMaterial({ color: 0xc8c8c0 });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.5), headMat);
     head.position.set(0, 0.75, -0.75);
     group.add(head);
-    
-    // 4 legs
     for(let dx of [-0.32, 0.32]) for(let dz of [-0.45, 0.45]){
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.5, 0.22), headMat);
       leg.position.set(dx, 0.25, dz);
       group.add(leg);
     }
   } else if(type === "zombie"){
-    // Body
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.75, 0.35), mat);
     body.position.set(0, 1.075, 0);
     group.add(body);
-    
-    // Head
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
     head.position.set(0, 1.7, 0);
     group.add(head);
-    
-    // Arms forward
     for(let dx of [-0.42, 0.42]){
       const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.65, 0.22), mat);
       arm.position.set(dx, 1.1, -0.35);
       arm.rotation.x = -Math.PI / 2.2;
       group.add(arm);
     }
-    
-    // 2 legs
     for(let dx of [-0.18, 0.18]){
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.7, 0.24), mat);
       leg.position.set(dx, 0.35, 0);
       group.add(leg);
     }
   } else if(type === "creeper"){
-    // Body
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.35), mat);
     body.position.set(0, 0.8, 0);
     group.add(body);
-    
-    // Head
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), mat);
     head.position.set(0, 1.475, 0);
     group.add(head);
-    
-    // 4 short legs
     for(let dx of [-0.2, 0.2]) for(let dz of [-0.2, 0.2]){
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.4, 0.22), mat);
       leg.position.set(dx, 0.2, dz);
       group.add(leg);
     }
   } else if(type === "skeleton"){
-    // Skeleton Body
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.75, 0.25), mat);
     body.position.set(0, 1.075, 0);
     group.add(body);
-    
-    // Head
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), mat);
     head.position.set(0, 1.7, 0);
     group.add(head);
-    
-    // 2 Thin Arms
     for(let dx of [-0.32, 0.32]){
       const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.65, 0.12), mat);
       arm.position.set(dx, 1.1, -0.2);
       arm.rotation.x = -Math.PI / 3;
       group.add(arm);
     }
-    
-    // Bow mesh in hand
     const bowMat = new THREE.MeshLambertMaterial({ color: 0x9a7b4a });
     const bowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.08), bowMat);
     bowMesh.position.set(0.35, 1.0, -0.4);
     group.add(bowMesh);
-
-    // 2 Thin Legs
     for(let dx of [-0.14, 0.14]){
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), mat);
       leg.position.set(dx, 0.35, 0);
       group.add(leg);
+    }
+  } else if(type === "spider"){
+    // Abdomen (big rear)
+    const abdomen = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 1.1), mat);
+    abdomen.position.set(0, 0.35, 0.35);
+    group.add(abdomen);
+    // Thorax (front smaller)
+    const thorax = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.5, 0.65), mat);
+    thorax.position.set(0, 0.35, -0.3);
+    group.add(thorax);
+    // Head with red eyes
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.45), mat);
+    head.position.set(0, 0.38, -0.72);
+    group.add(head);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
+    for (let ex of [-0.16, 0.16]) {
+      const eye = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.04), eyeMat);
+      eye.position.set(ex, 0.42, -0.95);
+      group.add(eye);
+    }
+    // 8 legs (4 each side)
+    const legMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    for (let side of [-1, 1]) {
+      for (let li = 0; li < 4; li++) {
+        const legGrp = new THREE.Group();
+        legGrp.position.set(side * 0.45, 0.25, -0.45 + li * 0.32);
+        // Upper segment
+        const upper = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.45), legMat);
+        upper.rotation.z = side * -0.7;
+        upper.position.set(side * 0.22, 0.1, 0);
+        legGrp.add(upper);
+        // Lower segment
+        const lower = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.42), legMat);
+        lower.rotation.z = side * 0.5;
+        lower.position.set(side * 0.48, -0.14, 0);
+        legGrp.add(lower);
+        group.add(legGrp);
+      }
     }
   }
   
@@ -154,7 +188,6 @@ export function mobCollides(m, px, py, pz){
   const minX = Math.floor(px - hw + 1e-5), maxX = Math.floor(px + hw - 1e-5);
   const minY = Math.floor(py + 1e-5),    maxY = Math.floor(py + h - 1e-5);
   const minZ = Math.floor(pz - hw + 1e-5), maxZ = Math.floor(pz + hw - 1e-5);
-  
   for(let x = minX; x <= maxX; x++)
   for(let y = minY; y <= maxY; y++)
   for(let z = minZ; z <= maxZ; z++){
@@ -175,18 +208,29 @@ export function mobMoveAxis(m, axis, amt){
       if(!mobCollides(m, m.pos.x + step, m.pos.y, m.pos.z)) m.pos.x += step;
       else { m.vel.x = 0; m.hitWall = true; break; }
     } else if(axis === "y"){
-      if(!mobCollides(m, m.pos.x, m.pos.y + step, m.pos.z)) {
+      if(!mobCollides(m, m.pos.x, m.pos.y + step, m.pos.z)){
         m.pos.y += step;
       } else {
-        if(step < 0) {
-          m.onGround = true;
-        }
+        if(step < 0) m.onGround = true;
         m.vel.y = 0;
         break;
       }
     } else {
       if(!mobCollides(m, m.pos.x, m.pos.y, m.pos.z + step)) m.pos.z += step;
       else { m.vel.z = 0; m.hitWall = true; break; }
+    }
+  }
+}
+
+// ---- Alert nearby zombies to player position -----------------------------------
+function alertNearbyZombies(alerter) {
+  for (const m of game.mobs) {
+    if (m === alerter) continue;
+    if (m.type !== 'zombie') continue;
+    const dist = m.pos.distanceTo(alerter.pos);
+    if (dist < 12) {
+      m.alerted = true;
+      m.alertCooldown = 8; // stay alerted for 8s
     }
   }
 }
@@ -213,7 +257,22 @@ export function spawnMob(type, x, y, z){
     shootCd: 0,
     animPhase: Math.random() * 100,
     nextVoiceTime: performance.now() + 10000 + Math.random() * 15000,
-    hitWall: false
+    hitWall: false,
+    // LOS & aggro
+    hasLOS: false,
+    losTimer: 0,
+    alerted: false,
+    alertCooldown: 0,
+    // A* pathfinding
+    path: [],
+    pathTimer: 0,
+    pathIndex: 0,
+    // strafe
+    strafeDir: 0,
+    strafeSwitchTimer: 0,
+    // climb (spider)
+    climbing: false,
+    climbY: 0,
   };
   game.mobs.push(mob);
   return mob;
@@ -223,13 +282,20 @@ export function trySpawnMobs(){
   if(game.mobs.length >= MAX_MOBS) return;
   const isNight = game.timeOfDay < 0.22 || game.timeOfDay > 0.78;
   const passiveTypes = ["pig", "sheep"];
-  const hostileTypes = ["zombie", "creeper", "skeleton"];
+  const hostileTypes = ["zombie", "creeper", "skeleton", "spider"];
   
   let type;
   if(isNight){
-    type = Math.random() < 0.75 ? hostileTypes[Math.floor(Math.random() * hostileTypes.length)] : passiveTypes[Math.floor(Math.random() * passiveTypes.length)];
+    type = Math.random() < 0.75
+      ? hostileTypes[Math.floor(Math.random() * hostileTypes.length)]
+      : passiveTypes[Math.floor(Math.random() * passiveTypes.length)];
   } else {
-    type = passiveTypes[Math.floor(Math.random() * passiveTypes.length)];
+    // Spiders also spawn in daylight (unlike zombies/skeletons)
+    if (Math.random() < 0.1) {
+      type = "spider";
+    } else {
+      type = passiveTypes[Math.floor(Math.random() * passiveTypes.length)];
+    }
   }
   
   const angle = Math.random() * Math.PI * 2;
@@ -240,7 +306,7 @@ export function trySpawnMobs(){
   let topY = 0;
   for(let y = HEIGHT - 1; y >= 1; y--){
     const b = getBlock(sx, y, sz);
-    if(isSolid(b) && b !== 6){ // Ignore leaves
+    if(isSolid(b) && b !== 6){
       topY = y + 1;
       break;
     }
@@ -261,10 +327,14 @@ export function updateMobs(dt){
   
   const now = performance.now();
   const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
+  const playerEye = new THREE.Vector3(px, py + 1.6, pz);
+  // Cache player velocity for skeleton predictive aim
+  const pvx = player.vel?.x || 0, pvz = player.vel?.z || 0;
   
   for(let i = game.mobs.length - 1; i >= 0; i--){
     const m = game.mobs[i];
     
+    // Hurt flash
     if(m.hurtFlash > 0){
       m.hurtFlash -= dt;
       if(m.hurtFlash <= 0){
@@ -274,7 +344,7 @@ export function updateMobs(dt){
       }
     }
     
-    // Despawn far away mobs with hysteresis
+    // Despawn far mobs
     const distToP = m.pos.distanceTo(player.pos);
     if(distToP > 64 || (distToP > 36 && Math.random() < dt * 0.05)){
       removeMob(i);
@@ -282,74 +352,193 @@ export function updateMobs(dt){
     }
     
     if(m.attackCd > 0) m.attackCd -= dt;
+    if(m.alertCooldown > 0) m.alertCooldown -= dt;
+    if(m.alertCooldown <= 0) m.alerted = false;
     
-    // Check ground collision explicitly when stationary
-    if(m.vel.y === 0 && mobCollides(m, m.pos.x, m.pos.y - 0.05, m.pos.z)) {
+    // Ground check
+    if(m.vel.y === 0 && mobCollides(m, m.pos.x, m.pos.y - 0.05, m.pos.z)){
       m.onGround = true;
     }
     
+    // ── Line-of-Sight update (every 0.25s) ───────────────────────────────────
+    m.losTimer = (m.losTimer || 0) + dt;
+    if (m.losTimer >= 0.25) {
+      m.losTimer = 0;
+      const mobEyeH = m.def.h * 0.85;
+      const mobEyePos = new THREE.Vector3(m.pos.x, m.pos.y + mobEyeH, m.pos.z);
+      m.hasLOS = hasLineOfSight(mobEyePos, playerEye, 20);
+      
+      // Group alert: zombie sees player → alert nearby zombies
+      if (m.hasLOS && m.def.hostile && m.type === 'zombie') {
+        alertNearbyZombies(m);
+      }
+    }
+    
+    const canAggro = m.def.hostile && distToP < 18 && !player.dead && (m.hasLOS || m.alerted);
+    
     let wishX = 0, wishZ = 0;
     
-    if(m.def.hostile && distToP < 16 && !player.dead){
+    // ── Spider wall climbing ──────────────────────────────────────────────────
+    if (m.type === 'spider' && canAggro) {
+      // Check if there's a wall block directly ahead
+      const fwdX = -Math.sin(m.yaw), fwdZ = -Math.cos(m.yaw);
+      const wallX = Math.floor(m.pos.x + fwdX * 0.6);
+      const wallY = Math.floor(m.pos.y + 0.5);
+      const wallZ = Math.floor(m.pos.z + fwdZ * 0.6);
+      const wallBlock = getBlock(wallX, wallY, wallZ);
+      const wallAbove = getBlock(wallX, wallY + 1, wallZ);
+      if (isSolid(wallBlock) || isSolid(wallAbove)) {
+        // Start climbing: override gravity
+        m.climbing = true;
+      } else {
+        m.climbing = false;
+      }
+      // Spider leaps at the player when close enough and airborne
+      if (m.onGround && distToP < 4 && Math.random() < dt * 2.5) {
+        const dx = px - m.pos.x, dz = pz - m.pos.z;
+        const len = Math.hypot(dx, dz) || 1;
+        m.vel.x = (dx / len) * 6;
+        m.vel.z = (dz / len) * 6;
+        m.vel.y = 8;
+        m.onGround = false;
+      }
+    } else {
+      m.climbing = false;
+    }
+    
+    // ── A* Pathfinding (update path every 1.5s for hostile mobs) ─────────────
+    m.pathTimer = (m.pathTimer || 0) + dt;
+    const pathInterval = distToP < 8 ? 0.8 : 1.5;
+    
+    if (canAggro && m.pathTimer >= pathInterval) {
+      m.pathTimer = 0;
+      // Only compute path when direct line is blocked or mob is stuck
+      if (!m.hasLOS || m.hitWall) {
+        const start = { x: m.pos.x, y: m.pos.y, z: m.pos.z };
+        const target = { x: px, y: py, z: pz };
+        const maxExp = distToP < 12 ? 200 : 100;
+        m.path = findPath(start, target, maxExp);
+        m.pathIndex = 1; // skip current cell
+      } else {
+        m.path = []; // direct chase when LOS is clear
+      }
+    }
+    
+    // ── Movement computation ──────────────────────────────────────────────────
+    if (canAggro) {
       const dx = px - m.pos.x, dz = pz - m.pos.z;
       m.yaw = Math.atan2(-dx, -dz);
-      if (m.type === "skeleton" && distToP < 8.0) {
-        // Skeleton backs up or maintains distance
-        const backX = Math.sin(m.yaw);
-        const backZ = Math.cos(m.yaw);
+      
+      // Water-aware: hostile mobs avoid water >2 blocks deep (except spiders)
+      if (m.type !== 'spider') {
+        const aheadX = m.pos.x + (-Math.sin(m.yaw)) * 0.8;
+        const aheadZ = m.pos.z + (-Math.cos(m.yaw)) * 0.8;
+        if (waterDepthAt(aheadX, aheadZ) > 2) {
+          // Steer around — pick a perpendicular direction
+          m.yaw += Math.PI / 2 * (Math.random() < 0.5 ? 1 : -1);
+        }
+      }
+      
+      // Use path waypoint if we have a computed path
+      if (m.path && m.path.length > 1 && m.pathIndex < m.path.length) {
+        const wp = m.path[m.pathIndex];
+        const wpDx = (wp.x + 0.5) - m.pos.x;
+        const wpDz = (wp.z + 0.5) - m.pos.z;
+        const wpDist = Math.hypot(wpDx, wpDz);
+        if (wpDist < 0.6) {
+          m.pathIndex++;
+        } else {
+          m.yaw = Math.atan2(-wpDx, -wpDz);
+        }
+      }
+      
+      // ── Strafe logic (zombie & skeleton) ─────────────────────────────────
+      if (m.type === 'zombie' || m.type === 'skeleton') {
+        m.strafeSwitchTimer = (m.strafeSwitchTimer || 0) - dt;
+        if (m.strafeSwitchTimer <= 0) {
+          m.strafeDir = Math.random() < 0.5 ? 1 : -1;
+          m.strafeSwitchTimer = 1.2 + Math.random() * 1.4;
+        }
+        const strafeYaw = m.yaw + Math.PI / 2 * m.strafeDir;
+        const strafeWeight = m.type === 'skeleton' ? 0.6 : 0.3; // skeletons strafe more
+        const fwdX = -Math.sin(m.yaw), fwdZ = -Math.cos(m.yaw);
+        const sfX = -Math.sin(strafeYaw), sfZ = -Math.cos(strafeYaw);
+        wishX = fwdX * (1 - strafeWeight) + sfX * strafeWeight;
+        wishZ = fwdZ * (1 - strafeWeight) + sfZ * strafeWeight;
+        const wl = Math.hypot(wishX, wishZ) || 1;
+        wishX /= wl; wishZ /= wl;
+      } else if (m.type === 'skeleton' && distToP < 8.0) {
+        // Skeleton tries to back up when too close
+        const backX = Math.sin(m.yaw), backZ = Math.cos(m.yaw);
         const testX = m.pos.x + backX * 0.5;
         const testZ = m.pos.z + backZ * 0.5;
-        if (mobCollides(m, testX, m.pos.y, testZ)) {
-          // Blocked behind wall → strafe sideways
-          wishX = Math.cos(m.yaw);
-          wishZ = -Math.sin(m.yaw);
+        if (!mobCollides(m, testX, m.pos.y, testZ)) {
+          wishX = backX; wishZ = backZ;
         } else {
-          wishX = backX;
-          wishZ = backZ;
+          wishX = Math.cos(m.yaw); wishZ = -Math.sin(m.yaw);
         }
       } else {
         wishX = -Math.sin(m.yaw);
         wishZ = -Math.cos(m.yaw);
       }
     } else {
-      // Wander
+      // ── Passive wander ──────────────────────────────────────────────────────
       m.wanderTimer -= dt;
       if(m.wanderTimer <= 0){
         m.wanderTimer = 2 + Math.random() * 4;
         if(Math.random() < 0.6){
-          m.yaw = Math.random() * Math.PI * 2;
+          // Water-aware wander: avoid deep water
+          let attempts = 0;
+          do {
+            m.yaw = Math.random() * Math.PI * 2;
+            const nx = m.pos.x + (-Math.sin(m.yaw)) * 1.5;
+            const nz = m.pos.z + (-Math.cos(m.yaw)) * 1.5;
+            if (waterDepthAt(nx, nz) <= 1) break;
+            attempts++;
+          } while (attempts < 4);
         } else {
-          m.yaw = null; // Idle
+          m.yaw = null; // idle
         }
       }
-      if(m.yaw !== null){
+      if(m.yaw !== null && m.yaw !== undefined){
         wishX = -Math.sin(m.yaw);
         wishZ = -Math.cos(m.yaw);
       }
     }
     
-    // Skeleton shooting AI
-    if (m.type === "skeleton" && distToP < 16 && !player.dead) {
+    // ── Skeleton predictive shooting ─────────────────────────────────────────
+    if (m.type === "skeleton" && canAggro && distToP < 18) {
       m.shootCd = (m.shootCd || 2.0) - dt;
       if (m.shootCd <= 0) {
         m.shootCd = 2.2 + Math.random() * 0.8;
         const mobEye = m.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
-        const pTarget = player.pos.clone().add(new THREE.Vector3(0, 1.0, 0));
-        const spread = new THREE.Vector3((Math.random() - 0.5) * 0.12, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.12);
-        const arrDir = pTarget.sub(mobEye).normalize().add(spread).normalize();
+        // Lead the target: estimate where player will be based on their velocity
+        const arrowSpeed = 18;
+        const travelTime = distToP / arrowSpeed;
+        const predictedTarget = new THREE.Vector3(
+          px + pvx * travelTime,
+          py + 1.0,
+          pz + pvz * travelTime
+        );
+        const spread = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.08,
+          (Math.random() - 0.5) * 0.06,
+          (Math.random() - 0.5) * 0.08
+        );
+        const arrDir = predictedTarget.sub(mobEye).normalize().add(spread).normalize();
         const spawnPos = mobEye.clone().add(arrDir.clone().multiplyScalar(0.6));
-        spawnProjectile(spawnPos.x, spawnPos.y, spawnPos.z, arrDir, 18, false);
+        spawnProjectile(spawnPos.x, spawnPos.y, spawnPos.z, arrDir, arrowSpeed, false);
       }
     }
 
-    // Jump over obstacles when moving (with jump cooldown to prevent hopping spam)
+    // ── Jump over obstacles ───────────────────────────────────────────────────
     m.jumpCd = (m.jumpCd || 0) - dt;
     m.hitWall = false;
     if(m.onGround && m.jumpCd <= 0 && (wishX !== 0 || wishZ !== 0)){
       const aheadX = m.pos.x + wishX * 0.4;
       const aheadZ = m.pos.z + wishZ * 0.4;
       if(mobCollides(m, aheadX, m.pos.y, aheadZ)){
-        m.vel.y = 7.5;
+        m.vel.y = m.type === 'spider' ? 9 : 7.5; // spiders jump higher
         m.onGround = false;
         m.jumpCd = 0.6;
       }
@@ -358,8 +547,21 @@ export function updateMobs(dt){
     m.vel.x = wishX * m.def.speed;
     m.vel.z = wishZ * m.def.speed;
     
-    m.vel.y += GRAV * dt;
-    if(m.vel.y < -35) m.vel.y = -35;
+    // Gravity / climbing
+    if (m.climbing) {
+      // Spider climbs up toward player or wall surface
+      const climbDir = py > m.pos.y ? 1 : -1;
+      m.vel.y = climbDir * m.def.speed * 0.7;
+    } else {
+      m.vel.y += GRAV * dt;
+      if(m.vel.y < -35) m.vel.y = -35;
+    }
+    
+    // Swimming (hostile mobs float in water)
+    const inWater = getBlock(Math.floor(m.pos.x), Math.floor(m.pos.y), Math.floor(m.pos.z)) === 8;
+    if (inWater && m.def.hostile) {
+      m.vel.y = Math.max(m.vel.y, 3.0); // float upward
+    }
     
     mobMoveAxis(m, "x", m.vel.x * dt);
     mobMoveAxis(m, "z", m.vel.z * dt);
@@ -370,7 +572,14 @@ export function updateMobs(dt){
       m.mesh.rotation.y = m.yaw;
     }
     
-    // Creeper explosion logic
+    // ── Walk animation (leg bob) ──────────────────────────────────────────────
+    if (wishX !== 0 || wishZ !== 0) {
+      m.animPhase += dt * m.def.speed * 3.5;
+      const bob = Math.sin(m.animPhase) * 0.07;
+      m.mesh.position.y += bob;
+    }
+    
+    // ── Creeper fuse ─────────────────────────────────────────────────────────
     if(m.type === "creeper" && distToP < 3.2 && !player.dead){
       if(m.fuseTimer === 0) playHissSound();
       m.fuseTimer += dt;
@@ -383,55 +592,58 @@ export function updateMobs(dt){
       if(m.fuseTimer >= 1.5){
         playExplodeSound();
         triggerWorldExplosion(m.pos.x, m.pos.y, m.pos.z, 3.5, scheduleSave);
-        const curDistToP = m.pos.distanceTo(player.pos);
-        if(curDistToP < 4.5){
-          const dmg = Math.max(1, Math.ceil(24 * (1 - curDistToP / 4.5)));
+        const curDist = m.pos.distanceTo(player.pos);
+        if(curDist < 4.5){
+          const dmg = Math.max(1, Math.ceil(24 * (1 - curDist / 4.5)));
           hurtPlayer(dmg, "creeper");
         }
         removeMob(i);
         continue;
       }
     } else if(m.type === "creeper" && m.fuseTimer > 0){
-      m.fuseTimer = Math.max(0, m.fuseTimer - dt * 1.5); // Gradual fuse decay
-      if (m.fuseTimer === 0) stopHissSound();
+      m.fuseTimer = Math.max(0, m.fuseTimer - dt * 1.5);
+      if(m.fuseTimer === 0) stopHissSound();
       m.mesh.traverse(child => {
         if(child.material && child.material.emissive) child.material.emissive.setRGB(0, 0, 0);
       });
     }
     
-    // Zombie attack logic
+    // ── Zombie melee ─────────────────────────────────────────────────────────
     if(m.type === "zombie" && distToP < 1.4 && !player.dead && m.attackCd <= 0){
       m.attackCd = 1.0;
       hurtPlayer(m.def.dmg || 3, "zombie");
     }
     
-    // Ambient sound trigger per mob
+    // ── Spider melee ─────────────────────────────────────────────────────────
+    if(m.type === "spider" && distToP < 1.5 && !player.dead && m.attackCd <= 0){
+      m.attackCd = 1.2;
+      hurtPlayer(m.def.dmg || 2, "spider");
+    }
+    
+    // ── Ambient sounds ───────────────────────────────────────────────────────
     if(now >= m.nextVoiceTime && distToP < 20){
       m.nextVoiceTime = now + 10000 + Math.random() * 15000;
       if(m.type === "pig") playPigSound();
       else if(m.type === "sheep") playSheepSound();
-      else if(m.type === "zombie" || m.type === "skeleton") playZombieSound();
+      else if(m.type === "zombie" || m.type === "skeleton" || m.type === "spider") playZombieSound();
     }
 
-    // Undead sunlight burning logic (Zombies & Skeletons burn in direct sunlight during day)
+    // ── Undead sunburn ───────────────────────────────────────────────────────
     const isDaytime = game.timeOfDay >= 0.25 && game.timeOfDay <= 0.75;
-    if (isDaytime && (m.type === "zombie" || m.type === "skeleton")) {
+    if(isDaytime && (m.type === "zombie" || m.type === "skeleton")){
       const mx = Math.floor(m.pos.x), my = Math.floor(m.pos.y + m.def.h), mz = Math.floor(m.pos.z);
       let exposed = true;
-      for (let y = my; y < 128; y++) {
-        if (isSolid(getBlock(mx, y, mz))) {
-          exposed = false;
-          break;
-        }
+      for(let y = my; y < 128; y++){
+        if(isSolid(getBlock(mx, y, mz))){ exposed = false; break; }
       }
-      if (exposed) {
+      if(exposed){
         m.burnTimer = (m.burnTimer || 0) + dt;
-        if (m.burnTimer >= 0.8) {
+        if(m.burnTimer >= 0.8){
           m.burnTimer = 0;
           m.hp -= 2;
           m.hurtFlash = 0.35;
-          if (m.hp <= 0) {
-            if (m.def.drop && game.survival) {
+          if(m.hp <= 0){
+            if(m.def.drop && game.survival){
               spawnItemDrop(m.def.drop, m.def.dropN || 1, m.pos.x, m.pos.y + 0.5, m.pos.z);
               spawnXpOrbs(m.pos.x, m.pos.y + 0.5, m.pos.z, 3);
             }
@@ -461,10 +673,7 @@ export function removeMob(i){
       if(child.material){
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         mats.forEach(mat => {
-          if(!disposedMats.has(mat)){
-            mat.dispose();
-            disposedMats.add(mat);
-          }
+          if(!disposedMats.has(mat)){ mat.dispose(); disposedMats.add(mat); }
         });
       }
     });
@@ -494,7 +703,6 @@ export function attackMob(targetMob, customDamage){
   let dmg = customDamage !== undefined ? customDamage : 1;
   let isCrit = false;
   
-  // Critical Hit check (player falling and not on ground)
   if (!customDamage && player.vel.y < -0.5 && !player.onGround && !player.flying) {
     isCrit = true;
   }
@@ -504,7 +712,6 @@ export function attackMob(targetMob, customDamage){
     else if(tool.tool === "axe") dmg = 2 + (tool.tier || 1);
     else dmg = 1 + (tool.tier || 1);
     
-    // Decrement tool durability if equipped
     const id = tool.id;
     if(id){
       if(toolDurability[id] === undefined) toolDurability[id] = [30, 60, 150, 500][(tool.tier || 1) - 1] || 30;
@@ -512,7 +719,7 @@ export function attackMob(targetMob, customDamage){
     }
   }
   
-  if (isCrit) {
+  if(isCrit){
     dmg = Math.floor(dmg * 1.5);
     toast("CRITICAL HIT!");
   }
@@ -531,7 +738,7 @@ export function attackMob(targetMob, customDamage){
   
   if(best.hp <= 0){
     const isAnimal = best.type === 'pig' || best.type === 'sheep';
-    if (isAnimal) {
+    if(isAnimal){
       player.health = Math.min(20, player.health + 4);
       player.hunger = Math.min(20, player.hunger + 2);
       toast(`❤️ Defeated ${best.def.name}! Restored +4 HP (+2 Hearts)!`);
@@ -539,9 +746,8 @@ export function attackMob(targetMob, customDamage){
       toast(`💥 Defeated ${best.def.name}!`);
     }
 
-    // Always spawn Heart pickups and drops regardless of mode
     spawnItemDrop(150, isAnimal ? 2 : 1, best.pos.x, best.pos.y + 0.5, best.pos.z);
-    if (best.def.drop) {
+    if(best.def.drop){
       spawnItemDrop(best.def.drop, best.def.dropN || 1, best.pos.x + 0.2, best.pos.y + 0.5, best.pos.z + 0.2);
     }
     spawnXpOrbs(best.pos.x, best.pos.y + 0.5, best.pos.z, Math.floor(Math.random() * 3) + 3);
