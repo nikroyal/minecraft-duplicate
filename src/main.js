@@ -678,6 +678,19 @@ function completeMine(x, y, z, id){
   spawnBreakBurst(x, y, z, id);
   setBlock(x, y, z, 0, true, scheduleSave);
   mining.active = false; mining.progress = 0; hideCrack();
+
+  // ── Immediate underwater fill ─────────────────────────────────────────────
+  // If any of the 6 neighbours is water, fill this voxel with water immediately
+  // so there is never a single frame where air sits inside a water body
+  // (which would show bright-blue water side-faces as an artifact).
+  const waterNeighbours = [
+    [x+1,y,z],[x-1,y,z],[x,y+1,z],[x,y-1,z],[x,y,z+1],[x,y,z-1]
+  ];
+  const isUnderwater = waterNeighbours.some(([nx,ny,nz]) => getBlock(nx,ny,nz) === 8);
+  if (isUnderwater) {
+    setWater(x, y, z, 1); // flowing water fills the void immediately
+  }
+
   disturbWater(x, y, z);
   playPlaceSound(id); // break audio
 
