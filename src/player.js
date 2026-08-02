@@ -124,8 +124,8 @@ export function collidesCeiling(px, py, pz, step) {
           // Block bottom must sit above player waist/chest (b.minY >= py + 0.8)
           if (b.minY >= py + 0.8 && pMinY < b.maxY && pMaxY > b.minY) {
             // Check if player inner core overlaps block horizontally
-            const coreMinX = px - 0.2, coreMaxX = px + 0.2;
-            const coreMinZ = pz - 0.2, coreMaxZ = pz + 0.2;
+            const coreMinX = px - 0.3, coreMaxX = px + 0.3;
+            const coreMinZ = pz - 0.3, coreMaxZ = pz + 0.3;
             if (coreMinX < b.maxX && coreMaxX > b.minX && coreMinZ < b.maxZ && coreMaxZ > b.minZ) {
               return true;
             }

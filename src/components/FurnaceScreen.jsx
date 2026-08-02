@@ -30,10 +30,21 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
     .map(Number)
     .filter(id => invCount(id) > 0);
 
-  const handleInventoryClick = (id) => {
+  const handleInventoryClick = (id, e) => {
     if (invCount(id) <= 0) return;
     const isFuel = FUELS[id] > 0;
     const isSmeltable = SMELT_MAP[id] !== undefined;
+    const isShift = Boolean(e && (e.shiftKey || e.altKey));
+
+    if (isShift && isFuel && (furnace.fuelId === 0 || (furnace.fuelId === id && furnace.fuelCount < 64))) {
+      furnace.fuelId = id;
+      furnace.fuelCount = (furnace.fuelCount || 0) + 1;
+      removeItem(id, 1);
+      playPlaceSound(id);
+      scheduleSave();
+      if (reactBridge.updateUI) reactBridge.updateUI();
+      return;
+    }
 
     // Prefer input slot for ores, but if input is full or fuel slot is empty and item is fuel, allow loading fuel slot
     if (isSmeltable && (furnace.inputId === 0 || (furnace.inputId === id && furnace.inputCount < 64))) {
@@ -118,10 +129,10 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
                 </div>
               ) : (
                 ids.map(id => (
-                  <div key={id} className="inv-cell clickable" onClick={() => handleInventoryClick(id)}>
+                  <div key={id} className="inv-cell clickable" onClick={(e) => handleInventoryClick(id, e)}>
                     <Swatch3D id={id} />
                     <span className="count">{invCount(id)}</span>
-                    <span className="tip">{thingName(id)} (Click to load)</span>
+                    <span className="tip">{thingName(id)} (Click/Shift+Click to load)</span>
                   </div>
                 ))
               )}

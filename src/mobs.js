@@ -274,9 +274,9 @@ export function updateMobs(dt){
       }
     }
     
-    // Despawn far away mobs
+    // Despawn far away mobs with hysteresis
     const distToP = m.pos.distanceTo(player.pos);
-    if(distToP > 48){
+    if(distToP > 64 || (distToP > 36 && Math.random() < dt * 0.05)){
       removeMob(i);
       continue;
     }

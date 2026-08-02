@@ -57,6 +57,18 @@ export function unlockAchievement(id, name, desc) {
 export function getCraftOpen() { return uiState.craftOpen; }
 export function isMenuOpen() { return uiState.craftOpen || uiState.chestOpen || uiState.furnaceOpen || Boolean(uiState.wayfinderOpen) || Boolean(uiState.onboardingOpen) || Boolean(uiState.chatOpen); }
 
+export function safePointerLock() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return;
+  try {
+    const el = document.getElementById('game');
+    if (el && typeof el.requestPointerLock === 'function') {
+      const p = el.requestPointerLock();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+  } catch (e) {}
+}
+
 export function closeAllMenus() {
   uiState.craftOpen = false;
   uiState.chestOpen = false;
@@ -68,6 +80,7 @@ export function closeAllMenus() {
   }
   uiState.activeChestCoords = null;
   uiState.activeFurnaceCoords = null;
+  safePointerLock();
   Object.keys(keys).forEach(k => keys[k] = false);
   player.sprinting = false;
   if (reactBridge.updateUI) reactBridge.updateUI();
