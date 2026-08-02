@@ -116,8 +116,8 @@ function arePayloadsEqual(localPayload = {}, cloudData = {}) {
   const normCloud = {};
   for (const k in safeCloudEdits) normCloud[String(k).replace(/_/g, ',')] = safeCloudEdits[k];
 
-  const localKeys = Object.keys(normLocal);
-  const cloudKeys = Object.keys(normCloud);
+  const localKeys = Object.keys(normLocal || {});
+  const cloudKeys = Object.keys(normCloud || {});
   if (localKeys.length !== cloudKeys.length) return false;
 
   for (const k of localKeys) {

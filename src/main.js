@@ -820,7 +820,7 @@ function tickCrops(dt) {
   if (game.cropTimer < 3.0) return;
   game.cropTimer = 0;
 
-  const cropKeys = Object.keys(crops);
+  const cropKeys = Object.keys(crops || {});
   if (cropKeys.length === 0) return;
   
   let changed = false;

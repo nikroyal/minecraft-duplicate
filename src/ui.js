@@ -295,7 +295,7 @@ export function loadWorld() {
     world.edits = p.edits || {};
     world.chests = p.chests || {};
     world.furnaces = p.furnaces || {};
-    if (p.inventory) Object.assign(inventory, p.inventory);
+    if (p.inventory && typeof p.inventory === 'object') Object.assign(inventory, p.inventory);
     if (Array.isArray(p.hotbar) && p.hotbar.length === 8) {
       for (let i = 0; i < 8; i++) hotbar[i] = p.hotbar[i];
     }
@@ -309,16 +309,16 @@ export function loadWorld() {
       if (typeof p.player.hunger === "number") player.hunger = p.player.hunger;
       if (typeof p.player.fallPeak === "number") player.fallPeak = p.player.fallPeak;
     }
-    if (p.avatar) {
+    if (p.avatar && typeof p.avatar === 'object') {
       Object.assign(player.avatar, p.avatar);
     }
-    if (p.toolDurability) {
+    if (p.toolDurability && typeof p.toolDurability === 'object') {
       Object.assign(toolDurability, p.toolDurability);
     }
-    if (p.crops) {
+    if (p.crops && typeof p.crops === 'object') {
       Object.assign(crops, p.crops);
     }
-    if (p.achievements) {
+    if (p.achievements && typeof p.achievements === 'object') {
       Object.assign(achievements, p.achievements);
     }
     return true;
