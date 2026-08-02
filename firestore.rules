@@ -20,24 +20,31 @@ service cloud.firestore {
       );
     }
 
-    // 1. User Documents (Singleplayer Saves, Profile, Messages, Invites)
+    // 1. User Documents (Singleplayer Saves, Profile, Messages, Invites, Friend Requests)
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if (isOwner(userId) && (!request.resource.data.keys().hasAny(['role', 'inventoryAdditions', 'healthOverride', 'teleportTarget', 'kickSignal', 'frozen']) || request.resource.data.role == 'player')) || isAdmin();
-      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'inventoryAdditions', 'healthOverride', 'teleportTarget', 'kickSignal', 'frozen'])) || isAdmin();
+      
+      // Allow owners to update everything except admin fields; allow signed-in players to deliver friendRequests/invites
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'inventoryAdditions', 'healthOverride', 'teleportTarget', 'kickSignal', 'frozen']))
+                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friendRequests', 'invites', 'outgoingFriendRequests']))
+                    || isAdmin();
+                    
       allow delete: if isOwner(userId) || isAdmin();
     }
 
-    // 2. Custom Team & Group Rooms
+    // 2. Custom Team & Group Rooms (Global Nexus cannot be deleted)
     match /rooms/{roomId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
       allow update: if isSignedIn() && (
         resource.data.ownerUid == request.auth.uid || 
         isAdmin() || 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['edits', 'chests', 'furnaces', 'members', 'lastActive'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['edits', 'chests', 'furnaces', 'members', 'lastActive', 'resetAt'])
       );
-      allow delete: if isSignedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin() || request.resource.data.deleted == true);
+      
+      // Global Nexus (nexus / global_nexus) cannot be deleted by anyone; team rooms can be deleted by owner or admin
+      allow delete: if isSignedIn() && (roomId != 'nexus' && roomId != 'global_nexus') && (resource.data.ownerUid == request.auth.uid || isAdmin() || request.resource.data.deleted == true);
       
       // Presence sub-collection for real-time 3D multiplayer player coordinates
       match /presence/{playerId} {
@@ -46,23 +53,34 @@ service cloud.firestore {
       }
     }
 
-    // 3. Global Public Nexus World
+    // 3. Real-time Chat Threads & Direct Messages
+    match /chats/{chatId} {
+      allow read, create: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow delete: if isAdmin();
+      
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn();
+        allow update, delete: if isAdmin() || isOwner(resource.data.senderUid);
+      }
+    }
+
+    // 4. Global Public Nexus World
     match /worlds/{worldId} {
       allow read, write: if isSignedIn();
     }
 
-    // 4. Community Reviews & Bug Reports
+    // 5. Community Reviews & Bug Reports
     match /reviews/{reviewId} {
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
       allow read: if isSignedIn();
       allow update, delete: if isAdmin();
     }
 
-    // 5. Server Settings & Global Broadcast Banners
+    // 6. Server Settings & Global Broadcast Banners
     match /server_settings/{settingId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
   }
 }
-
