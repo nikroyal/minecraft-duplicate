@@ -19,7 +19,7 @@ import {
   getIntersectingColliders, getSupportingSurface
 } from './player.js';
 import { updatePlayerPresenceInRoom } from './firebase.js';
-import { initAntiCheatShield } from './anticheat.js';
+import { initAntiCheatShield, validateMiningReach } from './anticheat.js';
 import { 
   MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob 
 } from './mobs.js';
@@ -634,6 +634,10 @@ function updateMining(dt){
     return;
   }
   const [x, y, z] = r.hit;
+  if (!validateMiningReach(player.pos, { x: x + 0.5, y: y + 0.5, z: z + 0.5 })) {
+    mining.active = false; mining.progress = 0; hideCrack();
+    return;
+  }
   const id = getBlock(x, y, z);
   if(id === 0 || BLOCKS[id]?.name === "Water" || y === 0 || id === 30 || BLOCKS[id]?.unbreakable){
     if (y === 0 || id === 30) toast("Bedrock is unbreakable!");

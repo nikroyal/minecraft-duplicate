@@ -22,6 +22,7 @@ export function setActiveChestCoords(v) { uiState.activeChestCoords = v; }
 export function setActiveFurnaceCoords(v) { uiState.activeFurnaceCoords = v; }
 
 import { playAchievementSound } from './audio.js';
+import { secureSaveToLocalStorage, secureLoadFromLocalStorage } from './anticheat.js';
 
 export let activeAchievementNotification = null;
 export function unlockAchievement(id, name, desc) {
@@ -269,7 +270,7 @@ export function saveWorld() {
     lastUpdated: new Date().toISOString()
   };
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    secureSaveToLocalStorage(SAVE_KEY, payload);
     toast("world saved");
   } catch (e) {}
 
@@ -289,9 +290,8 @@ export function scheduleSave() {
 
 export function loadWorld() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return false;
-    const p = JSON.parse(raw);
+    const p = secureLoadFromLocalStorage(SAVE_KEY);
+    if (!p) return false;
     world.edits = p.edits || {};
     world.chests = p.chests || {};
     world.furnaces = p.furnaces || {};

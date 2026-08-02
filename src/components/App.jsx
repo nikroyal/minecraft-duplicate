@@ -97,7 +97,16 @@ export default function App() {
   const isMasterAccount = userRole === 'admin' || userRole === 'master';
 
   useEffect(() => {
-    if (typeof window !== 'undefined') window.__userRole = userRole;
+    if (typeof window !== 'undefined') {
+      try {
+        Object.defineProperty(window, '__userRole', {
+          get: () => userRole,
+          configurable: true
+        });
+      } catch (e) {
+        window.__userRole = userRole;
+      }
+    }
   }, [userRole]);
 
   // HUD
