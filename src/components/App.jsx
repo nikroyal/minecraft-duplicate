@@ -1077,21 +1077,21 @@ export default function App() {
 
       {/* Cloud Conflict Modal */}
       {conflictData && (
-        <div className="modal" style={{ display: 'flex' }}>
-          <div className="modal-card">
+        <div className="modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+          <div className="modal-card" style={{ margin: 'auto', width: '90%', maxWidth: '440px', boxSizing: 'border-box', textAlign: 'center' }}>
             <div className="modal-icon">☁️</div>
             <h2>Cloud Save Found</h2>
             <p style={{ marginBottom: '12px', fontSize: '12px', lineHeight: '1.6', color: '#d8caae' }}>
               We found an existing cloud save, but you also have local progress on this device.
             </p>
             <p style={{ marginBottom: '16px', fontSize: '11px', color: 'var(--gold)' }}>Which save would you like to keep?</p>
-            <div className="modal-buttons" style={{ flexDirection: 'column', gap: '8px' }}>
+            <div className="modal-buttons" style={{ flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
               <button className="modal-btn danger"
-                style={{ background: 'var(--gold-bright)', color: 'var(--ink)', width: '100%', border: 'none' }}
+                style={{ background: 'var(--gold-bright)', color: 'var(--ink)', width: '100%', border: 'none', fontWeight: 'bold', padding: '10px' }}
                 onClick={() => handleResolveConflict(true)}>
                 Use Cloud Save (Overwrites local progress)
               </button>
-              <button className="modal-btn cancel" style={{ width: '100%' }}
+              <button className="modal-btn cancel" style={{ width: '100%', padding: '10px' }}
                 onClick={() => handleResolveConflict(false)}>
                 Use Local Save (Overwrites cloud progress)
               </button>
