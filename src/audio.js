@@ -4,9 +4,9 @@ let cachedSampleRate = 0;
 export function initAudio() {
   if (audioCtx) return;
   try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtx) {
-      audioCtx = new AudioCtx();
+    const AudioCtxClass = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
+    if (typeof AudioCtxClass === 'function') {
+      audioCtx = new AudioCtxClass();
       const resume = () => {
         if (audioCtx && audioCtx.state === 'suspended') {
           audioCtx.resume().catch(() => {});
