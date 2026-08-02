@@ -3,14 +3,14 @@ import React, { useState } from 'react';
 const ONBOARDING_STEPS = [
   {
     step: 1,
-    title: "🤖 Welcome to Your AI Survival Onboarding Agent",
+    title: "🧭 Welcome to Your Survival Onboarding Guide",
     category: "INTRODUCTION",
     icon: "🌟",
     badge: "BEGINNER GUIDE",
     content: (
       <>
         <p>
-          Welcome, Explorer! I am your <strong>AI Survival Guide Agent</strong>. I will take you step-by-step through everything you need to know to survive, craft, build, and conquer this infinite 3D voxel world.
+          Welcome, Explorer! I am your <strong>Survival Guide Assistant</strong>. I will take you step-by-step through everything you need to know to survive, craft, build, and conquer this infinite 3D voxel world.
         </p>
         <div className="agent-callout">
           <strong>🔒 Unskippable Walkthrough:</strong> To ensure you don't miss essential survival knowledge, this onboarding cannot be skipped all at once. However, you can press <strong>Next Step →</strong> as quickly as you like to advance!
@@ -265,12 +265,12 @@ export default function OnboardingAgentModal({ onComplete }) {
           <div className="agent-avatar-badge">
             <span className="avatar-icon">{stepData.icon}</span>
             <div className="agent-title-meta">
-              <span className="agent-label">AI AGENT ASSISTANT</span>
+              <span className="agent-label">VOXEL GUIDE ASSISTANT</span>
               <span className="step-tag">{stepData.badge} • STEP {stepData.step} OF {ONBOARDING_STEPS.length}</span>
             </div>
           </div>
           <div className="no-skip-pill">
-            <span>🔒 UNSTIPPABLE WALKTHROUGH</span>
+            <span>🔒 UNSKIPPABLE WALKTHROUGH</span>
           </div>
         </div>
 

@@ -22,9 +22,7 @@ import PlayerDirectoryModal from './PlayerDirectoryModal.jsx';
 import WayfinderModal from './WayfinderModal.jsx';
 import OnboardingAgentModal from './OnboardingAgentModal.jsx';
 import ChatPanel from './ChatPanel.jsx';
-import StarterQuestHUD from './StarterQuestHUD.jsx';
 import DailyLoginModal from './DailyLoginModal.jsx';
-import CosmeticsModal from './CosmeticsModal.jsx';
 import NotificationCenterModal from './NotificationCenterModal.jsx';
 import { toggleAmbientBGM } from '../audio.js';
 import { 
@@ -85,10 +83,8 @@ export default function App() {
   const [userMessages, setUserMessages] = useState([]);
   const [latestBroadcastBanner, setLatestBroadcastBanner] = useState(null);
 
-  // Retention & Cosmetics Modals State
+  // Retention Modals State
   const [showDailyModal, setShowDailyModal] = useState(false);
-  const [showCosmeticsModal, setShowCosmeticsModal] = useState(false);
-  const [starterQuestState, setStarterQuestState] = useState({ currentIndex: 0, progress: {} });
   const [bgmActive, setBgmActive] = useState(false);
 
   // Notification Center & Requests State
@@ -99,6 +95,10 @@ export default function App() {
 
   // Check if current user is a Master Admin Account (strictly based on Firestore document 'role' field)
   const isMasterAccount = userRole === 'admin' || userRole === 'master';
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.__userRole = userRole;
+  }, [userRole]);
 
   // HUD
   const [fps, setFps] = useState(60);
@@ -581,7 +581,7 @@ export default function App() {
                   transition: 'all 0.2s',
                 }}
               >
-                📖 REPLAY GUIDE AGENT
+                📖 REPLAY SURVIVAL GUIDE
               </button>
 
               <button
@@ -640,14 +640,9 @@ export default function App() {
             }}
           />
 
-          {/* Starter Quest HUD Banner */}
+          {/* Music Button positioned safely below top right HUD overlay */}
           {!game.paused && (
-            <StarterQuestHUD questState={starterQuestState} />
-          )}
-
-          {/* In-Game HUD Buttons */}
-          {!game.paused && (
-            <div style={{ position: 'fixed', top: '12px', right: '12px', zIndex: 120, display: 'flex', gap: '8px' }}>
+            <div style={{ position: 'fixed', top: '75px', right: '14px', zIndex: 120 }}>
               <button
                 onClick={() => {
                   const playing = toggleAmbientBGM();
@@ -657,49 +652,13 @@ export default function App() {
                 style={{
                   background: bgmActive ? 'rgba(57,255,20,0.2)' : 'rgba(20, 16, 12, 0.9)',
                   border: bgmActive ? '1px solid #39ff14' : '1px solid var(--gold)',
-                  borderRadius: '8px', color: bgmActive ? '#39ff14' : 'var(--gold-bright)', padding: '6px 12px',
-                  fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px',
+                  borderRadius: '8px', color: bgmActive ? '#39ff14' : 'var(--gold-bright)', padding: '5px 10px',
+                  fontSize: '10px', fontWeight: 'bold', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '5px',
                   boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
                 }}
               >
                 {bgmActive ? '🎵 MUSIC ON' : '🔇 MUSIC OFF'}
-              </button>
-
-              <button
-                onClick={() => {
-                  if (document.pointerLockElement) document.exitPointerLock();
-                  setShowCosmeticsModal(true);
-                }}
-                style={{
-                  background: 'rgba(6, 182, 212, 0.2)', border: '1px solid #06b6d4',
-                  borderRadius: '8px', color: '#06b6d4', padding: '6px 12px',
-                  fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
-                }}
-              >
-                ✨ WARDROBE
-              </button>
-
-              <button
-                onClick={() => {
-                  if (document.pointerLockElement) document.exitPointerLock();
-                  setShowChatSidePanel(prev => {
-                    const next = !prev;
-                    uiState.chatOpen = next;
-                    return next;
-                  });
-                }}
-                style={{
-                  background: 'rgba(20, 16, 12, 0.9)', border: '1px solid var(--gold)',
-                  borderRadius: '8px', color: 'var(--gold-bright)', padding: '6px 12px',
-                  fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)'
-                }}
-              >
-                💬 CHAT [T]
               </button>
             </div>
           )}
@@ -712,13 +671,6 @@ export default function App() {
         <DailyLoginModal
           currentUser={currentUser}
           onClose={() => setShowDailyModal(false)}
-        />
-      )}
-
-      {/* COSMETICS & WARDROBE MODAL */}
-      {showCosmeticsModal && (
-        <CosmeticsModal
-          onClose={() => setShowCosmeticsModal(false)}
         />
       )}
 

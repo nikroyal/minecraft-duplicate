@@ -9,6 +9,7 @@ import {
   sendAdminDirectMessage,
   subscribeToRoomsDirectory,
   deleteTeamRoom,
+  resetTeamRoom,
   updateRoomPrivacy,
   fetchGameReviews,
   deleteGameReview,
@@ -487,57 +488,74 @@ export default function MasterDashboardCard({ userEmail }) {
                   <td colSpan="5" style={{ padding: 20, textAlign: 'center', color: '#aaa' }}>No team rooms created yet.</td>
                 </tr>
               ) : (
-                rooms.map(r => (
-                  <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '8px', fontWeight: 'bold', color: '#fff' }}>
-                      {r.isPrivate ? '🔒' : '🌐'} {r.name}
-                      <div style={{ fontSize: 9, color: '#777' }}>{r.id}</div>
-                    </td>
-                    <td style={{ padding: '8px', color: '#ccc' }}>{r.ownerEmail}</td>
-                    <td style={{ padding: '8px' }}>
-                      <span style={{
-                        padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 'bold',
-                        background: r.isPrivate ? 'rgba(255,100,100,0.15)' : 'rgba(76,217,100,0.15)',
-                        color: r.isPrivate ? '#ff9999' : '#4cd964'
-                      }}>
-                        {r.isPrivate ? 'PRIVATE / INVITE' : 'PUBLIC'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px', color: '#888', fontSize: 10 }}>
-                      {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                        <button
-                          onClick={() => handleStealthEnterRoom(r)}
-                          style={{ background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)', padding: '4px 8px', borderRadius: 4, fontSize: 10, fontWeight: 'bold', cursor: 'pointer' }}
-                        >
-                          🕵️ Stealth Enter
-                        </button>
-                        <button
-                          onClick={async () => {
-                            await updateRoomPrivacy(r.id, !r.isPrivate);
-                            showFeedback(`Toggled privacy for room '${r.name}'`);
-                          }}
-                          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid #777', color: '#ccc', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
-                        >
-                          ⚙️ {r.isPrivate ? 'Make Public' : 'Make Private'}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Are you sure you want to delete room '${r.name}'?`)) {
-                              await deleteTeamRoom(r.id);
-                              showFeedback(`Deleted room '${r.name}'`);
-                            }
-                          }}
-                          style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
-                        >
-                          🗑️ Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                rooms.map(r => {
+                  const isNexus = r.id === 'nexus' || r.id === 'global_nexus' || (r.name && r.name.toLowerCase().includes('nexus'));
+                  return (
+                    <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#fff' }}>
+                        {r.isPrivate ? '🔒' : '🌐'} {r.name}
+                        <div style={{ fontSize: 9, color: '#777' }}>{r.id}</div>
+                      </td>
+                      <td style={{ padding: '8px', color: '#ccc' }}>{r.ownerEmail}</td>
+                      <td style={{ padding: '8px' }}>
+                        <span style={{
+                          padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 'bold',
+                          background: r.isPrivate ? 'rgba(255,100,100,0.15)' : 'rgba(76,217,100,0.15)',
+                          color: r.isPrivate ? '#ff9999' : '#4cd964'
+                        }}>
+                          {r.isPrivate ? 'PRIVATE / INVITE' : 'PUBLIC'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', color: '#888', fontSize: 10 }}>
+                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleStealthEnterRoom(r)}
+                            style={{ background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)', padding: '4px 8px', borderRadius: 4, fontSize: 10, fontWeight: 'bold', cursor: 'pointer' }}
+                          >
+                            🕵️ Stealth Enter
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await updateRoomPrivacy(r.id, !r.isPrivate);
+                              showFeedback(`Toggled privacy for room '${r.name}'`);
+                            }}
+                            style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid #777', color: '#ccc', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
+                          >
+                            ⚙️ {r.isPrivate ? 'Make Public' : 'Make Private'}
+                          </button>
+                          {isNexus ? (
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to reset Global Nexus world data (edits, chests, furnaces)?`)) {
+                                  await resetTeamRoom(r.id);
+                                  showFeedback(`Reset Global Nexus world!`);
+                                }
+                              }}
+                              style={{ background: 'rgba(255,165,0,0.2)', border: '1px solid #ffa500', color: '#ffcc00', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
+                            >
+                              🔄 Reset Nexus
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to delete room '${r.name}'?`)) {
+                                  await deleteTeamRoom(r.id);
+                                  showFeedback(`Deleted room '${r.name}'`);
+                                }
+                              }}
+                              style={{ background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }}
+                            >
+                              🗑️ Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

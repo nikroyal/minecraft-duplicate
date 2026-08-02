@@ -25,6 +25,14 @@ import { playAchievementSound } from './audio.js';
 
 export let activeAchievementNotification = null;
 export function unlockAchievement(id, name, desc) {
+  // Prevent admin accounts and admin mode from unlocking achievements
+  const activeUser = typeof window !== 'undefined' ? (window.__currentUser || null) : null;
+  const userRole = typeof window !== 'undefined' ? window.__userRole : null;
+  const isUserAdmin = (activeUser && (activeUser.role === 'admin' || activeUser.role === 'master')) || 
+                      userRole === 'admin' || userRole === 'master' || 
+                      (typeof game !== 'undefined' && game.adminMode);
+  if (isUserAdmin) return;
+
   if (achievements[id]) return;
   achievements[id] = true;
   activeAchievementNotification = { id, name, desc };

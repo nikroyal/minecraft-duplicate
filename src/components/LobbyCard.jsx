@@ -191,8 +191,6 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
         <button id="tabPlayBtn" className={`dash-tab ${activeTab === 'play' ? 'active' : ''}`} onClick={() => setActiveTab('play')}>🎮 Play Mode</button>
         <button className="dash-tab" style={{ background: notificationsCount > 0 ? 'rgba(214,178,120,0.35)' : 'rgba(214,178,120,0.15)', border: '1px solid var(--gold)', color: 'var(--gold-bright)' }} onClick={onOpenNotifications}>🔔 Notifications ({notificationsCount})</button>
         <button className="dash-tab" style={{ background: 'rgba(214,178,120,0.2)', border: '1px solid var(--gold)', color: 'var(--gold-bright)' }} onClick={onOpenDailyRewards}>🎁 Daily Gift</button>
-        <button className="dash-tab" style={{ background: 'rgba(6,182,212,0.2)', border: '1px solid #06b6d4', color: '#06b6d4' }} onClick={onOpenCosmetics}>✨ Wardrobe</button>
-        <button className={`dash-tab ${activeTab === 'showcase' ? 'active' : ''}`} onClick={() => setActiveTab('showcase')}>🏆 Showcase</button>
         <button className="dash-tab" onClick={onOpenDirectory}>🔍 Directory</button>
         <button id="tabChatBtn" className={`dash-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>💬 Chat Hub</button>
         <button id="tabReviewBtn" className={`dash-tab ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>⭐ Reviews</button>
@@ -504,33 +502,6 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'showcase' && (
-        <div className="dash-panel" style={{ flex: 1, overflowY: 'auto', padding: '10px 4px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: '12px' }}>
-            🏆 Community Builds of the Week
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px' }}>
-            {[
-              { title: '🏰 Dragon Skytower', author: 'Alex_Master', votes: 142, icon: '🏰' },
-              { title: '⛩️ Zen Lotus Temple', author: 'SakuraVoxel', votes: 118, icon: '⛩️' },
-              { title: '🌋 Obsidian Nether Spire', author: 'DarkArchitect', votes: 95, icon: '🌋' }
-            ].map((b, idx) => (
-              <div key={idx} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '32px', marginBottom: '6px' }}>{b.icon}</div>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}>{b.title}</div>
-                <div style={{ fontSize: '10px', color: '#aaa', margin: '4px 0 10px 0' }}>By {b.author}</div>
-                <button
-                  onClick={() => toast(`⭐ Voted for ${b.title}!`)}
-                  style={{ background: 'var(--gold)', color: '#000', border: 'none', padding: '6px 14px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  ⭐ Vote ({b.votes})
-                </button>
-              </div>
-            ))}
           </div>
         </div>
       )}

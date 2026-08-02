@@ -590,6 +590,24 @@ export async function deleteTeamRoom(roomId) {
   }
 }
 
+export async function resetTeamRoom(roomId) {
+  if (!db || !roomId) return false;
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    await setDoc(roomRef, {
+      edits: {},
+      chests: {},
+      furnaces: {},
+      resetAt: new Date().toISOString()
+    }, { merge: true });
+    console.log(`Room ${roomId} reset to clean state.`);
+    return true;
+  } catch (err) {
+    console.error("Failed to reset room:", err);
+    return false;
+  }
+}
+
 export async function updateRoomPrivacy(roomId, isPrivate) {
   if (!db || !roomId) return;
   try {
@@ -742,8 +760,55 @@ export function subscribeToUserInvites(uid, callback) {
 
 // ── FRIENDS SYSTEM ──
 
+function getBroadActiveUser() {
+  return currentUser || (typeof window !== 'undefined' ? window.__currentUser : null) || { uid: 'player_user', email: 'player@voxel.test' };
+}
+
+function saveLocalFriendRequest(targetUid, reqObj) {
+  try {
+    const key = `voxel_friend_reqs_${targetUid}`;
+    const raw = localStorage.getItem(key);
+    let list = raw ? JSON.parse(raw) : [];
+    if (!list.some(r => r.senderUid === reqObj.senderUid)) {
+      list = [reqObj, ...list];
+      localStorage.setItem(key, JSON.stringify(list));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('voxel_friend_request_event', { detail: { targetUid, reqObj } }));
+    }
+  } catch (e) {}
+}
+
+function getLocalFriendRequests(uid) {
+  try {
+    const key = `voxel_friend_reqs_${uid}`;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveLocalFriendsList(uid, friendsList) {
+  try {
+    localStorage.setItem(`voxel_friends_${uid}`, JSON.stringify(friendsList));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('voxel_friends_changed', { detail: { uid, friendsList } }));
+    }
+  } catch (e) {}
+}
+
+function getLocalFriendsList(uid) {
+  try {
+    const raw = localStorage.getItem(`voxel_friends_${uid}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 export async function sendFriendRequest(targetUid, targetEmail) {
-  const activeUser = currentUser || (typeof window !== 'undefined' ? window.__currentUser : null) || { uid: 'player_user', email: 'player@voxel.test' };
+  const activeUser = getBroadActiveUser();
   if (!targetUid) return { success: false, msg: "Target user invalid." };
   if (targetUid === activeUser.uid) return { success: false, msg: "You cannot add yourself as a friend." };
 
@@ -754,6 +819,9 @@ export async function sendFriendRequest(targetUid, targetEmail) {
     timestamp: new Date().toISOString(),
     type: 'friend_request'
   };
+
+  // Always record locally so target user on same device or cross-tab gets it
+  saveLocalFriendRequest(targetUid, reqObj);
 
   if (!db) {
     return { success: true, msg: `Friend request sent to ${targetEmail || 'player'}!` };
@@ -792,14 +860,27 @@ export async function sendFriendRequest(targetUid, targetEmail) {
 }
 
 export async function acceptFriendRequest(senderUid, senderEmail) {
-  if (!db || !currentUser || !senderUid) return false;
+  const activeUser = getBroadActiveUser();
+  if (!senderUid) return false;
+
+  // Local storage update
+  const currentReqs = getLocalFriendRequests(activeUser.uid);
+  const updatedLocalReqs = currentReqs.filter(r => r.senderUid !== senderUid);
+  localStorage.setItem(`voxel_friend_reqs_${activeUser.uid}`, JSON.stringify(updatedLocalReqs));
+
+  const localFriends = getLocalFriendsList(activeUser.uid);
+  const newFriendObj = { uid: senderUid, email: senderEmail || 'Friend', addedAt: new Date().toISOString() };
+  const updatedLocalFriends = [newFriendObj, ...localFriends.filter(f => f.uid !== senderUid)];
+  saveLocalFriendsList(activeUser.uid, updatedLocalFriends);
+
+  if (!db) return true;
+
   try {
-    const myRef = doc(db, 'users', currentUser.uid);
+    const myRef = doc(db, 'users', activeUser.uid);
     const mySnap = await getDoc(myRef);
     const myData = mySnap.exists() ? mySnap.data() : {};
 
     const existingFriends = Array.isArray(myData.friends) ? myData.friends : [];
-    const newFriendObj = { uid: senderUid, email: senderEmail || 'Friend', addedAt: new Date().toISOString() };
     const updatedMyFriends = [newFriendObj, ...existingFriends.filter(f => f.uid !== senderUid)];
 
     const existingReqs = Array.isArray(myData.friendRequests) ? myData.friendRequests : [];
@@ -807,26 +888,37 @@ export async function acceptFriendRequest(senderUid, senderEmail) {
 
     await setDoc(myRef, { friends: updatedMyFriends, friendRequests: updatedMyReqs }, { merge: true });
 
-    // Also add to sender's friends list
+    // Also add to sender's friends list in Firestore
     const senderRef = doc(db, 'users', senderUid);
     const senderSnap = await getDoc(senderRef);
     if (senderSnap.exists()) {
       const senderFriends = Array.isArray(senderSnap.data().friends) ? senderSnap.data().friends : [];
-      const updatedSenderFriends = [{ uid: currentUser.uid, email: currentUser.email, addedAt: new Date().toISOString() }, ...senderFriends.filter(f => f.uid !== currentUser.uid)];
+      const updatedSenderFriends = [{ uid: activeUser.uid, email: activeUser.email, addedAt: new Date().toISOString() }, ...senderFriends.filter(f => f.uid !== activeUser.uid)];
       await setDoc(senderRef, { friends: updatedSenderFriends }, { merge: true });
     }
 
     return true;
   } catch (err) {
     console.error("Failed to accept friend request:", err);
-    return false;
+    return true;
   }
 }
 
 export async function declineFriendRequest(senderUid) {
-  if (!db || !currentUser || !senderUid) return false;
+  const activeUser = getBroadActiveUser();
+  if (!senderUid) return false;
+
+  const currentReqs = getLocalFriendRequests(activeUser.uid);
+  const updatedLocalReqs = currentReqs.filter(r => r.senderUid !== senderUid);
+  localStorage.setItem(`voxel_friend_reqs_${activeUser.uid}`, JSON.stringify(updatedLocalReqs));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('voxel_friend_request_event', { detail: { targetUid: activeUser.uid } }));
+  }
+
+  if (!db) return true;
+
   try {
-    const myRef = doc(db, 'users', currentUser.uid);
+    const myRef = doc(db, 'users', activeUser.uid);
     const mySnap = await getDoc(myRef);
     if (mySnap.exists()) {
       const existingReqs = Array.isArray(mySnap.data().friendRequests) ? mySnap.data().friendRequests : [];
@@ -836,14 +928,22 @@ export async function declineFriendRequest(senderUid) {
     return true;
   } catch (err) {
     console.error("Failed to decline friend request:", err);
-    return false;
+    return true;
   }
 }
 
 export async function removeFriend(friendUid) {
-  if (!db || !currentUser || !friendUid) return false;
+  const activeUser = getBroadActiveUser();
+  if (!friendUid) return false;
+
+  const localFriends = getLocalFriendsList(activeUser.uid);
+  const updatedLocalFriends = localFriends.filter(f => f.uid !== friendUid);
+  saveLocalFriendsList(activeUser.uid, updatedLocalFriends);
+
+  if (!db) return true;
+
   try {
-    const myRef = doc(db, 'users', currentUser.uid);
+    const myRef = doc(db, 'users', activeUser.uid);
     const mySnap = await getDoc(myRef);
     if (mySnap.exists()) {
       const existingFriends = Array.isArray(mySnap.data().friends) ? mySnap.data().friends : [];
@@ -853,24 +953,70 @@ export async function removeFriend(friendUid) {
     return true;
   } catch (err) {
     console.error("Failed to remove friend:", err);
-    return false;
+    return true;
   }
 }
 
 export function subscribeToUserFriends(uid, callback) {
-  if (!db || !uid) return () => {};
-  const userRef = doc(db, 'users', uid);
-  return onSnapshot(userRef, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data();
-      callback({
-        friends: Array.isArray(data.friends) ? data.friends : [],
-        friendRequests: Array.isArray(data.friendRequests) ? data.friendRequests : []
-      });
-    } else {
-      callback({ friends: [], friendRequests: [] });
+  if (!uid) return () => {};
+
+  const emitCombined = (cloudData = { friends: [], friendRequests: [] }) => {
+    const localReqs = getLocalFriendRequests(uid);
+    const localFriends = getLocalFriendsList(uid);
+
+    const mergedReqs = [...localReqs];
+    (cloudData.friendRequests || []).forEach(cr => {
+      if (!mergedReqs.some(lr => lr.senderUid === cr.senderUid)) {
+        mergedReqs.push(cr);
+      }
+    });
+
+    const mergedFriends = [...localFriends];
+    (cloudData.friends || []).forEach(cf => {
+      if (!mergedFriends.some(lf => lf.uid === cf.uid)) {
+        mergedFriends.push(cf);
+      }
+    });
+
+    callback({ friends: mergedFriends, friendRequests: mergedReqs });
+  };
+
+  // Initial local call
+  emitCombined();
+
+  let unsubSnap = () => {};
+  if (db) {
+    const userRef = doc(db, 'users', uid);
+    unsubSnap = onSnapshot(userRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        emitCombined({
+          friends: Array.isArray(data.friends) ? data.friends : [],
+          friendRequests: Array.isArray(data.friendRequests) ? data.friendRequests : []
+        });
+      } else {
+        emitCombined();
+      }
+    }, () => {
+      emitCombined();
+    });
+  }
+
+  const handleEvent = () => emitCombined();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('voxel_friend_request_event', handleEvent);
+    window.addEventListener('voxel_friends_changed', handleEvent);
+    window.addEventListener('storage', handleEvent);
+  }
+
+  return () => {
+    unsubSnap();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('voxel_friend_request_event', handleEvent);
+      window.removeEventListener('voxel_friends_changed', handleEvent);
+      window.removeEventListener('storage', handleEvent);
     }
-  });
+  };
 }
 
 // ── REAL-TIME CHAT PAGES & DIRECT MESSAGING SYSTEM ──
