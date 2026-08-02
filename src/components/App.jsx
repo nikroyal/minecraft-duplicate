@@ -895,7 +895,7 @@ export default function App() {
                             <div style={{ flex: 1, paddingLeft: 8 }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{thingName(recipe.out)}{recipe.qty > 1 ? ` ×${recipe.qty}` : ''}</div>
                               <div style={{ fontSize: 8, color: 'var(--gold-dim)' }}>
-                                {Object.entries(recipe.in).map(([inId, qty]) => `${thingName(Number(inId))} ×${qty}`).join(', ')}
+                                {Object.entries(recipe?.in || {}).map(([inId, qty]) => `${thingName(Number(inId))} ×${qty}`).join(', ')}
                               </div>
                             </div>
                           </div>

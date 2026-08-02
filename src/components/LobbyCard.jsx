@@ -454,7 +454,7 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
               <div className="stat-lbl">Coordinates</div>
             </div>
             <div className="stat-box">
-              <div className="stat-val">{Object.values(inventory).reduce((a, b) => a + b, 0)}</div>
+              <div className="stat-val">{(inventory ? Object.values(inventory) : []).reduce((a, b) => a + b, 0)}</div>
               <div className="stat-lbl">Items Carried</div>
             </div>
             <div className="stat-box">

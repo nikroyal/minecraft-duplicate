@@ -44,7 +44,7 @@ function SlotBox({ id, count, size = 52, onClick, onContextMenu, highlighted, gh
 function getPlayerItems() {
   const items = [];
   const seen = new Set();
-  for (const rawId of Object.keys(inventory)) {
+  for (const rawId of Object.keys(inventory || {})) {
     const id = Number(rawId);
     if (id > 0 && invCount(id) > 0 && !seen.has(id)) {
       seen.add(id);
@@ -172,7 +172,7 @@ export default function CraftingScreen({ onClose }) {
 
     // Consume exactly what the recipe needs from the grid
     const newGrid = [...grid];
-    for (const rawId of Object.keys(matchedRecipe.in)) {
+    for (const rawId of Object.keys(matchedRecipe?.in || {})) {
       const id = Number(rawId);
       let need = matchedRecipe.in[rawId];
       for (let i = 0; i < 9 && need > 0; i++) {

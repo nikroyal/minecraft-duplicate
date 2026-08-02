@@ -16,7 +16,7 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
   const chest = (activeChestCoords && world.chests && world.chests[activeChestCoords]) ? world.chests[activeChestCoords] : [];
 
   // Get active inventory IDs
-  const ids = Object.keys(inventory)
+  const ids = Object.keys(inventory || {})
     .map(Number)
     .filter(id => invCount(id) > 0);
 

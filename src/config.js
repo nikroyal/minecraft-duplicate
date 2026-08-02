@@ -356,19 +356,19 @@ export const RECIPES = [];
 })();
 
 export function resolveRecipe(bag){
-  const bKeys = Object.keys(bag).filter(id => bag[id] > 0);
+  const bKeys = Object.keys(bag || {}).filter(id => bag && bag[id] > 0);
   for(const r of RECIPES){
-    const rIds = Object.keys(r.in);
+    const rIds = Object.keys(r?.in || {});
     if(rIds.length !== bKeys.length) continue;
     let ok = true;
-    for(const id of rIds){ if((bag[id]||0) < r.in[id]){ ok = false; break; } }
+    for(const id of rIds){ if((bag && bag[id]||0) < r.in[id]){ ok = false; break; } }
     if(ok) return r;
   }
   return null;
 }
 
 export function craftableRecipes(inv){
-  return RECIPES.map(r=>({ recipe:r, canMake: Object.keys(r.in).every(id=>(inv[id]||0)>=r.in[id]) }));
+  return RECIPES.map(r=>({ recipe:r, canMake: Object.keys(r?.in || {}).every(id=>((inv && inv[id])||0)>=r.in[id]) }));
 }
 
 export function faceColor(id, face){

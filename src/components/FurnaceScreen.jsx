@@ -26,7 +26,7 @@ export default function FurnaceScreen({ activeFurnaceCoords, onClose, scheduleSa
     ? world.furnaces[activeFurnaceCoords]
     : { inputId: 0, inputCount: 0, fuelId: 0, fuelCount: 0, outputId: 0, outputCount: 0, burnTime: 0, maxBurnTime: 0, smeltProgress: 0 };
 
-  const ids = Object.keys(inventory)
+  const ids = Object.keys(inventory || {})
     .map(Number)
     .filter(id => invCount(id) > 0);
 

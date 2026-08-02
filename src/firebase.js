@@ -413,7 +413,7 @@ export async function fetchAllUsersForMaster() {
         isOnline: isRecentlyActive,
         lastActive: data.lastActive || null,
         createdAt: data.createdAt || null,
-        editsCount: data.edits ? Object.keys(data.edits).length : 0,
+        editsCount: (data && data.edits && typeof data.edits === 'object') ? Object.keys(data.edits).length : 0,
         raw: data
       });
     });
