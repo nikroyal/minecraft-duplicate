@@ -150,8 +150,8 @@ export default function MasterDashboardCard({ userEmail }) {
   };
 
   const handleSendBroadcast = async () => {
-    if (!broadcastText.trim()) return;
-    await sendAdminBroadcast(broadcastText, userEmail);
+    if (!broadcastText.trim() || broadcastText.trim().length > 250) return;
+    await sendAdminBroadcast(broadcastText.trim().substring(0, 250), userEmail);
     showFeedback(`📢 Broadcast sent to all online and offline players!`);
     setBroadcastText('');
     loadData();
@@ -410,6 +410,7 @@ export default function MasterDashboardCard({ userEmail }) {
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <input
           type="text"
+          maxLength={250}
           placeholder="📢 Send global server announcement (delivered live to online players & saved to all offline inboxes)..."
           value={broadcastText}
           onChange={e => setBroadcastText(e.target.value)}

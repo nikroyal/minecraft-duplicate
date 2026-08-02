@@ -26,7 +26,7 @@ export default function NotificationCenterModal({ currentUser, friendRequests = 
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
+      position: 'fixed', inset: 0, zIndex: 10000,
       background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
     }}>

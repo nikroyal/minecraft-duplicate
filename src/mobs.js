@@ -251,6 +251,7 @@ export function trySpawnMobs(){
 }
 
 export function updateMobs(dt){
+  dt = Math.min(dt, 0.1);
   mobSpawnTimer += dt;
   const spawnInterval = game.mobs.length < 8 ? 0.8 : 3.5;
   if(mobSpawnTimer >= spawnInterval){

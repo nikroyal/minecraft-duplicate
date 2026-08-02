@@ -326,6 +326,7 @@ export function moveAxis(axis, amount, allowAutoStep){
 }
 
 export function updatePlayer(dt){
+  dt = Math.min(dt, 0.1);
   // Coordinate sanity check against NaN / Infinity injection
   if (!isFinite(player.pos.x) || !isFinite(player.pos.y) || !isFinite(player.pos.z)) {
     spawnPlayer();
