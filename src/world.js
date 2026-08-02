@@ -12,39 +12,70 @@ export let genQueue = [];
 const sharedMeshMask = new Uint8Array(HEIGHT * CHUNK);
 const sharedSurfaceRow = new Uint8Array(HEIGHT * CHUNK);
 
-export class Chunk {
-  constructor(cx, cz){
-    this.cx=cx; this.cz=cz;
-    this.data = new Uint8Array(CHUNK*HEIGHT*CHUNK);
-    this.light = new Uint8Array(CHUNK*HEIGHT*CHUNK); // 0..15 light level per block
-    this.opaqueMesh=null; this.cutoutMesh=null; this.waterMesh=null; this.alphaMesh=null;
-    this.dirty=true; this.generated=false; this.lit=false;
-  }
-  idx(x,y,z){ return (y*CHUNK + z)*CHUNK + x; }
-  get(x,y,z){
-    if(x<0||x>=CHUNK||z<0||z>=CHUNK||y<0||y>=HEIGHT) return AIR;
-    return this.data[this.idx(x,y,z)];
-  }
-  set(x,y,z,v){
-    if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=0&&y<HEIGHT) this.data[this.idx(x,y,z)] = v;
-  }
-  getLight(x,y,z){
-    if(y<0) return 0;
-    if(y>=HEIGHT) return MAX_LIGHT;
-    if(x<0||x>=CHUNK||z<0||z>=CHUNK) {
-      const wx = this.cx * CHUNK + x;
-      const wz = this.cz * CHUNK + z;
-      return getLightGlobal(wx, y, wz);
-    }
-    return this.light[this.idx(x,y,z)];
-  }
-  setLight(x,y,z,v){
-    if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=0&&y<HEIGHT) this.light[this.idx(x,y,z)] = v;
-  }
+export function Chunk(cx, cz){
+  this.cx=cx; this.cz=cz;
+  this.data = new Uint8Array(CHUNK*HEIGHT*CHUNK);
+  this.light = new Uint8Array(CHUNK*HEIGHT*CHUNK); // 0..15 light level per block
+  this.opaqueMesh=null; this.cutoutMesh=null; this.waterMesh=null; this.alphaMesh=null;
+  this.dirty=true; this.generated=false; this.lit=false;
 }
+Chunk.prototype.idx = function(x,y,z){ return (y*CHUNK + z)*CHUNK + x; };
+Chunk.prototype.get = function(x,y,z){
+  if(x<0||x>=CHUNK||z<0||z>=CHUNK||y<0||y>=HEIGHT) return AIR;
+  return this.data[this.idx(x,y,z)];
+};
+Chunk.prototype.set = function(x,y,z,v){
+  if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=0&&y<HEIGHT) this.data[this.idx(x,y,z)] = v;
+};
+Chunk.prototype.getLight = function(x,y,z){
+  if(y<0) return 0;
+  if(y>=HEIGHT) return MAX_LIGHT;
+  if(x<0||x>=CHUNK||z<0||z>=CHUNK) {
+    const wx = this.cx * CHUNK + x;
+    const wz = this.cz * CHUNK + z;
+    return getLightGlobal(wx, y, wz);
+  }
+  return this.light[this.idx(x,y,z)];
+};
+Chunk.prototype.setLight = function(x,y,z,v){
+  if(x>=0&&x<CHUNK&&z>=0&&z<CHUNK&&y>=0&&y<HEIGHT) this.light[this.idx(x,y,z)] = v;
+};
 
 export function createChunkInstance(cx, cz) {
-  return new Chunk(cx, cz);
+  try {
+    return new Chunk(cx, cz);
+  } catch (e) {
+    return {
+      cx, cz,
+      data: new Uint8Array(CHUNK * HEIGHT * CHUNK),
+      light: new Uint8Array(CHUNK * HEIGHT * CHUNK),
+      opaqueMesh: null, cutoutMesh: null, waterMesh: null, alphaMesh: null,
+      dirty: true, generated: false, lit: false,
+      idx: function(x, y, z) { return (y * CHUNK + z) * CHUNK + x; },
+      get: function(x, y, z) {
+        if (x < 0 || x >= CHUNK || z < 0 || z >= CHUNK || y < 0 || y >= HEIGHT) return AIR;
+        return this.data[(y * CHUNK + z) * CHUNK + x];
+      },
+      set: function(x, y, z, v) {
+        if (x >= 0 && x < CHUNK && z >= 0 && z < CHUNK && y >= 0 && y < HEIGHT) {
+          this.data[(y * CHUNK + z) * CHUNK + x] = v;
+        }
+      },
+      getLight: function(x, y, z) {
+        if (y < 0) return 0;
+        if (y >= HEIGHT) return MAX_LIGHT;
+        if (x < 0 || x >= CHUNK || z < 0 || z >= CHUNK) {
+          return getLightGlobal(cx * CHUNK + x, y, cz * CHUNK + z);
+        }
+        return this.light[(y * CHUNK + z) * CHUNK + x];
+      },
+      setLight: function(x, y, z, v) {
+        if (x >= 0 && x < CHUNK && z >= 0 && z < CHUNK && y >= 0 && y < HEIGHT) {
+          this.light[(y * CHUNK + z) * CHUNK + x] = v;
+        }
+      }
+    };
+  }
 }
 
 function oreAt(wx,wy,wz){
