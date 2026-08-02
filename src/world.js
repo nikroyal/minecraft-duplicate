@@ -174,20 +174,25 @@ export function getBlock(wx,wy,wz){
   return ch.get(lx,wy,lz);
 }
 
-export function setBlock(wx,wy,wz,v, record, scheduleSaveCallback){
-  if (typeof wy !== 'number' || isNaN(wy) || wy < 0 || wy >= HEIGHT) return;
+export function ensureChunk(cx, cz) {
+  let ch = getChunk(cx, cz);
+  if (!ch) {
+    ch = new Chunk(cx, cz);
+    generateChunk(ch);
+    world.chunks.set(keyOf(cx, cz), ch);
+  } else if (!ch.generated) {
+    generateChunk(ch);
+  }
+  return ch;
+}
+
+export function setBlock(wx,wy,wz, v, skipUpdate=false, onEditCb=null){
+  if(wy<0||wy>=HEIGHT) return;
   if (typeof v !== 'number' || isNaN(v) || v < 0 || v > 255) return;
   if (wy === 0 && v === AIR && game.survival) return; // Protect bedrock at Y=0 in survival mode
 
   const cx=Math.floor(wx/CHUNK), cz=Math.floor(wz/CHUNK);
-  let ch=getChunk(cx,cz);
-  if(!ch) {
-    ch = new Chunk(cx, cz);
-    generateChunk(ch);
-    world.chunks.set(keyOf(cx,cz), ch);
-  } else if (!ch.generated) {
-    ch.generated = true;
-  }
+  const ch = ensureChunk(cx, cz);
   const lx=((wx%CHUNK)+CHUNK)%CHUNK, lz=((wz%CHUNK)+CHUNK)%CHUNK;
   
   const prev = ch.get(lx, wy, lz);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { player, game, world, inventory, SAVE_KEY, avatarCallbacks, achievements } from '../state.js';
-import { Chunk, getChunk, generateChunk, getBlock } from '../world.js';
+import { getChunk, ensureChunk, generateChunk, getBlock } from '../world.js';
 import { isSolid, keyOf, HEIGHT } from '../config.js';
 import { invCount } from '../player.js';
 import { 
@@ -131,8 +131,7 @@ export default function LobbyCard({ userEmail, userRole, currentUser, syncStatus
   const handleTeleportSurface = () => {
     const px = Math.floor(player.pos.x), pz = Math.floor(player.pos.z);
     const cx = Math.floor(px/16), cz = Math.floor(pz/16);
-    let ch = getChunk(cx,cz);
-    if (!ch) { ch = new Chunk(cx,cz); world.chunks.set(keyOf(cx,cz), ch); }
+    let ch = ensureChunk(cx, cz);
     if (!ch.generated) generateChunk(ch);
     let topY = 1;
     for (let y = HEIGHT-1; y >= 0; y--) { if (isSolid(getBlock(px,y,pz))) { topY = y + 1; break; } }
