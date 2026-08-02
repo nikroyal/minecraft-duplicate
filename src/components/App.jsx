@@ -200,9 +200,34 @@ export default function App() {
       }
     } catch (e) {}
 
-    // 2. Subscribe to User Document (Freeze, Teleport, Give Items, Heal, Messages)
+    // 2. Subscribe to User Document (Freeze, Teleport, Give Items, Heal, Messages, Kick, Ban, Mute)
     const unsubUser = subscribeToUserDoc(currentUser.uid, (userData) => {
       if (!userData) return;
+
+      // Banned account check
+      if (userData.banned && !(userRole === 'admin' || userRole === 'master')) {
+        game.running = false;
+        game.paused = false;
+        if (document.pointerLockElement) document.exitPointerLock();
+        toast("⛔ Account banned by Administrator.");
+        setAuthStatus('signedOut');
+        setCurrentUser(null);
+        return;
+      }
+
+      // Kick signal check
+      if (userData.kickSignal && userData.kickSignal !== window.__lastKickSignal && !(userRole === 'admin' || userRole === 'master')) {
+        window.__lastKickSignal = userData.kickSignal;
+        game.running = false;
+        game.paused = false;
+        if (document.pointerLockElement) document.exitPointerLock();
+        toast("⚠️ You were kicked from the session by an Admin.");
+      }
+
+      // Muted status
+      if (typeof window !== 'undefined') {
+        window.__userMuted = Boolean(userData.muted);
+      }
 
       // Frozen status
       player.frozen = Boolean(userData.frozen);

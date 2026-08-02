@@ -458,6 +458,130 @@ export async function updateUserDocInFirestore(targetUid, data) {
   }
 }
 
+export async function kickUserAccount(targetUid) {
+  return updateUserDocInFirestore(targetUid, { kickSignal: Date.now() });
+}
+
+export async function banUserAccount(targetUid, bannedStatus = true) {
+  return updateUserDocInFirestore(targetUid, { banned: Boolean(bannedStatus), kickSignal: Date.now() });
+}
+
+export async function toggleUserMute(targetUid, mutedStatus = true) {
+  return updateUserDocInFirestore(targetUid, { muted: Boolean(mutedStatus) });
+}
+
+export async function summonPlayerToAdmin(targetUid, adminPos) {
+  if (!adminPos) return;
+  return updateUserDocInFirestore(targetUid, {
+    teleportTarget: { x: adminPos.x, y: adminPos.y, z: adminPos.z }
+  });
+}
+
+export async function giveItemToUserInFirestore(targetUid, itemId, count = 64) {
+  if (!targetUid || !itemId) return;
+  return updateUserDocInFirestore(targetUid, {
+    inventoryAdditions: arrayUnion({ id: Number(itemId), count: Number(count), timestamp: Date.now() })
+  });
+}
+
+export function generatePrefabStructureEdits(structureType, ox, oy, oz) {
+  const edits = {};
+  const originX = Math.floor(ox);
+  const originY = Math.floor(oy);
+  const originZ = Math.floor(oz);
+
+  if (structureType === 'castle') {
+    for (let x = -3; x <= 3; x++) {
+      for (let z = -3; z <= 3; z++) {
+        for (let y = 0; y <= 4; y++) {
+          const wx = originX + x;
+          const wy = originY + y;
+          const wz = originZ + z;
+          const isEdge = x === -3 || x === 3 || z === -3 || z === 3;
+          if (y === 0) {
+            edits[`${wx},${wy},${wz}`] = 7;
+          } else if (isEdge) {
+            if (y === 4 && (x + z) % 2 !== 0) continue;
+            if (y === 1 && x === 0 && z === -3) continue;
+            if (y === 2 && x === 0 && z === -3) continue;
+            edits[`${wx},${wy},${wz}`] = 16;
+          }
+        }
+      }
+    }
+    edits[`${originX-2},${originY+2},${originZ-2}`] = 20;
+    edits[`${originX+2},${originY+2},${originZ-2}`] = 20;
+    edits[`${originX-2},${originY+2},${originZ+2}`] = 20;
+    edits[`${originX+2},${originY+2},${originZ+2}`] = 20;
+  } else if (structureType === 'tower') {
+    for (let y = 0; y <= 12; y++) {
+      for (let x = -1; x <= 1; x++) {
+        for (let z = -1; z <= 1; z++) {
+          const wx = originX + x;
+          const wy = originY + y;
+          const wz = originZ + z;
+          if (y === 12) {
+            edits[`${wx},${wy},${wz}`] = (x === 0 && z === 0) ? 91 : 47;
+          } else {
+            const isCenter = x === 0 && z === 0;
+            if (!isCenter || y === 0) {
+              edits[`${wx},${wy},${wz}`] = 47;
+            }
+          }
+        }
+      }
+    }
+  } else if (structureType === 'arena') {
+    for (let x = -5; x <= 5; x++) {
+      for (let z = -5; z <= 5; z++) {
+        const wx = originX + x;
+        const wz = originZ + z;
+        const isEdge = Math.abs(x) === 5 || Math.abs(z) === 5;
+        edits[`${wx},${originY},${wz}`] = 46;
+        if (isEdge) {
+          edits[`${wx},${originY+1},${wz}`] = 3;
+          edits[`${wx},${originY+2},${wz}`] = (x % 3 === 0 && z % 3 === 0) ? 20 : 3;
+        }
+      }
+    }
+  } else if (structureType === 'bunker') {
+    for (let x = -2; x <= 2; x++) {
+      for (let z = -2; z <= 2; z++) {
+        for (let y = 0; y <= 3; y++) {
+          const wx = originX + x;
+          const wy = originY + y;
+          const wz = originZ + z;
+          const isEdge = Math.abs(x) === 2 || Math.abs(z) === 2;
+          if (y === 0) edits[`${wx},${wy},${wz}`] = 7;
+          else if (y === 3) edits[`${wx},${wy},${wz}`] = 7;
+          else if (isEdge) {
+            if (y === 1 && x === 0 && z === -2) continue;
+            if (y === 2 && Math.abs(x) === 1 && isEdge) edits[`${wx},${wy},${wz}`] = 9;
+            else edits[`${wx},${wy},${wz}`] = 5;
+          }
+        }
+      }
+    }
+    edits[`${originX},${originY+1},${originZ+1}`] = 43;
+  }
+  return edits;
+}
+
+export async function applyPrefabStructureToRoom(roomId, structureType, ox, oy, oz) {
+  if (!db || !roomId) return false;
+  try {
+    const newEdits = generatePrefabStructureEdits(structureType, ox, oy, oz);
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+    const existingEdits = (roomSnap.exists() && roomSnap.data().edits) ? roomSnap.data().edits : {};
+    await setDoc(roomRef, { edits: { ...existingEdits, ...newEdits }, updatedAt: new Date().toISOString() }, { merge: true });
+    return true;
+  } catch (e) {
+    console.error("Failed to apply prefab structure to room:", e);
+    return false;
+  }
+}
+
 export async function updateWorldSettingsInFirestore(settings) {
   if (!db) return;
   try {

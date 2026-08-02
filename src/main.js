@@ -526,7 +526,8 @@ const dayColor = new THREE.Color(0xfff0d8), nightColor = new THREE.Color(0x9fb6e
 
 function updateDayNight(dt){
   if (!game.timeFrozen && !game.paused) {
-    game.timeOfDay = (game.timeOfDay + dt/DAY_LENGTH) % 1;
+    const speedMult = game.timeSpeedMultiplier || 1;
+    game.timeOfDay = (game.timeOfDay + (dt * speedMult)/DAY_LENGTH) % 1;
   }
   const s = skyState(game.timeOfDay);
 
@@ -626,6 +627,11 @@ function updateMining(dt){
   if(!mining.held){
     if(mining.active){ mining.active = false; hideCrack(); }
     mining.progress = 0;
+    return;
+  }
+  if (typeof window !== 'undefined' && window.__worldSettings && window.__worldSettings.lockdown && !(window.__userRole === 'admin' || window.__userRole === 'master')) {
+    mining.active = false; mining.progress = 0; hideCrack();
+    toast("⚠️ Build Lockdown Active: World edits restricted by Admin.");
     return;
   }
   const r = raycastVoxel(6);
@@ -902,6 +908,10 @@ function blockColor(id){
 }
 
 export function placeBlock(){
+  if (typeof window !== 'undefined' && window.__worldSettings && window.__worldSettings.lockdown && !(window.__userRole === 'admin' || window.__userRole === 'master')) {
+    toast("⚠️ Build Lockdown Active: World edits restricted by Admin.");
+    return;
+  }
   const heldId = hotbar[game.selected];
   const isBucket = (heldId === 144 || heldId === 145);
   const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"] || isPlaceable(heldId);
@@ -2299,6 +2309,32 @@ export function updateOtherPlayers3D(dt) {
     }
   }
 }
+
+export function spawnLightningStrike(x, y, z) {
+  if (!webgl.scene) return;
+  const topY = Math.min(128, y + 40);
+  const geom = new THREE.CylinderGeometry(0.15, 0.4, topY - y, 6);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.position.set(x, y + (topY - y)/2, z);
+  webgl.scene.add(mesh);
+
+  spawnBreakBurst(x, y, z, 91);
+  playMineSound(16);
+
+  let ticks = 0;
+  const flashInterval = setInterval(() => {
+    ticks++;
+    mat.opacity = ticks % 2 === 0 ? 0.9 : 0.2;
+    if (ticks > 8) {
+      clearInterval(flashInterval);
+      if (webgl.scene) webgl.scene.remove(mesh);
+      geom.dispose();
+      mat.dispose();
+    }
+  }, 40);
+}
+if (typeof window !== 'undefined') window.__spawnLightningStrike = spawnLightningStrike;
 
 // Auto start game bootloader
 bootGame();

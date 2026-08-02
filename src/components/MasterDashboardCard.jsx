@@ -14,9 +14,17 @@ import {
   fetchGameReviews,
   deleteGameReview,
   subscribeToAllChatsForAdmin,
-  subscribeToChatMessages
+  subscribeToChatMessages,
+  kickUserAccount,
+  banUserAccount,
+  toggleUserMute,
+  summonPlayerToAdmin,
+  giveItemToUserInFirestore,
+  applyPrefabStructureToRoom,
+  subscribeToWorldSettings
 } from '../firebase.js';
-import { game } from '../state.js';
+import { game, player } from '../state.js';
+import { spawnLightningStrike } from '../main.js';
 import { initAudio } from '../audio.js';
 import AdminHandbookModal from './AdminHandbookModal.jsx';
 
@@ -28,6 +36,8 @@ export default function MasterDashboardCard({ userEmail }) {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'online', 'offline'
   const [selectedUser, setSelectedUser] = useState(null);
+  const [worldSettings, setWorldSettings] = useState({ lockdown: false, maintenance: false });
+  const [timeSpeed, setTimeSpeed] = useState(1);
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [adminTab, setAdminTab] = useState('users'); // 'users', 'rooms', 'reviews', 'chats'
   const [allChatThreads, setAllChatThreads] = useState([]);
@@ -46,7 +56,13 @@ export default function MasterDashboardCard({ userEmail }) {
     const unsub = subscribeToRoomsDirectory((list) => {
       setRooms(list.filter(r => !r.deleted));
     });
-    return () => unsub();
+    const unsubWorld = subscribeToWorldSettings((s) => {
+      if (s) {
+        setWorldSettings(s);
+        if (typeof window !== 'undefined') window.__worldSettings = s;
+      }
+    });
+    return () => { unsub(); unsubWorld(); };
   }, []);
 
   useEffect(() => {
@@ -296,7 +312,98 @@ export default function MasterDashboardCard({ userEmail }) {
           <button onClick={handleToggleWeather} style={{ ...adminBtnStyle, color: isRaining ? '#66ccff' : '#f5d77f' }}>
             {isRaining ? "☀️ Clear Weather" : "🌧️ Toggle Rain"}
           </button>
+          <button
+            onClick={() => {
+              const next = timeSpeed === 1 ? 2 : timeSpeed === 2 ? 5 : timeSpeed === 5 ? 10 : 1;
+              setTimeSpeed(next);
+              game.timeSpeedMultiplier = next;
+              showFeedback(`⚡ Day/Night Speed: ${next}×`);
+            }}
+            style={{ ...adminBtnStyle, color: '#ffaa00' }}
+          >
+            ⏩ Speed ({timeSpeed}×)
+          </button>
+          <button
+            onClick={() => {
+              spawnLightningStrike(player.pos.x, player.pos.y, player.pos.z);
+              showFeedback("⚡ Lightning Struck at Admin Position!");
+            }}
+            style={{ ...adminBtnStyle, color: '#ffff55', border: '1px solid #ffff55' }}
+          >
+            ⚡ Strike Lightning
+          </button>
+          <button
+            onClick={async () => {
+              const nextLock = !worldSettings.lockdown;
+              await updateWorldSettingsInFirestore({ lockdown: nextLock });
+              showFeedback(nextLock ? "🔒 World Build Lockdown ACTIVATED" : "🔓 World Build Lockdown DEACTIVATED");
+            }}
+            style={{ ...adminBtnStyle, color: worldSettings.lockdown ? '#ff6666' : '#88ff88' }}
+          >
+            {worldSettings.lockdown ? "🔒 LOCKDOWN ACTIVE" : "🔓 LOCKDOWN OFF"}
+          </button>
+          <button
+            onClick={async () => {
+              const nextMaint = !worldSettings.maintenance;
+              await updateWorldSettingsInFirestore({ maintenance: nextMaint });
+              showFeedback(nextMaint ? "🚧 Maintenance Mode ENABLED" : "🟢 Maintenance Mode DISABLED");
+            }}
+            style={{ ...adminBtnStyle, color: worldSettings.maintenance ? '#ff9999' : '#88ff88' }}
+          >
+            {worldSettings.maintenance ? "🚧 MAINTENANCE ON" : "🟢 MAINTENANCE OFF"}
+          </button>
         </div>
+      </div>
+
+      {/* ── PREFAB STRUCTURE SPAWNER BAR ── */}
+      <div style={{
+        background: 'rgba(20,15,10,0.85)',
+        border: '1px solid rgba(214,178,120,0.3)',
+        borderRadius: 8,
+        padding: '8px 14px',
+        marginBottom: 14,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexWrap: 'wrap'
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold-bright)' }}>🏗️ PREFAB STRUCTURE SPAWNER:</span>
+        <button
+          onClick={async () => {
+            const ok = await applyPrefabStructureToRoom(game.activeRoomId || 'nexus', 'castle', player.pos.x, player.pos.y, player.pos.z);
+            if (ok) showFeedback("🏰 Fortress Castle Spawned at Admin Position!");
+          }}
+          style={adminBtnStyle}
+        >
+          🏰 7×7 Castle
+        </button>
+        <button
+          onClick={async () => {
+            const ok = await applyPrefabStructureToRoom(game.activeRoomId || 'nexus', 'tower', player.pos.x, player.pos.y, player.pos.z);
+            if (ok) showFeedback("🗼 Obsidian Beacon Spire Spawned!");
+          }}
+          style={adminBtnStyle}
+        >
+          🗼 Obsidian Spire
+        </button>
+        <button
+          onClick={async () => {
+            const ok = await applyPrefabStructureToRoom(game.activeRoomId || 'nexus', 'arena', player.pos.x, player.pos.y, player.pos.z);
+            if (ok) showFeedback("🏟️ PvP Arena Ring Spawned!");
+          }}
+          style={adminBtnStyle}
+        >
+          🏟️ 11×11 PvP Arena
+        </button>
+        <button
+          onClick={async () => {
+            const ok = await applyPrefabStructureToRoom(game.activeRoomId || 'nexus', 'bunker', player.pos.x, player.pos.y, player.pos.z);
+            if (ok) showFeedback("🛖 Survival Bunker Spawned!");
+          }}
+          style={adminBtnStyle}
+        >
+          🛖 Survival Bunker
+        </button>
       </div>
 
       {/* ── SERVER BROADCAST BOX ── */}
@@ -809,12 +916,46 @@ export default function MasterDashboardCard({ userEmail }) {
             <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' }}>✕ Close</button>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-            <button onClick={() => handleTeleportUserToSpawn(selectedUser)} style={actionBtnStyle}>📍 Teleport to Spawn (0,80,0)</button>
-            <button onClick={() => handleGiveItemsToUser(selectedUser, 14, 64, "Diamond")} style={actionBtnStyle}>🎁 Give 64× Diamonds</button>
-            <button onClick={() => handleGiveItemsToUser(selectedUser, 56, 64, "TNT")} style={actionBtnStyle}>🎁 Give 64× TNT</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <button onClick={() => handleTeleportUserToSpawn(selectedUser)} style={actionBtnStyle}>📍 Teleport to Spawn</button>
+            <button
+              onClick={async () => {
+                await summonPlayerToAdmin(selectedUser.uid, player.pos);
+                showFeedback(`⚡ Summoned ${selectedUser.email} to Admin Position!`);
+              }}
+              style={{ ...actionBtnStyle, background: 'rgba(230,180,80,0.25)', color: '#f5d77f' }}
+            >
+              ⚡ Summon to Me
+            </button>
+            <button onClick={() => handleGiveItemsToUser(selectedUser, 14, 64, "Diamond")} style={actionBtnStyle}>🎁 64× Diamonds</button>
+            <button onClick={() => handleGiveItemsToUser(selectedUser, 56, 64, "TNT")} style={actionBtnStyle}>🎁 64× TNT</button>
+            <button onClick={() => handleGiveItemsToUser(selectedUser, 47, 64, "Obsidian")} style={actionBtnStyle}>🎁 64× Obsidian</button>
             <button onClick={() => handleHealUser(selectedUser)} style={actionBtnStyle}>❤️ Heal to 20 HP</button>
+            <button
+              onClick={async () => {
+                const nextMute = !selectedUser.raw?.muted;
+                await toggleUserMute(selectedUser.uid, nextMute);
+                showFeedback(nextMute ? `🔇 Muted ${selectedUser.email}` : `🔊 Unmuted ${selectedUser.email}`);
+                loadUsers();
+              }}
+              style={{ ...actionBtnStyle, background: selectedUser.raw?.muted ? 'rgba(255,160,50,0.3)' : 'rgba(255,255,255,0.08)' }}
+            >
+              {selectedUser.raw?.muted ? "🔊 Unmute Chat" : "🔇 Mute Chat"}
+            </button>
             <button onClick={() => handleKickUser(selectedUser)} style={{ ...actionBtnStyle, background: 'rgba(180,40,40,0.3)', color: '#ffaaaa' }}>🚪 Kick Session</button>
+            <button
+              onClick={async () => {
+                const nextBan = !selectedUser.raw?.banned;
+                if (confirm(nextBan ? `BAN account ${selectedUser.email}?` : `UNBAN account ${selectedUser.email}?`)) {
+                  await banUserAccount(selectedUser.uid, nextBan);
+                  showFeedback(nextBan ? `⛔ Banned ${selectedUser.email}` : `🟢 Unbanned ${selectedUser.email}`);
+                  loadUsers();
+                }
+              }}
+              style={{ ...actionBtnStyle, background: selectedUser.raw?.banned ? 'rgba(80,200,80,0.3)' : 'rgba(220,40,40,0.4)', color: selectedUser.raw?.banned ? '#88ff88' : '#ff9999' }}
+            >
+              {selectedUser.raw?.banned ? "🟢 Unban Account" : "⛔ Ban Account"}
+            </button>
           </div>
 
           {/* Send Direct Message */}
