@@ -1158,15 +1158,11 @@ export function updateChunkLoading(){
 }
 
 export function processGenBudget(){
-  let genBudget=2;
+  let genBudget=4;
   while(genBudget>0 && Array.isArray(genQueue) && genQueue.length){
     const ch=genQueue.shift();
-    if(!ch.generated){
+    if(ch && !ch.generated){
       generateChunk(ch);
-      // After generating, mark all already-generated neighbors dirty.
-      // Without this: chunk A meshes with neighbor B unloaded (B appears as AIR),
-      // drawing boundary faces. When B generates later with water, A keeps its
-      // now-interior boundary faces → large vertical planes inside the water volume.
       for(const [dx,dz] of [[-1,0],[1,0],[0,-1],[0,1]]){
         const nc=getChunk(ch.cx+dx, ch.cz+dz);
         if(nc && nc.generated){ nc.dirty=true; nc.lit=false; }
@@ -1174,27 +1170,18 @@ export function processGenBudget(){
     }
     genBudget--;
   }
-  let meshBudget=6; // Increased: water can dirty many chunks per tick
+  let meshBudget=8;
   const pcx=Math.floor(player.pos.x/CHUNK), pcz=Math.floor(player.pos.z/CHUNK);
   const dirty=[];
   for(const ch of world.chunks.values()){
     if(ch.generated && ch.dirty) dirty.push(ch);
   }
   dirty.sort((a,b)=>((a.cx-pcx)**2+(a.cz-pcz)**2)-((b.cx-pcx)**2+(b.cz-pcz)**2));
-  const queueEmpty = !Array.isArray(genQueue) || genQueue.length===0;
   for(const ch of dirty){
     if(meshBudget<=0) break;
-    const nAll = ["1,0","-1,0","0,1","0,-1"].every(d=>{
-      const [dx,dz]=d.split(",").map(Number);
-      const nc=getChunk(ch.cx+dx, ch.cz+dz);
-      return nc && nc.generated;
-    });
-    if(!nAll && !queueEmpty) continue;
-    // Always relight before meshing (water/block changes invalidate lighting)
     computeChunkLight(ch);
     ch.lit = true;
     updateChunkMesh(ch);
-    // Debug: record rebuild events
     if (typeof window !== 'undefined') {
       window.__lastMeshRebuild = { cx: ch.cx, cz: ch.cz, t: performance.now() };
     }
