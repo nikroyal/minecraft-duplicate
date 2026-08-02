@@ -43,6 +43,10 @@ export class Chunk {
   }
 }
 
+export function createChunkInstance(cx, cz) {
+  return new Chunk(cx, cz);
+}
+
 function oreAt(wx,wy,wz){
   const r=hash3(wx,wy,wz,SEED+300);
   const vein=vnoise3(wx*0.18, wy*0.18, wz*0.18, SEED+301);
@@ -177,7 +181,7 @@ export function getBlock(wx,wy,wz){
 export function ensureChunk(cx, cz) {
   let ch = getChunk(cx, cz);
   if (!ch) {
-    ch = new Chunk(cx, cz);
+    ch = createChunkInstance(cx, cz);
     generateChunk(ch);
     world.chunks.set(keyOf(cx, cz), ch);
   } else if (!ch.generated) {
@@ -1103,7 +1107,7 @@ export function updateChunkLoading(){
     const cx=pcx+dx, cz=pcz+dz, k=keyOf(cx,cz);
     needed.add(k);
     if(!world.chunks.has(k)){
-      const ch=new Chunk(cx,cz);
+      const ch=createChunkInstance(cx,cz);
       world.chunks.set(k,ch);
       genQueue.push(ch);
     }
