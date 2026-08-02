@@ -2,15 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // ── HELPER FUNCTIONS (Evaluated Server-Side by Firebase) ──
+    
+    // Check if request originates from an authenticated session
     function isSignedIn() {
       return request.auth != null;
     }
     
+    // Check if logged-in user matches target document UID
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
     
+    // Check if user is a Master Admin (checked via auth token or Firestore user document)
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'admin' || 
@@ -20,67 +24,92 @@ service cloud.firestore {
       );
     }
 
-    // 1. User Documents (Singleplayer Saves, Profile, Messages, Invites, Friend Requests)
+    // List of restricted fields that regular players CANNOT modify via DevTools Console
+    function containsRestrictedUserFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'role', 'banned', 'muted', 'frozen', 'inventoryAdditions', 
+        'healthOverride', 'teleportTarget', 'kickSignal', 'createdAt'
+      ]);
+    }
+
+    // ── 1. USER PROFILE & SAVE DOCUMENTS ──
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if (isOwner(userId) && (!request.resource.data.keys().hasAny(['role', 'inventoryAdditions', 'healthOverride', 'teleportTarget', 'kickSignal', 'frozen']) || request.resource.data.role == 'player')) || isAdmin();
       
-      // Allow owners to update everything except admin fields; allow signed-in players to deliver friendRequests/invites
-      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'inventoryAdditions', 'healthOverride', 'teleportTarget', 'kickSignal', 'frozen']))
+      // Account Creation: Players can create their own doc with role='player'; admins can set any role
+      allow create: if (isOwner(userId) && (!request.resource.data.keys().hasAny(['role', 'banned', 'muted', 'frozen']) || request.resource.data.role == 'player')) || isAdmin();
+      
+      // Account Updates: 
+      //  a) Owner can update profile EXCEPT restricted admin fields
+      //  b) Other players can ONLY send friend requests or room invites to target user
+      //  c) Admins have full update rights
+      allow update: if (isOwner(userId) && !containsRestrictedUserFields())
                     || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friendRequests', 'invites', 'outgoingFriendRequests']))
                     || isAdmin();
                     
       allow delete: if isOwner(userId) || isAdmin();
     }
 
-    // 2. Custom Team & Group Rooms (Global Nexus cannot be deleted)
+    // ── 2. TEAM & PRIVATE ROOMS ──
     match /rooms/{roomId} {
       allow read: if isSignedIn();
+      
+      // Creation: Logged-in user must set ownerUid to their own auth UID
       allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      
+      // Updates: Room owner, admin, or room members modifying edits/chests/furnaces/members
       allow update: if isSignedIn() && (
         resource.data.ownerUid == request.auth.uid || 
         isAdmin() || 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['edits', 'chests', 'furnaces', 'members', 'lastActive', 'resetAt'])
       );
       
-      // Global Nexus (nexus / global_nexus) cannot be deleted by anyone; team rooms can be deleted by owner or admin
+      // Deletion: Global Nexus (nexus / global_nexus) CANNOT be deleted by anyone. Team rooms can be deleted by room owner or admin.
       allow delete: if isSignedIn() && (roomId != 'nexus' && roomId != 'global_nexus') && (resource.data.ownerUid == request.auth.uid || isAdmin() || request.resource.data.deleted == true);
       
-      // Presence sub-collection for real-time 3D multiplayer player coordinates
+      // Presence sub-collection for real-time 3D multiplayer coordinates
       match /presence/{playerId} {
         allow read: if isSignedIn();
         allow write: if isOwner(playerId) || isAdmin();
       }
     }
 
-    // 3. Real-time Chat Threads & Direct Messages
+    // ── 3. REAL-TIME CHAT THREADS & MESSAGES ──
     match /chats/{chatId} {
-      allow read, create: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid in request.resource.data.participants || isAdmin());
       allow update: if isSignedIn() && (request.auth.uid in resource.data.participants || isAdmin());
       allow delete: if isAdmin();
       
       match /messages/{messageId} {
-        allow read, create: if isSignedIn();
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.senderUid == request.auth.uid;
         allow update, delete: if isAdmin() || isOwner(resource.data.senderUid);
       }
     }
 
-    // 4. Global Public Nexus World
+    // ── 4. GLOBAL PUBLIC NEXUS WORLD ──
     match /worlds/{worldId} {
       allow read, write: if isSignedIn();
     }
 
-    // 5. Community Reviews & Bug Reports
+    // ── 5. COMMUNITY REVIEWS & FEEDBACK ──
     match /reviews/{reviewId} {
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
       allow read: if isSignedIn();
       allow update, delete: if isAdmin();
     }
 
-    // 6. Server Settings & Global Broadcast Banners
+    // ── 6. SERVER SETTINGS & BROADCAST BANNERS ──
     match /server_settings/{settingId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // ── 7. DEFAULT CATCH-ALL LOCKDOWN ──
+    // Blocks any unmapped path or collection write from unauthorized access by default
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
