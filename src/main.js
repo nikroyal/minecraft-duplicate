@@ -1674,7 +1674,13 @@ function loop(now){
 
 // ---- Game Bootloader --------------------------------------------------------
 export function bootGame() {
-  const canvas = document.getElementById("game");
+  if (webgl.renderer) return;
+  let canvas = document.getElementById("game");
+  if (!canvas && typeof document !== 'undefined') {
+    canvas = document.querySelector('canvas') || document.createElement("canvas");
+    canvas.id = "game";
+    if (!canvas.parentNode) document.body.insertBefore(canvas, document.body.firstChild);
+  }
   if (canvas) {
     canvas.addEventListener("webglcontextlost", (e) => {
       e.preventDefault();
@@ -2339,4 +2345,10 @@ export function spawnLightningStrike(x, y, z) {
 if (typeof window !== 'undefined') window.__spawnLightningStrike = spawnLightningStrike;
 
 // Auto start game bootloader
-bootGame();
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootGame);
+  } else {
+    bootGame();
+  }
+}

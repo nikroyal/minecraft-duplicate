@@ -1070,12 +1070,19 @@ export function makeMesh(g, mode){
   geo.setAttribute("normal",   new THREE.Float32BufferAttribute(g.norm,3));
   geo.setIndex(g.idx);
   
+  if (!webgl.atlasTex && typeof buildAtlas === 'function') {
+    webgl.atlasTex = buildAtlas();
+  }
+
   let mat;
   if(mode === "cutout"){
     if (!webgl.cutoutMat) {
       webgl.cutoutMat = new THREE.MeshLambertMaterial({ 
         map: webgl.atlasTex, vertexColors: true, side: THREE.DoubleSide, transparent: false, alphaTest: 0.5 
       });
+    } else if (!webgl.cutoutMat.map && webgl.atlasTex) {
+      webgl.cutoutMat.map = webgl.atlasTex;
+      webgl.cutoutMat.needsUpdate = true;
     }
     mat = webgl.cutoutMat;
   } else if(mode === "alpha"){
@@ -1083,6 +1090,9 @@ export function makeMesh(g, mode){
       webgl.alphaMat = new THREE.MeshLambertMaterial({ 
         map: webgl.atlasTex, vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.65, depthWrite: true 
       });
+    } else if (!webgl.alphaMat.map && webgl.atlasTex) {
+      webgl.alphaMat.map = webgl.atlasTex;
+      webgl.alphaMat.needsUpdate = true;
     }
     mat = webgl.alphaMat;
   } else {
@@ -1090,6 +1100,9 @@ export function makeMesh(g, mode){
       webgl.opaqueMat = new THREE.MeshLambertMaterial({ 
         map: webgl.atlasTex, vertexColors: true, side: THREE.FrontSide, transparent: false 
       });
+    } else if (!webgl.opaqueMat.map && webgl.atlasTex) {
+      webgl.opaqueMat.map = webgl.atlasTex;
+      webgl.opaqueMat.needsUpdate = true;
     }
     mat = webgl.opaqueMat;
   }
