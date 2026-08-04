@@ -335,7 +335,7 @@ export default function App() {
 
     window.__onSyncConflict = (cloudData) => setConflictData(cloudData);
 
-    let lastCoords = '', lastClock = '', lastTarget = null, lastFpsVal = 0;
+    let lastCoords = '', lastClock = '', lastTarget = null, lastFpsVal = 0, lastTickTime = 0;
 
     reactBridge.updateUI = () => {
       const px = player?.pos ? Math.floor(player.pos.x) : 0;
@@ -359,8 +359,12 @@ export default function App() {
       const currentFps = game.fps || 60;
       if (currentFps !== lastFpsVal) { lastFpsVal = currentFps; setFps(currentFps); }
 
-      // Always bump tick so HUDOverlay/CraftingScreen re-render with fresh invCount values
-      setTick(t => t + 1);
+      // Throttle React state re-rendering tick to max 10 Hz (every 100ms) so 60 FPS render loop isn't choked by React DOM diffs
+      const now = performance.now();
+      if (now - lastTickTime >= 100) {
+        lastTickTime = now;
+        setTick(t => t + 1);
+      }
     };
 
     if (lastAuthStatus) {

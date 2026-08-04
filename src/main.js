@@ -1174,12 +1174,13 @@ function loop(now){
     webgl.waterMat.uniforms.uDebugFaces.value = Boolean(window.__waterDebug);
   }
 
-  // Dynamic Sprinting FOV Stretch interpolation
+  // Dynamic Sprinting FOV Stretch interpolation (only update projection matrix when FOV changes)
   if (webgl.camera) {
-    // Always reset sprint FOV while paused so it doesn't stay stretched
     const targetFov = (!game.paused && player.sprinting) ? 84 : 72;
-    webgl.camera.fov += (targetFov - webgl.camera.fov) * Math.min(1, dt * 8.0);
-    webgl.camera.updateProjectionMatrix();
+    if (Math.abs(targetFov - webgl.camera.fov) > 0.01) {
+      webgl.camera.fov += (targetFov - webgl.camera.fov) * Math.min(1, dt * 8.0);
+      webgl.camera.updateProjectionMatrix();
+    }
   }
 
   // Drifting clouds animation
@@ -1199,21 +1200,25 @@ function loop(now){
     }
   }
 
-  // Underwater screen overlay & fog adjustment
+  // Underwater screen overlay & fog adjustment (cached DOM query & conditional mutation)
   const headY = Math.floor(player.pos.y + player.eye);
   const headBlock = getBlock(Math.floor(player.pos.x), headY, Math.floor(player.pos.z));
   const isUnderwater = (headBlock === 8);
 
-  let uEl = document.getElementById("underwaterOverlay");
-  if (!uEl && typeof document !== "undefined") {
-    uEl = document.createElement("div");
-    uEl.id = "underwaterOverlay";
-    uEl.style.cssText = "position:fixed;inset:0;z-index:7;pointer-events:none;background:rgba(20,80,180,0.36);display:none;opacity:0;transition:opacity 0.2s;";
-    document.body.appendChild(uEl);
+  if (!webgl.underwaterOverlayEl && typeof document !== "undefined") {
+    let uEl = document.getElementById("underwaterOverlay");
+    if (!uEl) {
+      uEl = document.createElement("div");
+      uEl.id = "underwaterOverlay";
+      uEl.style.cssText = "position:fixed;inset:0;z-index:7;pointer-events:none;background:rgba(20,80,180,0.36);display:none;opacity:0;transition:opacity 0.2s;";
+      document.body.appendChild(uEl);
+    }
+    webgl.underwaterOverlayEl = uEl;
   }
-  if (uEl) {
-    uEl.style.display = isUnderwater ? "block" : "none";
-    uEl.style.opacity = isUnderwater ? "1" : "0";
+  if (webgl.underwaterOverlayEl && webgl.lastUnderwaterState !== isUnderwater) {
+    webgl.lastUnderwaterState = isUnderwater;
+    webgl.underwaterOverlayEl.style.display = isUnderwater ? "block" : "none";
+    webgl.underwaterOverlayEl.style.opacity = isUnderwater ? "1" : "0";
   }
   if (isUnderwater) {
     webgl.scene.fog.color.setHex(0x103060);
@@ -1708,8 +1713,8 @@ export function bootGame() {
       if (typeof buildAtlas === "function") webgl.atlasTex = buildAtlas();
     });
   }
-  webgl.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  webgl.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  webgl.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  webgl.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
   webgl.renderer.setSize(window.innerWidth, window.innerHeight);
   webgl.renderer.setClearColor(0x8fc3e8);
 

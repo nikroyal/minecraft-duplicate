@@ -1148,9 +1148,17 @@ export function updateChunkMesh(ch){
   ch.dirty=false;
 }
 
+let lastLoadPcx = null, lastLoadPcz = null, lastChunksSize = 0;
+
 // ---- Chunk Streaming -------------------------------------------------------
 export function updateChunkLoading(){
   const pcx=Math.floor(player.pos.x/CHUNK), pcz=Math.floor(player.pos.z/CHUNK);
+  if (pcx === lastLoadPcx && pcz === lastLoadPcz && world.chunks.size === lastChunksSize) {
+    return;
+  }
+  lastLoadPcx = pcx;
+  lastLoadPcz = pcz;
+
   const needed=new Set();
   for(let dx=-RENDER_DIST;dx<=RENDER_DIST;dx++)
   for(let dz=-RENDER_DIST;dz<=RENDER_DIST;dz++){
@@ -1163,7 +1171,7 @@ export function updateChunkLoading(){
       if (Array.isArray(genQueue)) genQueue.push(ch);
     }
   }
-  if (Array.isArray(genQueue)) {
+  if (Array.isArray(genQueue) && genQueue.length > 0) {
     genQueue.sort((a,b)=>{
       const da=(a.cx-pcx)**2+(a.cz-pcz)**2, db=(b.cx-pcx)**2+(b.cz-pcz)**2;
       return da-db;
@@ -1175,10 +1183,11 @@ export function updateChunkLoading(){
       world.chunks.delete(k);
     }
   }
+  lastChunksSize = world.chunks.size;
 }
 
 export function processGenBudget(){
-  let genBudget=4;
+  let genBudget=2;
   while(genBudget>0 && Array.isArray(genQueue) && genQueue.length){
     const ch=genQueue.shift();
     if(ch && !ch.generated){
@@ -1190,13 +1199,16 @@ export function processGenBudget(){
     }
     genBudget--;
   }
-  let meshBudget=8;
+  
   const pcx=Math.floor(player.pos.x/CHUNK), pcz=Math.floor(player.pos.z/CHUNK);
   const dirty=[];
   for(const ch of world.chunks.values()){
     if(ch.generated && ch.dirty) dirty.push(ch);
   }
+  if (dirty.length === 0) return;
+
   dirty.sort((a,b)=>((a.cx-pcx)**2+(a.cz-pcz)**2)-((b.cx-pcx)**2+(b.cz-pcz)**2));
+  let meshBudget=2;
   for(const ch of dirty){
     if(meshBudget<=0) break;
     computeChunkLight(ch);
