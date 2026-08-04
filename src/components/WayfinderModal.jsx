@@ -240,7 +240,7 @@ export default function WayfinderModal({ currentUser, onClose }) {
       distance:    route._dist,
       routeLabel:  route.label,
     });
-    toast(`${route.icon} ${route.label} activated — follow the green tiles! (ESC to cancel)`);
+    toast(`${route.icon} ${route.label} activated — follow the glowing blocks! (ESC to exit pathfinding)`);
     onClose();
   }, [onClose]);
 
@@ -381,10 +381,9 @@ export default function WayfinderModal({ currentUser, onClose }) {
 
             {/* Edge-case legend */}
             <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(214,178,120,0.1)', borderRadius: 6, padding: '10px 14px', fontSize: 9, color: DIM_COLOR, lineHeight: 2 }}>
-              <strong style={{ color: '#d6b278' }}>Trail colours:</strong>
-              &nbsp;🟢 Safe walkable &nbsp;🟠 Requires mining &nbsp;🔵 Water &nbsp;|&nbsp;
-              <strong style={{ color: '#d6b278' }}>Beacon pillars</strong> every 5 tiles + at start/end.
-              &nbsp;Press <strong>ESC</strong> in-game to cancel navigation at any time.
+              <strong style={{ color: '#d6b278' }}>Glowing Block colors:</strong>
+              &nbsp;🟢 Safe Walkable &nbsp;🟠 Requires Mining &nbsp;🔵 Water Swim &nbsp;🟡 Target &nbsp;|&nbsp;
+              Press <strong>ESC</strong> to exit pathfinding and return to normal mode.
             </div>
           </div>
         )}

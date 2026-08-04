@@ -1805,10 +1805,18 @@ export function bootGame() {
     }
   });
 
+  let justCancelledPathfindingAt = 0;
+
   document.addEventListener("pointerlockchange", () => {
     game.pointerLocked = (document.pointerLockElement === webgl.renderer.domElement);
+    const wasNavCancelledRecently = (Date.now() - justCancelledPathfindingAt < 600);
+
     if (!game.pointerLocked && !isMenuOpen() && !player.dead && game.running) {
-      game.paused = true; // Pause physics/input, show resume overlay
+      if (!wasNavCancelledRecently && !activeNavigation) {
+        game.paused = true; // Pause physics/input, show resume overlay
+      } else {
+        game.paused = false; // Stay in normal gameplay mode
+      }
     } else if (game.pointerLocked) {
       game.paused = false; // Lock regained - resume
     }
@@ -1923,12 +1931,15 @@ export function bootGame() {
     }
 
 
-    // ── Navigation mode: first Escape cancels the path trail, does NOT pause ──
+    // ── Navigation mode: Escape cancels pathfinding and returns to normal gameplay mode ──
     if (e.code === 'Escape' && activeNavigation) {
       e.preventDefault();
+      e.stopPropagation();
+      justCancelledPathfindingAt = Date.now();
       Object.keys(keys).forEach(k => keys[k] = false);
       clearActiveNavigation();
-      toast('🛑 Pathfinding cancelled.');
+      game.paused = false; // Ensure game stays in normal active mode
+      toast('🛑 Pathfinding cancelled. Returned to normal mode.');
       if (reactBridge.updateUI) reactBridge.updateUI();
       return;
     }
