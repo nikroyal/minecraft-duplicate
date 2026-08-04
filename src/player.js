@@ -349,6 +349,8 @@ export function updatePlayer(dt){
   const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   let wish = new THREE.Vector3();
   
+  const blockInput = isMenuOpen() || game.paused;
+
   const isAutoPilotActive = Boolean(
     activeNavigation &&
     activeNavigation.autoPilot &&
@@ -368,7 +370,6 @@ export function updatePlayer(dt){
     updateAutoPilotSteering(dt, wish);
     sprint = true;
   } else {
-    const blockInput = isMenuOpen() || game.paused;
     if(!blockInput){
       if(keys["KeyW"]) wish.add(forward);
       if(keys["KeyS"]) wish.sub(forward);

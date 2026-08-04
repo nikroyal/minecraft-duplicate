@@ -282,9 +282,9 @@ export function setBlock(wx,wy,wz, v, skipUpdate=false, onEditCb=null){
 
   ch.set(lx,wy,lz,v);
   ch.dirty=true;
-  if(record){ 
+  if(!skipUpdate){ 
     world.edits[wx+","+wy+","+wz]=v; 
-    if(scheduleSaveCallback) scheduleSaveCallback(); 
+    if(typeof onEditCb === 'function') onEditCb(); 
   }
   
   // mark neighbours dirty if on a border
