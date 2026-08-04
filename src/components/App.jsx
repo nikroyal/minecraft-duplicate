@@ -24,6 +24,7 @@ import OnboardingAgentModal from './OnboardingAgentModal.jsx';
 import ChatPanel from './ChatPanel.jsx';
 import DailyLoginModal from './DailyLoginModal.jsx';
 import NotificationCenterModal from './NotificationCenterModal.jsx';
+import { activeNavigation, clearActiveNavigation } from '../pathfinder.js';
 import { toggleAmbientBGM } from '../audio.js';
 import { 
   uiState, setChestOpen, setFurnaceOpen, setOnboardingOpen, setActiveChestCoords, setActiveFurnaceCoords,
@@ -92,6 +93,19 @@ export default function App() {
   const [incomingFriendRequests, setIncomingFriendRequests] = useState([]);
   const [incomingRoomInvites, setIncomingRoomInvites] = useState([]);
   const [sideNotificationPopup, setSideNotificationPopup] = useState(null);
+  const [autoPilotArrival, setAutoPilotArrival] = useState(null);
+
+  useEffect(() => {
+    window.__onAutoPilotArrival = (name, icon) => {
+      setAutoPilotArrival({ name, icon, id: Date.now() });
+      setTimeout(() => {
+        setAutoPilotArrival(null);
+      }, 5500);
+    };
+    return () => {
+      window.__onAutoPilotArrival = null;
+    };
+  }, []);
 
   // Check if current user is a Master Admin Account (strictly based on Firestore document 'role' field)
   const isMasterAccount = userRole === 'admin' || userRole === 'master';
@@ -548,6 +562,92 @@ export default function App() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ACTIVE AUTO-PILOT & NAVIGATION HUD BAR */}
+      {game.running && !game.paused && activeNavigation && (
+        <div style={{
+          position: 'fixed', top: '18px', left: '50%', transform: 'translateX(-50%)', zIndex: 95,
+          background: activeNavigation.autoPilot
+            ? 'linear-gradient(135deg, rgba(10,30,10,0.95), rgba(15,45,15,0.95))'
+            : 'rgba(20, 16, 10, 0.92)',
+          border: `2px solid ${activeNavigation.autoPilot ? '#39ff14' : 'var(--gold)'}`,
+          borderRadius: '30px', padding: '8px 22px',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          boxShadow: activeNavigation.autoPilot ? '0 0 30px rgba(57,255,20,0.45)' : '0 8px 30px rgba(0,0,0,0.7)',
+          color: '#fff', backdropFilter: 'blur(6px)', pointerEvents: 'auto'
+        }}>
+          <div style={{
+            width: '10px', height: '10px', borderRadius: '50%',
+            background: activeNavigation.autoPilot ? '#39ff14' : 'var(--gold)',
+            boxShadow: `0 0 10px ${activeNavigation.autoPilot ? '#39ff14' : 'var(--gold)'}`,
+            animation: 'pulse 1.2s infinite'
+          }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ fontSize: '12px', fontWeight: '900', color: activeNavigation.autoPilot ? '#39ff14' : 'var(--gold-bright)', letterSpacing: '0.5px' }}>
+              {activeNavigation.autoPilot ? '🤖 AUTO-PILOT ACTIVE' : '🧭 NAVIGATING'}
+            </span>
+            <span style={{ fontSize: '10px', color: '#ccc' }}>
+              {activeNavigation.targetIcon} <strong>{activeNavigation.targetName}</strong> • {activeNavigation.distance}m away
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              activeNavigation.autoPilot = !activeNavigation.autoPilot;
+              toast(activeNavigation.autoPilot ? '🤖 Auto-Pilot ON' : '🧭 Auto-Pilot OFF (Manual Control)');
+              forceUpdate();
+            }}
+            style={{
+              background: activeNavigation.autoPilot ? 'rgba(57,255,20,0.2)' : 'rgba(255,255,255,0.1)',
+              border: `1px solid ${activeNavigation.autoPilot ? '#39ff14' : '#888'}`,
+              color: activeNavigation.autoPilot ? '#39ff14' : '#fff',
+              padding: '4px 10px', borderRadius: '14px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+            }}
+          >
+            {activeNavigation.autoPilot ? '🤖 Auto-Pilot: ON' : '🎮 Auto-Pilot: OFF'}
+          </button>
+
+          <button
+            onClick={() => {
+              clearActiveNavigation();
+              toast('🛑 Navigation cancelled. Returned to normal mode.');
+              forceUpdate();
+            }}
+            style={{
+              background: 'rgba(255,60,60,0.2)', border: '1px solid #ff6666', color: '#ff9999',
+              padding: '4px 10px', borderRadius: '14px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+            }}
+          >
+            🛑 Exit (ESC)
+          </button>
+        </div>
+      )}
+
+      {/* DESTINATION REACHED CELEBRATION BANNER */}
+      {autoPilotArrival && (
+        <div style={{
+          position: 'fixed', top: '28%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 130,
+          background: 'linear-gradient(135deg, rgba(15,35,15,0.96), rgba(8,20,8,0.96))',
+          border: '3px solid #39ff14', borderRadius: '18px', padding: '24px 40px', textAlign: 'center',
+          boxShadow: '0 0 60px rgba(57,255,20,0.6)', color: '#fff', backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ fontSize: '44px', marginBottom: '4px' }}>🎉</div>
+          <div style={{ fontSize: '22px', fontWeight: '900', color: '#39ff14', letterSpacing: '1px', textShadow: '0 0 12px rgba(57,255,20,0.5)' }}>
+            DESTINATION REACHED!
+          </div>
+          <div style={{ fontSize: '14px', color: '#f0e6d2', marginTop: '8px' }}>
+            You have arrived safely at <strong>{autoPilotArrival.icon} {autoPilotArrival.name}</strong>
+          </div>
+          <div style={{
+            fontSize: '11px', color: '#8fd06a', marginTop: '14px',
+            background: 'rgba(57,255,20,0.15)', border: '1px solid rgba(57,255,20,0.3)',
+            padding: '5px 14px', borderRadius: '10px', display: 'inline-block', fontWeight: 'bold'
+          }}>
+            🤖 Auto-Pilot Mode Exited • Manual Gameplay Restored
+          </div>
         </div>
       )}
 

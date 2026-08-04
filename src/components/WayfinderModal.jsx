@@ -230,7 +230,7 @@ export default function WayfinderModal({ currentUser, onClose }) {
   }, [autoY]);
 
   // ── Activate a chosen route ────────────────────────────────────────────────
-  const activateRoute = useCallback((route) => {
+  const activateRoute = useCallback((route, isAuto = false) => {
     updatePathTrail(route.path);
     setActiveNavigation({
       targetName:  route._targetName,
@@ -239,8 +239,13 @@ export default function WayfinderModal({ currentUser, onClose }) {
       pathNodes:   route.path,
       distance:    route._dist,
       routeLabel:  route.label,
+      autoPilot:   isAuto,
     });
-    toast(`${route.icon} ${route.label} activated — follow the glowing blocks! (ESC to exit pathfinding)`);
+    if (isAuto) {
+      toast(`🤖 Auto-Pilot Activated for ${route._targetIcon} ${route._targetName}! Steering automatically. (ESC to exit)`);
+    } else {
+      toast(`${route.icon} ${route.label} activated — follow the glowing blocks! (ESC to exit pathfinding)`);
+    }
     onClose();
   }, [onClose]);
 
@@ -364,20 +369,38 @@ export default function WayfinderModal({ currentUser, onClose }) {
               />
             ))}
 
-            {/* Activate button */}
-            <button
-              onClick={() => {
-                const r = pendingRoutes.find(r => r.id === selectedRouteId);
-                if (r) activateRoute(r);
-              }}
-              style={{
-                marginTop: 6, width: '100%', padding: '10px', background: 'var(--gold)',
-                color: '#000', border: 'none', borderRadius: 6, fontWeight: 'bold',
-                fontSize: 12, cursor: 'pointer', letterSpacing: 1,
-              }}
-            >
-              🚀 START SELECTED ROUTE [{selectedRouteId}]
-            </button>
+            {/* Activate buttons: Auto-Pilot vs Manual */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+              <button
+                onClick={() => {
+                  const r = pendingRoutes.find(r => r.id === selectedRouteId);
+                  if (r) activateRoute(r, true);
+                }}
+                style={{
+                  padding: '11px 12px', background: 'linear-gradient(135deg, #39ff14, #2bb80e)',
+                  color: '#000', border: 'none', borderRadius: 6, fontWeight: 900,
+                  fontSize: 11, cursor: 'pointer', letterSpacing: 0.5,
+                  boxShadow: '0 0 15px rgba(57,255,20,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                }}
+              >
+                🤖 START AUTO-PILOT [{selectedRouteId}]
+              </button>
+
+              <button
+                onClick={() => {
+                  const r = pendingRoutes.find(r => r.id === selectedRouteId);
+                  if (r) activateRoute(r, false);
+                }}
+                style={{
+                  padding: '11px 12px', background: 'var(--gold)',
+                  color: '#000', border: 'none', borderRadius: 6, fontWeight: 900,
+                  fontSize: 11, cursor: 'pointer', letterSpacing: 0.5,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                }}
+              >
+                🧭 MANUAL WALK [{selectedRouteId}]
+              </button>
+            </div>
 
             {/* Edge-case legend */}
             <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(214,178,120,0.1)', borderRadius: 6, padding: '10px 14px', fontSize: 9, color: DIM_COLOR, lineHeight: 2 }}>

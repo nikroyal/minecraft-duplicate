@@ -10,6 +10,7 @@ import {
   isMenuOpen, unlockAchievement, closeAllMenus
 } from './ui.js';
 import { playHitSound, playFootstepSound } from './audio.js';
+import { activeNavigation, clearActiveNavigation } from './pathfinder.js';
 
 const GRAV = -26;
 const JUMP = 8.4;
@@ -348,23 +349,42 @@ export function updatePlayer(dt){
   const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
   let wish = new THREE.Vector3();
   
-  const blockInput = isMenuOpen() || game.paused;
-  
-  if(!blockInput){
-    if(keys["KeyW"]) wish.add(forward);
-    if(keys["KeyS"]) wish.sub(forward);
-    if(keys["KeyD"]) wish.add(right);
-    if(keys["KeyA"]) wish.sub(right);
-    
-    // touch stick
-    if(touch.move.x || touch.move.y){
-      wish.add(forward.clone().multiplyScalar(-touch.move.y));
-      wish.add(right.clone().multiplyScalar(touch.move.x));
-    }
-  }
-  if(wish.lengthSq() > 0) wish.normalize();
+  const isAutoPilotActive = Boolean(
+    activeNavigation &&
+    activeNavigation.autoPilot &&
+    activeNavigation.pathNodes &&
+    activeNavigation.pathNodes.length > 0 &&
+    !game.paused &&
+    !isMenuOpen() &&
+    !player.dead &&
+    game.running
+  );
 
-  const sprint = blockInput ? false : (keys["ControlLeft"] || keys["ControlRight"] || keys["ShiftLeft"] || keys["ShiftRight"]);
+  let sprint = false;
+
+  if (isAutoPilotActive) {
+    // 🤖 AUTO-PILOT CONTROL OVERRIDE:
+    // Manual movement controls (WASD/Touch) are disabled. Auto-Pilot drives steering.
+    updateAutoPilotSteering(dt, wish);
+    sprint = true;
+  } else {
+    const blockInput = isMenuOpen() || game.paused;
+    if(!blockInput){
+      if(keys["KeyW"]) wish.add(forward);
+      if(keys["KeyS"]) wish.sub(forward);
+      if(keys["KeyD"]) wish.add(right);
+      if(keys["KeyA"]) wish.sub(right);
+      
+      // touch stick
+      if(touch.move.x || touch.move.y){
+        wish.add(forward.clone().multiplyScalar(-touch.move.y));
+        wish.add(right.clone().multiplyScalar(touch.move.x));
+      }
+    }
+    if(wish.lengthSq() > 0) wish.normalize();
+    sprint = blockInput ? false : (keys["ControlLeft"] || keys["ControlRight"] || keys["ShiftLeft"] || keys["ShiftRight"]);
+  }
+
   player.sprinting = sprint;
 
   if(player.frozen || (!chunkReadyAt(player.pos.x, player.pos.z) && !player.flying)){
@@ -734,5 +754,92 @@ export function updateCosmeticParticles(dt) {
       p.mesh.material.dispose();
       activeParticles.splice(i, 1);
     }
+  }
+}
+
+// 🤖 Auto-Pilot Autonomous Player Movement Controller
+export function updateAutoPilotSteering(dt, wish) {
+  if (!activeNavigation || !activeNavigation.pathNodes || activeNavigation.pathNodes.length === 0) return;
+
+  const pathNodes = activeNavigation.pathNodes;
+
+  if (activeNavigation.autoNodeIndex === undefined) {
+    activeNavigation.autoNodeIndex = 0;
+  }
+
+  let nodeIdx = activeNavigation.autoNodeIndex;
+
+  // Advance to next node if player has reached current node
+  while (nodeIdx < pathNodes.length - 1) {
+    const n = pathNodes[nodeIdx];
+    const dx = (n.x + 0.5) - player.pos.x;
+    const dz = (n.z + 0.5) - player.pos.z;
+    const dy = Math.abs(n.y - player.pos.y);
+    const dist2D = Math.hypot(dx, dz);
+
+    if (dist2D < 0.60 && dy < 1.4) {
+      nodeIdx++;
+      activeNavigation.autoNodeIndex = nodeIdx;
+    } else {
+      break;
+    }
+  }
+
+  const targetNode = pathNodes[nodeIdx];
+  const finalPos   = activeNavigation.targetPos || { x: targetNode.x, y: targetNode.y, z: targetNode.z };
+
+  const distToFinal = Math.hypot(
+    (finalPos.x + 0.5) - player.pos.x,
+    (finalPos.y + 0.5) - player.pos.y,
+    (finalPos.z + 0.5) - player.pos.z
+  );
+
+  // ── Arrival Check ──────────────────────────────────────────────────────────
+  if ((nodeIdx >= pathNodes.length - 1 || distToFinal < 1.0) && distToFinal < 1.25) {
+    player.vel.set(0, 0, 0);
+    const name = activeNavigation.targetName || 'Destination';
+    const icon = activeNavigation.targetIcon || '📍';
+
+    clearActiveNavigation();
+
+    toast(`🎉 DESTINATION REACHED: ${icon} ${name}! Exiting Auto-Pilot Mode.`, 5000);
+    if (typeof window !== 'undefined' && window.__onAutoPilotArrival) {
+      window.__onAutoPilotArrival(name, icon);
+    }
+    if (reactBridge.updateUI) reactBridge.updateUI();
+    return;
+  }
+
+  // Node position
+  const tx = targetNode.x + 0.5;
+  const tz = targetNode.z + 0.5;
+  const ty = targetNode.y;
+
+  const dx = tx - player.pos.x;
+  const dz = tz - player.pos.z;
+  const dist2D = Math.hypot(dx, dz);
+
+  if (dist2D > 0.04) {
+    // 1. Smooth Camera Yaw Rotation towards movement target
+    const desiredYaw = Math.atan2(-dx, -dz);
+    let diff = desiredYaw - player.yaw;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+
+    const turnRate = 5.5 * dt;
+    player.yaw += Math.max(-turnRate, Math.min(turnRate, diff));
+
+    // 2. Drive movement vector towards node
+    wish.x = dx / dist2D;
+    wish.z = dz / dist2D;
+  }
+
+  // Auto-Jump for 1-block steps, obstacles, or gap jumps
+  const isHigher = (ty > player.pos.y + 0.15);
+  const feetAhead = getBlock(Math.floor(player.pos.x + wish.x * 0.45), Math.floor(player.pos.y), Math.floor(player.pos.z + wish.z * 0.45));
+  const hasObstacle = isSolid(feetAhead);
+
+  if ((isHigher || hasObstacle) && player.onGround) {
+    player.jumpBuffer = 0.15;
   }
 }
