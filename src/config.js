@@ -259,7 +259,7 @@ export const RECIPES = [];
   R({27:1},118,1,"Flint","Gravel → Flint");
   R({28:1},36,1,"Terracotta","Clay → Terracotta (smelt)");
   R({15:1},40,1,"Smooth Stone","Cobble → Smooth Stone (smelt)");
-  R({23:1},120,1,"Charcoal","Spruce Wood → Charcoal (smelt)");
+  R({23:1,20:1},120,1,"Charcoal","Spruce Wood + Torch → Charcoal");
   R({28:2},119,2,"Brick Item","2 Clay → 2 Bricks (smelt)");
 
   R({3:1},15,1,"Cobble","Stone → Cobble");

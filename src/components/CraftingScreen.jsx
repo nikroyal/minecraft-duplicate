@@ -203,12 +203,8 @@ export default function CraftingScreen({ onClose }) {
     }
     setGrid(newGrid);
 
-    // Add result DIRECTLY to inventory so it's never lost
-    const added = addItem(outputId, outputQty);
-    if (added > 0) {
-      // Also put on cursor so the player gets visual feedback
-      setHeld({ id: outputId, count: added });
-    }
+    // Pick up crafted output onto cursor (will save to inventory on place/close)
+    setHeld({ id: outputId, count: currentHeldCount + outputQty });
   }, [matchedRecipe, grid, held, outputId, outputQty]);
 
   // Put held item back into inventory
