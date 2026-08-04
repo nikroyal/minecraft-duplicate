@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { inventory, hotbar, game } from '../state.js';
+import { inventory, hotbar, game, reactBridge } from '../state.js';
 import { RECIPES, BLOCKS, ITEMS, thingName, isPlaceable, resolveRecipe } from '../config.js';
 import { invCount, addItem, removeItem } from '../player.js';
 import { craft, scheduleSave } from '../ui.js';
@@ -64,11 +64,12 @@ function getPlayerItems() {
 const EMPTY_GRID = Array(9).fill(0);
 
 export default function CraftingScreen({ onClose }) {
-  // grid[0..8] = item ids placed in the 3x3 grid
+  // grid[0..8] = item ids placed in the 3x3 grid (1 item per cell, no stacking)
   const [grid, setGrid] = useState([...EMPTY_GRID]);
-  const [held, setHeld] = useState(null); // { id, count } — item on cursor
+  // held = item currently on the cursor: { id, count } or null
+  const [held, setHeld] = useState(null);
 
-  // Build a "bag" from the grid for recipe matching
+  // Build a "bag" from the grid for recipe matching: { itemId: count }
   const gridBag = useMemo(() => {
     const bag = {};
     for (const id of grid) {
@@ -83,12 +84,13 @@ export default function CraftingScreen({ onClose }) {
   const outputQty = matchedRecipe?.qty  ?? 1;
 
   // ── interactions ───────────────────────────────────────────────────────
-  // Click an inventory item → pick it up (or add to held if same)
+
+  // Click an inventory item → pick it up into the cursor (or merge if same item)
   const handlePickItem = useCallback((id) => {
     if (invCount(id) <= 0) return;
     if (held) {
-      // put held back first (drop on empty space below), then pick new
       if (held.id === id) {
+        // Same item: add as much as possible to held stack
         const available = invCount(id);
         const take = Math.min(available, 64 - held.count);
         if (take > 0) {
@@ -96,7 +98,7 @@ export default function CraftingScreen({ onClose }) {
           setHeld({ id, count: held.count + take });
         }
       } else {
-        // swap: put held back, pick new
+        // Different item: put held back, pick up the new item
         addItem(held.id, held.count);
         const take = Math.min(invCount(id), 64);
         removeItem(id, take);
@@ -115,27 +117,34 @@ export default function CraftingScreen({ onClose }) {
     if (held) {
       const newGrid = [...grid];
       if (slotId === 0) {
-        // Empty slot → place 1
+        // Empty slot → place 1 item from held
         newGrid[idx] = held.id;
         const newCount = held.count - 1;
         setHeld(newCount > 0 ? { id: held.id, count: newCount } : null);
         setGrid(newGrid);
       } else if (slotId === held.id) {
-        // Same item already in single-slot cell → keep held stack safe without deleting
+        // Same item already in this slot — the grid only tracks 1 per slot,
+        // so there's nothing to do (each cell = exactly 1 item unit).
+        // This is expected behaviour; no silent corruption.
       } else {
-        // Different item → swap slot item with held
+        // Different item in slot → proper swap: pick up old slot item into held,
+        // place one of held's item into the slot.
+        const oldSlotId = slotId;
+        newGrid[idx] = held.id;
+        setGrid(newGrid);
+        // Reduce held by 1 (placed in slot), carry the old slot item instead
         if (held.count === 1) {
-          newGrid[idx] = held.id;
-          setHeld({ id: slotId, count: 1 });
+          // Held stack exhausted → just swap directly
+          setHeld({ id: oldSlotId, count: 1 });
         } else {
-          addItem(slotId, 1);
-          newGrid[idx] = held.id;
+          // Still have more held items: put old slot item into inventory,
+          // keep the rest of held stack
+          addItem(oldSlotId, 1);
           setHeld({ id: held.id, count: held.count - 1 });
         }
-        setGrid(newGrid);
       }
     } else if (slotId > 0) {
-      // No held item → pick up from grid
+      // No held item → pick up the item from this grid slot
       const newGrid = [...grid];
       newGrid[idx] = 0;
       setGrid(newGrid);
@@ -143,20 +152,23 @@ export default function CraftingScreen({ onClose }) {
     }
   }, [held, grid]);
 
-  // Right-click grid slot (split stack / remove 1) — handled via onContextMenu
+  // Right-click grid slot: if holding, place 1; if not, pick up 1 from slot
   const handleGridRightClick = useCallback((e, idx) => {
     e.preventDefault();
     const slotId = grid[idx];
     if (held) {
       if (slotId === 0) {
+        // Place 1 of held into empty slot
         const newGrid = [...grid];
         newGrid[idx] = held.id;
         const newCount = held.count - 1;
         setHeld(newCount > 0 ? { id: held.id, count: newCount } : null);
         setGrid(newGrid);
       }
+      // If slot has same item, do nothing (can't stack >1 per grid cell)
+      // If slot has different item, do nothing on right-click (left-click to swap)
     } else if (slotId > 0) {
-      // Pick up 1 from grid slot
+      // No held → pick up the 1 item from this slot
       const newGrid = [...grid];
       newGrid[idx] = 0;
       setGrid(newGrid);
@@ -164,11 +176,21 @@ export default function CraftingScreen({ onClose }) {
     }
   }, [held, grid]);
 
-  // Click output slot → collect crafted item, consume grid inputs
+  // Click output slot → collect crafted item directly into inventory
+  // (and onto cursor so player can see what they got)
   const handleCollectOutput = useCallback(() => {
     if (!matchedRecipe) return;
-    if (held && held.id !== outputId) return; // can't merge different items
-    if (held && held.count + outputQty > 64) return;
+
+    // If holding a different item, auto-return it to inventory first so
+    // the player is never blocked from collecting their craft result.
+    if (held && held.id !== outputId) {
+      addItem(held.id, held.count);
+      setHeld(null);
+    }
+
+    // Check there's room in inventory for the result
+    const currentHeldCount = (held && held.id === outputId) ? held.count : 0;
+    if (currentHeldCount + outputQty > 64) return;
 
     // Consume exactly what the recipe needs from the grid
     const newGrid = [...grid];
@@ -181,10 +203,11 @@ export default function CraftingScreen({ onClose }) {
     }
     setGrid(newGrid);
 
-    if (held) {
-      setHeld({ id: outputId, count: held.count + outputQty });
-    } else {
-      setHeld({ id: outputId, count: outputQty });
+    // Add result DIRECTLY to inventory so it's never lost
+    const added = addItem(outputId, outputQty);
+    if (added > 0) {
+      // Also put on cursor so the player gets visual feedback
+      setHeld({ id: outputId, count: added });
     }
   }, [matchedRecipe, grid, held, outputId, outputQty]);
 
@@ -199,17 +222,28 @@ export default function CraftingScreen({ onClose }) {
   const handleHotbarSlotClick = useCallback((idx) => {
     const currentSlotId = hotbar[idx];
     if (held) {
+      // Place held item into this hotbar slot
       const oldId = currentSlotId;
       hotbar[idx] = held.id;
-      if (oldId > 0 && oldId !== held.id && invCount(oldId) > 0) {
-        const cnt = Math.min(invCount(oldId), 64);
-        removeItem(oldId, cnt);
-        setHeld({ id: oldId, count: cnt });
+      // Add the held item to inventory (it's now registered to the hotbar slot)
+      addItem(held.id, held.count);
+
+      if (oldId > 0 && oldId !== held.id) {
+        // There was a different item in the slot — put it on the cursor
+        const cnt = invCount(oldId);
+        if (cnt > 0) {
+          const take = Math.min(cnt, 64);
+          removeItem(oldId, take);
+          setHeld({ id: oldId, count: take });
+        } else {
+          // Old hotbar item had 0 count — just clear held
+          setHeld(null);
+        }
       } else {
-        addItem(held.id, held.count);
         setHeld(null);
       }
     } else if (currentSlotId > 0) {
+      // No held item → select this slot and pick up its stack to cursor
       game.selected = idx;
       const count = invCount(currentSlotId);
       if (count > 0) {
@@ -222,7 +256,7 @@ export default function CraftingScreen({ onClose }) {
     if (reactBridge.updateUI) reactBridge.updateUI();
   }, [held]);
 
-  // Keyboard shortcut listener (keys 1-8 to assign held item or selected item to hotbar slot)
+  // Keyboard shortcut: press 1–8 while holding an item to assign it to that hotbar slot
   React.useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
@@ -244,7 +278,7 @@ export default function CraftingScreen({ onClose }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [held]);
 
-  // Clear grid → return all items to inventory
+  // Clear grid → return all grid items to inventory
   const clearGrid = useCallback(() => {
     for (const id of grid) {
       if (id > 0) addItem(id, 1);
@@ -252,9 +286,9 @@ export default function CraftingScreen({ onClose }) {
     setGrid([...EMPTY_GRID]);
   }, [grid]);
 
-  // Close: return held + grid to inventory
+  // Close: return held + grid items to inventory, then close
   const handleClose = useCallback(() => {
-    if (held) addItem(held.id, held.count);
+    if (held) { addItem(held.id, held.count); setHeld(null); }
     for (const id of grid) { if (id > 0) addItem(id, 1); }
     onClose();
   }, [held, grid, onClose]);
@@ -285,7 +319,7 @@ export default function CraftingScreen({ onClose }) {
           background: 'rgba(0,0,0,0.3)',
         }}>
           <span style={{ color: '#f2d9a0', fontWeight: 700, fontSize: 14, letterSpacing: 2 }}>
-            🔨 INVENTORY & CRAFTING
+            🔨 INVENTORY &amp; CRAFTING
           </span>
           {held && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#f2d9a0' }}>
@@ -295,7 +329,7 @@ export default function CraftingScreen({ onClose }) {
                 fontFamily: 'inherit', fontSize: 10, color: '#d6b278',
                 background: 'rgba(40,32,22,0.9)', border: '1px solid rgba(214,178,120,0.25)',
                 borderRadius: 4, padding: '3px 8px', cursor: 'pointer',
-              }}>Return</button>
+              }}>↩ Return to Inventory</button>
             </div>
           )}
           <button onClick={handleClose} style={{
@@ -401,7 +435,7 @@ export default function CraftingScreen({ onClose }) {
               </div>
               {outputId > 0 && (
                 <div style={{ fontSize: 9, color: '#8fd06a', textAlign: 'center', marginTop: 6 }}>
-                  Click to collect
+                  Click to collect → Inventory
                 </div>
               )}
             </div>
@@ -507,9 +541,9 @@ export default function CraftingScreen({ onClose }) {
             color: '#9a8a76',
             lineHeight: 1.8,
           }}>
-            <strong style={{ color: '#d6b278' }}>How to manage hotbar &amp; craft:</strong>
-            &nbsp;Click an item to pick it up → Click a Hotbar slot (1–8) or Crafting Grid slot to place/swap it.
-            &nbsp;<em style={{ color: '#c8b896' }}>Or press number keys 1–8 while holding an item to assign it directly!</em>
+            <strong style={{ color: '#d6b278' }}>How to craft:</strong>
+            &nbsp;1) Click an item in Inventory to pick it up. &nbsp;2) Click grid slots to place items. &nbsp;3) When a recipe matches, click the Result slot — the item goes straight to your Inventory.
+            &nbsp;<em style={{ color: '#c8b896' }}>Press 1–8 while holding an item to assign it to a Hotbar slot. Right-click a grid slot to pick up 1 item.</em>
           </div>
         </div>
       </div>
@@ -530,10 +564,9 @@ export default function CraftingScreen({ onClose }) {
           <Swatch3D id={held.id} />
           <strong>{thingName(held.id)}</strong>
           <span style={{ color: '#d6b278' }}>×{held.count}</span>
-          <span style={{ color: '#9a8a76', fontSize: 10 }}>— click Hotbar (1–8) or Crafting Grid</span>
+          <span style={{ color: '#9a8a76', fontSize: 10 }}>— click a Grid slot or Hotbar slot (1–8)</span>
         </div>
       )}
     </>
   );
 }
-

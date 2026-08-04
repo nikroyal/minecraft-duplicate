@@ -32,7 +32,7 @@ import {
   unlockAchievement
 } from './ui.js';
 import { playPlaceSound, playMineSound } from './audio.js';
-import { activeNavigation, findPath, updatePathTrail } from './pathfinder.js';
+import { activeNavigation, findPath, updatePathTrail, tickPathTrail, clearActiveNavigation } from './pathfinder.js';
 
 export const itemDrops = [];
 if (typeof window !== 'undefined') window.itemDrops = itemDrops;
@@ -1076,19 +1076,13 @@ export function placeBlock(){
   }
 
   // Target placement coordinates:
-  // If the ray hit a water block, place INTO that water cell (replacing it).
-  // Otherwise place at r.prev (the empty cell adjacent to the hit block).
+  // Always place at r.prev (the last air cell the ray traversed before the hit),
+  // even when the hit block is water. This ensures blocks land ON TOP of (or
+  // beside) water rather than sinking into the water cell and disappearing.
   let x, y, z;
-  if (hitBlockId === 8 || hitBlockId === 9) {
-    // Replace the water block directly
-    x = r.hit[0];
-    y = r.hit[1];
-    z = r.hit[2];
-  } else {
-    x = r.prev[0];
-    y = r.prev[1];
-    z = r.prev[2];
-  }
+  x = r.prev[0];
+  y = r.prev[1];
+  z = r.prev[2];
   const id = heldId;
   
   if(!isPlaceable(heldId)){ toast(`${thingName(heldId)} can't be placed`); return; }
@@ -1373,6 +1367,9 @@ function loop(now){
         activeNavigation.distance = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
       }
     }
+
+  // Tick path trail pulsing animation every frame
+  tickPathTrail(dt);
   }
 
   if (game.running && !game.paused) {
@@ -1922,6 +1919,17 @@ export function bootGame() {
         }
         if (reactBridge.updateUI) reactBridge.updateUI();
       }
+      return;
+    }
+
+
+    // ── Navigation mode: first Escape cancels the path trail, does NOT pause ──
+    if (e.code === 'Escape' && activeNavigation) {
+      e.preventDefault();
+      Object.keys(keys).forEach(k => keys[k] = false);
+      clearActiveNavigation();
+      toast('🛑 Pathfinding cancelled.');
+      if (reactBridge.updateUI) reactBridge.updateUI();
       return;
     }
 

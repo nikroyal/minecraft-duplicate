@@ -361,7 +361,8 @@ export function resolveRecipe(bag){
     const rIds = Object.keys(r?.in || {});
     if(rIds.length !== bKeys.length) continue;
     let ok = true;
-    for(const id of rIds){ if((bag && bag[id]||0) < r.in[id]){ ok = false; break; } }
+    // Require exact ingredient counts so that e.g. 8 planks doesn't match the 2-plank sticks recipe
+    for(const id of rIds){ if((bag && bag[id]) !== r.in[id]){ ok = false; break; } }
     if(ok) return r;
   }
   return null;

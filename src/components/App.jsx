@@ -344,6 +344,9 @@ export default function App() {
 
       const currentFps = game.fps || 60;
       if (currentFps !== lastFpsVal) { lastFpsVal = currentFps; setFps(currentFps); }
+
+      // Always bump tick so HUDOverlay/CraftingScreen re-render with fresh invCount values
+      setTick(t => t + 1);
     };
 
     if (lastAuthStatus) {
@@ -488,7 +491,21 @@ export default function App() {
       {showWayfinder && (
         <WayfinderModal
           currentUser={currentUser}
-          onClose={() => setShowWayfinder(false)}
+          onClose={() => {
+            uiState.wayfinderOpen = false;
+            setShowWayfinder(false);
+            // Re-engage game after closing
+            if (game.running && !game.paused) {
+              setTimeout(() => {
+                try {
+                  const el = document.getElementById('game');
+                  if (el) { const p = el.requestPointerLock(); if (p && typeof p.catch === 'function') p.catch(() => {}); }
+                } catch(e) {}
+              }, 80);
+            } else if (game.running) {
+              game.paused = true;
+            }
+          }}
         />
       )}
 
