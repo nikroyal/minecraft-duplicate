@@ -1148,8 +1148,8 @@ function loop(now){
     updatePrimedTnt(dt);
   }
   
-  // Paused flag guards: these world-simulation ticks should stop while game is paused
-  if (!game.paused) {
+  // Environment simulation (sky, day/night, chunks, particles, water) runs whenever game is running
+  if (game.running) {
     updateChunkLoading();
     processGenBudget();
     updateParticles(dt);
@@ -1809,25 +1809,14 @@ export function bootGame() {
 
   document.addEventListener("pointerlockchange", () => {
     game.pointerLocked = (document.pointerLockElement === webgl.renderer.domElement);
-    const wasNavCancelledRecently = (Date.now() - justCancelledPathfindingAt < 600);
-
-    if (!game.pointerLocked && !isMenuOpen() && !player.dead && game.running) {
-      if (!wasNavCancelledRecently && !activeNavigation) {
-        game.paused = true; // Pause physics/input, show resume overlay
-      } else {
-        game.paused = false; // Stay in normal gameplay mode
-      }
-    } else if (game.pointerLocked) {
+    if (game.pointerLocked) {
       game.paused = false; // Lock regained - resume
     }
     if (reactBridge.updateUI) reactBridge.updateUI();
   });
 
   document.addEventListener("pointerlockerror", () => {
-    if (!document.pointerLockElement && !isMenuOpen() && !player.dead && game.running) {
-      game.paused = true;
-      if (reactBridge.updateUI) reactBridge.updateUI();
-    }
+    if (reactBridge.updateUI) reactBridge.updateUI();
   });
 
   // Prevent right-click browser context menu on all document (not just canvas)
@@ -1899,8 +1888,8 @@ export function bootGame() {
           e.stopPropagation();
           uiState.chatOpen = false;
           if (window.__closeChatSidePanel) window.__closeChatSidePanel();
-          if (game.running && !document.pointerLockElement) {
-            game.paused = true;
+          if (game.running) {
+            game.paused = false;
           }
           if (reactBridge.updateUI) reactBridge.updateUI();
         }
@@ -1921,9 +1910,8 @@ export function bootGame() {
           uiState.onboardingOpen = false;
           if (window.__closeOnboarding) window.__closeOnboarding();
         }
-        // When closing any modal, ensure pause overlay is shown if pointer is unlocked
-        if (game.running && !document.pointerLockElement) {
-          game.paused = true;
+        if (game.running) {
+          game.paused = false;
         }
         if (reactBridge.updateUI) reactBridge.updateUI();
       }

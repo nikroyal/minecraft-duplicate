@@ -988,7 +988,7 @@ export async function acceptFriendRequest(senderUid, senderEmail) {
   const activeUser = getBroadActiveUser();
   if (!senderUid) return false;
 
-  // Local storage update
+  // Local storage update for active user
   const currentReqs = getLocalFriendRequests(activeUser.uid);
   const updatedLocalReqs = currentReqs.filter(r => r.senderUid !== senderUid);
   localStorage.setItem(`voxel_friend_reqs_${activeUser.uid}`, JSON.stringify(updatedLocalReqs));
@@ -997,6 +997,12 @@ export async function acceptFriendRequest(senderUid, senderEmail) {
   const newFriendObj = { uid: senderUid, email: senderEmail || 'Friend', addedAt: new Date().toISOString() };
   const updatedLocalFriends = [newFriendObj, ...localFriends.filter(f => f.uid !== senderUid)];
   saveLocalFriendsList(activeUser.uid, updatedLocalFriends);
+
+  // Also update sender's local storage if on same device/context
+  const newSenderFriendObj = { uid: activeUser.uid, email: activeUser.email, addedAt: new Date().toISOString() };
+  const senderLocalFriends = getLocalFriendsList(senderUid);
+  const updatedSenderLocal = [newSenderFriendObj, ...senderLocalFriends.filter(f => f.uid !== activeUser.uid)];
+  saveLocalFriendsList(senderUid, updatedSenderLocal);
 
   if (!db) return true;
 
@@ -1013,14 +1019,12 @@ export async function acceptFriendRequest(senderUid, senderEmail) {
 
     await setDoc(myRef, { friends: updatedMyFriends, friendRequests: updatedMyReqs }, { merge: true });
 
-    // Also add to sender's friends list in Firestore
+    // Also add to sender's friends list in Firestore (unconditionally)
     const senderRef = doc(db, 'users', senderUid);
     const senderSnap = await getDoc(senderRef);
-    if (senderSnap.exists()) {
-      const senderFriends = Array.isArray(senderSnap.data().friends) ? senderSnap.data().friends : [];
-      const updatedSenderFriends = [{ uid: activeUser.uid, email: activeUser.email, addedAt: new Date().toISOString() }, ...senderFriends.filter(f => f.uid !== activeUser.uid)];
-      await setDoc(senderRef, { friends: updatedSenderFriends }, { merge: true });
-    }
+    const senderFriends = (senderSnap.exists() && Array.isArray(senderSnap.data().friends)) ? senderSnap.data().friends : [];
+    const updatedSenderFriends = [newSenderFriendObj, ...senderFriends.filter(f => f.uid !== activeUser.uid)];
+    await setDoc(senderRef, { friends: updatedSenderFriends }, { merge: true });
 
     return true;
   } catch (err) {
@@ -1047,12 +1051,11 @@ export async function declineFriendRequest(senderUid) {
     const mySnap = await getDoc(myRef);
     if (mySnap.exists()) {
       const existingReqs = Array.isArray(mySnap.data().friendRequests) ? mySnap.data().friendRequests : [];
-      const updatedMyReqs = existingReqs.filter(r => r.senderUid !== senderUid);
-      await setDoc(myRef, { friendRequests: updatedMyReqs }, { merge: true });
+      const updatedReqs = existingReqs.filter(r => r.senderUid !== senderUid);
+      await setDoc(myRef, { friendRequests: updatedReqs }, { merge: true });
     }
     return true;
   } catch (err) {
-    console.error("Failed to decline friend request:", err);
     return true;
   }
 }
@@ -1062,8 +1065,8 @@ export async function removeFriend(friendUid) {
   if (!friendUid) return false;
 
   const localFriends = getLocalFriendsList(activeUser.uid);
-  const updatedLocalFriends = localFriends.filter(f => f.uid !== friendUid);
-  saveLocalFriendsList(activeUser.uid, updatedLocalFriends);
+  const updatedLocal = localFriends.filter(f => f.uid !== friendUid);
+  saveLocalFriendsList(activeUser.uid, updatedLocal);
 
   if (!db) return true;
 
@@ -1102,6 +1105,10 @@ export function subscribeToUserFriends(uid, callback) {
         mergedFriends.push(cf);
       }
     });
+
+    if (mergedFriends.length > localFriends.length) {
+      saveLocalFriendsList(uid, mergedFriends);
+    }
 
     callback({ friends: mergedFriends, friendRequests: mergedReqs });
   };
@@ -1144,86 +1151,118 @@ export function subscribeToUserFriends(uid, callback) {
   };
 }
 
+// Helper functions for local chat persistence & real-time events
+function getLocalChatMessages(chatId) {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(`voxel_chat_msgs_${chatId}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveLocalChatMessages(chatId, msgs) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`voxel_chat_msgs_${chatId}`, JSON.stringify(msgs));
+    window.dispatchEvent(new CustomEvent('voxel_chat_message_event', { detail: { chatId } }));
+  } catch (e) {}
+}
+
 // ── REAL-TIME CHAT PAGES & DIRECT MESSAGING SYSTEM ──
 
 export async function createOrGetDirectChat(targetUid, targetEmail) {
-  if (!db || !currentUser || !targetUid) return null;
+  const activeUser = currentUser || getBroadActiveUser();
+  if (!activeUser || !targetUid) return null;
   
   // Predictable 1-on-1 chatId sorted by UIDs
-  const sortedUids = [currentUser.uid, targetUid].sort();
+  const sortedUids = [activeUser.uid, targetUid].sort();
   const chatId = `chat_${sortedUids[0]}_${sortedUids[1]}`;
 
-  try {
-    const chatRef = doc(db, 'chats', chatId);
-    const snap = await getDoc(chatRef);
+  if (db) {
+    try {
+      const chatRef = doc(db, 'chats', chatId);
+      const snap = await getDoc(chatRef);
 
-    if (!snap.exists()) {
-      const initialChatData = {
-        id: chatId,
-        type: 'direct',
-        participants: [currentUser.uid, targetUid],
-        participantEmails: {
-          [currentUser.uid]: currentUser.email,
-          [targetUid]: targetEmail || 'Player'
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        lastMessage: {
-          text: 'Conversation started.',
-          senderEmail: 'System',
-          timestamp: new Date().toISOString()
-        }
-      };
-      await setDoc(chatRef, initialChatData);
+      if (!snap.exists()) {
+        const initialChatData = {
+          id: chatId,
+          type: 'direct',
+          participants: [activeUser.uid, targetUid],
+          participantEmails: {
+            [activeUser.uid]: activeUser.email,
+            [targetUid]: targetEmail || 'Player'
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastMessage: {
+            text: 'Conversation started.',
+            senderEmail: 'System',
+            timestamp: new Date().toISOString()
+          }
+        };
+        await setDoc(chatRef, initialChatData);
+      }
+    } catch (err) {
+      console.error("Failed to create/get direct chat in Firestore:", err);
     }
-    return chatId;
-  } catch (err) {
-    console.error("Failed to create/get direct chat:", err);
-    return null;
   }
+  return chatId;
 }
 
 export async function sendChatMessage(chatId, text) {
-  if (!db || !currentUser || !chatId || !text || !text.trim()) return false;
+  const activeUser = currentUser || getBroadActiveUser();
+  if (!chatId || !text || !text.trim()) return false;
   const cleanText = sanitizeSecurityInput(text.trim(), 1000);
   if (!cleanText) return false;
 
-  try {
-    const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-    const msgRef = doc(db, 'chats', chatId, 'messages', msgId);
-    const nowIso = new Date().toISOString();
+  const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+  const nowIso = new Date().toISOString();
 
-    const msgObj = {
-      id: msgId,
-      text: cleanText,
-      senderUid: currentUser.uid,
-      senderEmail: currentUser.email,
-      timestamp: nowIso
-    };
+  const msgObj = {
+    id: msgId,
+    text: cleanText,
+    senderUid: activeUser ? activeUser.uid : 'player_user',
+    senderEmail: activeUser ? activeUser.email : 'player@voxel.test',
+    timestamp: nowIso
+  };
 
-    await setDoc(msgRef, msgObj);
+  // Always save locally so messages work instantly in local/offline/multi-tab environments
+  const localMsgs = getLocalChatMessages(chatId);
+  const updatedLocalMsgs = [...localMsgs, msgObj];
+  saveLocalChatMessages(chatId, updatedLocalMsgs);
 
-    // Update lastMessage on parent chat doc for conversation list sorting & snippets
-    const chatRef = doc(db, 'chats', chatId);
-    await setDoc(chatRef, {
-      updatedAt: nowIso,
-      lastMessage: {
-        text: cleanText,
-        senderUid: currentUser.uid,
-        senderEmail: currentUser.email,
-        timestamp: nowIso
-      }
-    }, { merge: true });
+  if (db) {
+    try {
+      const msgRef = doc(db, 'chats', chatId, 'messages', msgId);
+      await setDoc(msgRef, msgObj);
 
-    return true;
-  } catch (err) {
-    console.error("Failed to send chat message:", err);
-    return false;
+      // Update lastMessage on parent chat doc for conversation list sorting & snippets
+      const chatRef = doc(db, 'chats', chatId);
+      await setDoc(chatRef, {
+        updatedAt: nowIso,
+        lastMessage: {
+          text: cleanText,
+          senderUid: msgObj.senderUid,
+          senderEmail: msgObj.senderEmail,
+          timestamp: nowIso
+        }
+      }, { merge: true });
+    } catch (err) {
+      console.error("Failed to send chat message to Firestore:", err);
+    }
   }
+
+  return true;
 }
 
 export function subscribeToUserChats(uid, callback) {
-  if (!db || !uid) return () => {};
+  if (!uid) return () => {};
+  if (!db) {
+    callback([]);
+    return () => {};
+  }
   try {
     const chatsCol = collection(db, 'chats');
     return onSnapshot(chatsCol, (snapshot) => {
@@ -1245,22 +1284,56 @@ export function subscribeToUserChats(uid, callback) {
 }
 
 export function subscribeToChatMessages(chatId, callback) {
-  if (!db || !chatId) return () => {};
-  try {
-    const msgsCol = collection(db, 'chats', chatId, 'messages');
-    return onSnapshot(msgsCol, (snapshot) => {
-      const list = [];
-      snapshot.forEach(docSnap => {
-        list.push(docSnap.data());
+  if (!chatId) return () => {};
+
+  const emitCombinedMsgs = (cloudMsgs = []) => {
+    const localMsgs = getLocalChatMessages(chatId);
+    const msgMap = new Map();
+
+    localMsgs.forEach(m => msgMap.set(m.id || m.timestamp, m));
+    cloudMsgs.forEach(m => msgMap.set(m.id || m.timestamp, m));
+
+    const combined = Array.from(msgMap.values());
+    combined.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+
+    callback(combined);
+  };
+
+  // Initial local delivery
+  emitCombinedMsgs();
+
+  let unsubSnap = () => {};
+  if (db) {
+    try {
+      const msgsCol = collection(db, 'chats', chatId, 'messages');
+      unsubSnap = onSnapshot(msgsCol, (snapshot) => {
+        const list = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data()));
+        emitCombinedMsgs(list);
+      }, (err) => {
+        console.warn("Chat messages listener error:", err);
       });
-      list.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
-      callback(list);
-    }, (err) => {
-      console.warn("Chat messages listener error:", err);
-    });
-  } catch (e) {
-    return () => {};
+    } catch (e) {}
   }
+
+  const handleEvent = (e) => {
+    if (!e || !e.detail || e.detail.chatId === chatId) {
+      emitCombinedMsgs();
+    }
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('voxel_chat_message_event', handleEvent);
+    window.addEventListener('storage', handleEvent);
+  }
+
+  return () => {
+    unsubSnap();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('voxel_chat_message_event', handleEvent);
+      window.removeEventListener('storage', handleEvent);
+    }
+  };
 }
 
 export function subscribeToAllChatsForAdmin(callback) {
