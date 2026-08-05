@@ -150,6 +150,8 @@ async function handleSyncOnLogin(uid, onStatusChange, onSyncConflict) {
       sessionStorage.setItem('sync_resolved', 'true');
       window.__cloudWorldData = cloudData;
       onStatusChange({ state: 'synced', message: 'Cloud synced!' });
+      location.reload();
+      return;
     } else {
       onStatusChange({ state: 'synced', message: 'Cloud sync active. Fresh world.' });
     }
