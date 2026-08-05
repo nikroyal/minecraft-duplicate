@@ -130,6 +130,19 @@ const DIAGONAL_DIRS = [
  * - Fallback to closest node if destination is unreachable
  * - Real-time smooth line-of-sight post-processing
  */
+// ── Scans downward from Y=250 at (x, z) to find real top surface (including built towers/structures) ──
+export function getRealSurfaceY(x, z, fallbackY = 64) {
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  for (let y = 250; y >= 1; y--) {
+    const b = getBlock(bx, y, bz);
+    if (isSolid(b) || b === 8 || b === 9) {
+      return y + 1; // Standable position is 1 block above top solid/water
+    }
+  }
+  return surfaceHeight(bx, bz) + 1;
+}
+
 export function findPath(start, target, maxExpansions = 1200, options = {}) {
   if (!start || !target) return [];
 
@@ -138,10 +151,33 @@ export function findPath(start, target, maxExpansions = 1200, options = {}) {
   const waterPenalty    = options.waterPenalty    ?? 4.0;
   const undergroundBias = options.undergroundBias ?? 0;
   const maxFall         = options.maxFallBlocks   ?? 4;
-  const refY            = options.referenceY      ?? Math.max(start.y, target.y, 62);
 
   const sx = Math.floor(start.x),  sy = Math.floor(start.y),  sz = Math.floor(start.z);
-  const tx = Math.floor(target.x), ty = Math.floor(target.y), tz = Math.floor(target.z);
+  let tx = Math.floor(target.x), ty = Math.floor(target.y), tz = Math.floor(target.z);
+
+  // Auto-adjust target Y if specified target coordinate is inside a solid block or floating in air
+  if (ty > 0 && ty < 255) {
+    if (isSolid(getBlock(tx, ty, tz))) {
+      // Inside solid block: search upwards for first clear standable Y
+      for (let dy = 1; dy <= 6; dy++) {
+        if (!isSolid(getBlock(tx, ty + dy, tz))) {
+          ty = ty + dy;
+          break;
+        }
+      }
+    } else if (!hasGround(tx, ty, tz) && !isSolid(getBlock(tx, ty - 1, tz)) && getBlock(tx, ty, tz) !== 8) {
+      // Floating in air: search downwards for solid/water floor
+      for (let dy = 1; dy <= 12; dy++) {
+        if (ty - dy <= 1) break;
+        if (isSolid(getBlock(tx, ty - dy - 1, tz)) || getBlock(tx, ty - dy - 1, tz) === 8) {
+          ty = ty - dy;
+          break;
+        }
+      }
+    }
+  }
+
+  const refY = options.referenceY ?? Math.max(sy, ty, 62);
 
   if (!Number.isFinite(sx) || !Number.isFinite(tx)) return [];
   if (sx === tx && sy === ty && sz === tz) {

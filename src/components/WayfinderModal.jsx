@@ -198,9 +198,11 @@ export default function WayfinderModal({ currentUser, onClose }) {
   };
 
   // ── Compute all 3 route alternatives ──────────────────────────────────────
-  const handleStartPathfinding = useCallback((targetX, targetY, targetZ, label = 'Destination', icon = '📍') => {
+  const handleStartPathfinding = useCallback((targetX, targetY, targetZ, label = 'Destination', icon = '📍', forceExplicitY = false) => {
     let finalY = Math.floor(targetY);
-    if (autoY) finalY = surfaceHeight(Math.floor(targetX), Math.floor(targetZ)) + 1;
+    if (autoY && !forceExplicitY) {
+      finalY = getRealSurfaceY(Math.floor(targetX), Math.floor(targetZ), Math.floor(targetY));
+    }
 
     setCalculating(true);
     setPendingRoutes(null);
@@ -485,7 +487,7 @@ export default function WayfinderModal({ currentUser, onClose }) {
                         </div>
                         <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>Pos: ({Math.floor(p.pos.x)}, {Math.floor(p.pos.y)}, {Math.floor(p.pos.z)})</div>
                       </div>
-                      <button onClick={() => handleStartPathfinding(p.pos.x, p.pos.y, p.pos.z, p.email, '👤')}
+                      <button onClick={() => handleStartPathfinding(p.pos.x, p.pos.y, p.pos.z, p.email, '👤', true)}
                         style={{ background: 'rgba(57,255,20,0.18)', border: '1px solid #39ff14', color: '#39ff14', padding: '6px 12px', borderRadius: 4, fontSize: 10, fontWeight: 'bold', cursor: 'pointer' }}>
                         🧭 Find Routes
                       </button>
@@ -512,7 +514,7 @@ export default function WayfinderModal({ currentUser, onClose }) {
                         </div>
                         <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{f.raw?.bio || 'Friend'}</div>
                       </div>
-                      <button onClick={() => handleStartPathfinding(tx, ty, tz, f.email, '👥')}
+                      <button onClick={() => handleStartPathfinding(tx, ty, tz, f.email, '👥', true)}
                         style={{ background: 'rgba(57,255,20,0.18)', border: '1px solid #39ff14', color: '#39ff14', padding: '6px 12px', borderRadius: 4, fontSize: 10, fontWeight: 'bold', cursor: 'pointer' }}>
                         🧭 Find Routes
                       </button>
@@ -540,7 +542,7 @@ export default function WayfinderModal({ currentUser, onClose }) {
                       <input type="checkbox" checked={autoY} onChange={e => setAutoY(e.target.checked)} />
                       Auto-detect surface landing height
                     </label>
-                    <button onClick={() => handleStartPathfinding(coordX, coordY, coordZ, `(${coordX}, ${coordZ})`, '🎯')}
+                    <button onClick={() => handleStartPathfinding(coordX, coordY, coordZ, `(${coordX}, ${coordZ})`, '🎯', !autoY)}
                       style={{ width: '100%', padding: 8, background: 'var(--gold)', color: '#000', border: 'none', borderRadius: 4, fontWeight: 'bold', fontSize: 11, cursor: 'pointer' }}>
                       🚀 Find Routes to ({coordX}, {coordZ})
                     </button>
@@ -563,11 +565,11 @@ export default function WayfinderModal({ currentUser, onClose }) {
                     {/* Preset buttons */}
                     <div style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: 8 }}>📍 Presets</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6, marginBottom: 12 }}>
-                      <button onClick={() => handleStartPathfinding(0, 80, 0, 'World Spawn', '🟢')}
+                      <button onClick={() => handleStartPathfinding(0, 80, 0, 'World Spawn', '🟢', true)}
                         style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--slot-line)', color: '#fff', borderRadius: 4, fontSize: 10, cursor: 'pointer', textAlign: 'left' }}>
                         🟢 World Spawn (0, 80, 0)
                       </button>
-                      <button onClick={() => handleStartPathfinding(100, 75, -100, 'Northern Outpost', '🏔️')}
+                      <button onClick={() => handleStartPathfinding(100, 75, -100, 'Northern Outpost', '🏔️', true)}
                         style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--slot-line)', color: '#fff', borderRadius: 4, fontSize: 10, cursor: 'pointer', textAlign: 'left' }}>
                         🏔️ Northern Outpost
                       </button>
@@ -593,7 +595,7 @@ export default function WayfinderModal({ currentUser, onClose }) {
                         <div key={wp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.04)', padding: '6px 8px', borderRadius: 4 }}>
                           <span style={{ fontSize: 10, color: '#fff' }}>{wp.icon} <strong>{wp.name}</strong> ({wp.x}, {wp.y}, {wp.z})</span>
                           <div style={{ display: 'flex', gap: 4 }}>
-                            <button onClick={() => handleStartPathfinding(wp.x, wp.y, wp.z, wp.name, wp.icon)}
+                            <button onClick={() => handleStartPathfinding(wp.x, wp.y, wp.z, wp.name, wp.icon, true)}
                               style={{ background: 'rgba(57,255,20,0.18)', border: '1px solid #39ff14', color: '#39ff14', padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 'bold', cursor: 'pointer' }}>
                               🧭 Routes
                             </button>
