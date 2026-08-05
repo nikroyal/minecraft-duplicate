@@ -133,6 +133,7 @@ export default function WayfinderModal({ currentUser, onClose }) {
   const [calculating, setCalculating]     = useState(false);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [pendingLabel, setPendingLabel]   = useState('');
+  const [autoUpdatePath, setAutoUpdatePath] = useState(true); // toggle path recalculation
 
   // Coordinate inputs
   const [coordX, setCoordX] = useState(Math.floor(player.pos.x));
@@ -157,6 +158,8 @@ export default function WayfinderModal({ currentUser, onClose }) {
     if (document.pointerLockElement) {
       try { document.exitPointerLock(); } catch(e) {}
     }
+    // Sync auto-update toggle to global
+    window.__pathAutoUpdate = autoUpdatePath;
 
     const handleEsc = (e) => {
       if (e.code === 'Escape' || e.key === 'Escape') {
@@ -169,6 +172,11 @@ export default function WayfinderModal({ currentUser, onClose }) {
     window.addEventListener('keydown', handleEsc, true);
     return () => window.removeEventListener('keydown', handleEsc, true);
   }, [onClose, pendingRoutes]);
+
+  // Keep window.__pathAutoUpdate in sync whenever toggle changes
+  useEffect(() => {
+    window.__pathAutoUpdate = autoUpdatePath;
+  }, [autoUpdatePath]);
 
   // Number-key route selection (1/2/3) when routes are visible
   useEffect(() => {
@@ -368,6 +376,31 @@ export default function WayfinderModal({ currentUser, onClose }) {
                 }}
               />
             ))}
+
+            {/* Auto-Update Path Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(57,255,20,0.25)', borderRadius: 6, padding: '10px 14px' }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#d6b278' }}>🔄 Auto-Update Path</div>
+                <div style={{ fontSize: 9, color: '#9a8a76', marginTop: 2 }}>
+                  {autoUpdatePath
+                    ? 'Path recalculates as you move — if off, path stays fixed. Press B in-game to reopen pathfinder.'
+                    : 'Path is LOCKED. Walk back or press B to reopen pathfinder & recalculate.'}
+                </div>
+              </div>
+              <button
+                onClick={() => setAutoUpdatePath(v => !v)}
+                style={{
+                  flexShrink: 0, marginLeft: 12,
+                  padding: '6px 14px',
+                  background: autoUpdatePath ? 'rgba(57,255,20,0.2)' : 'rgba(255,100,0,0.15)',
+                  border: `1px solid ${autoUpdatePath ? '#39ff14' : '#ff8800'}`,
+                  color: autoUpdatePath ? '#39ff14' : '#ff8800',
+                  borderRadius: 5, fontWeight: 900, fontSize: 11, cursor: 'pointer', letterSpacing: 0.5,
+                }}
+              >
+                {autoUpdatePath ? 'ON' : 'OFF'}
+              </button>
+            </div>
 
             {/* Activate buttons: Auto-Pilot vs Manual */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>

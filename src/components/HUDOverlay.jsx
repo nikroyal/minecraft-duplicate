@@ -3,6 +3,7 @@ import { player, game, hotbar, inventory, toolDurability } from '../state.js';
 import { thingName, BLOCKS, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
 import Swatch3D from './Swatch3D.jsx';
+import { activeNavigation } from '../pathfinder.js';
 
 import { selectSlot } from '../ui.js';
 
@@ -395,6 +396,36 @@ export default function HUDOverlay({
           <div><strong>Dirty Chunks:</strong> <span style={{ color: window.__physicsTelemetry.dirtyChunks > 0 ? '#ff6b35' : '#4cd964' }}>{window.__physicsTelemetry.dirtyChunks}</span> {window.__physicsTelemetry.dirtyCxCz}</div>
           <div><strong>Last Water Tick:</strong> {window.__physicsTelemetry.lastWaterTick}</div>
           <div><strong>Last Mesh Rebuild:</strong> {window.__physicsTelemetry.lastMeshRebuild}</div>
+        </div>
+      )}
+
+      {/* ── Navigation hint: visible in bottom-left during active pathfinding ── */}
+      {activeNavigation && (
+        <div style={{
+          position: 'fixed',
+          bottom: '16px',
+          left: '16px',
+          background: 'rgba(10,20,10,0.88)',
+          border: '1px solid rgba(57,255,20,0.5)',
+          borderRadius: '6px',
+          padding: '6px 10px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '7px',
+          zIndex: 9990,
+          pointerEvents: 'none',
+          boxShadow: '0 2px 10px rgba(57,255,20,0.15)',
+          backdropFilter: 'blur(4px)',
+        }}>
+          <span style={{ fontSize: '14px' }}>🧭</span>
+          <div>
+            <div style={{ fontSize: '10px', color: '#39ff14', fontWeight: 700, letterSpacing: '0.5px' }}>
+              NAVIGATING • {activeNavigation.targetIcon} {activeNavigation.targetName}
+            </div>
+            <div style={{ fontSize: '9px', color: 'rgba(200,255,200,0.6)', marginTop: '1px' }}>
+              Press <strong style={{ color: '#39ff14' }}>B</strong> to go back to pathfinding page
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -897,8 +897,9 @@ export default function App() {
       {/* CHEST MODAL */}
       {Boolean(uiState?.chestOpen) && (
         <ChestScreen
-          coordsStr={uiState?.activeChestCoords}
+          activeChestCoords={uiState?.activeChestCoords}
           onClose={handleCloseChest}
+          scheduleSave={scheduleSave}
         />
       )}
 

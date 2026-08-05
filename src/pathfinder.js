@@ -542,9 +542,12 @@ export function findAlternativeRoutes(start, target) {
   return routes;
 }
 
-// ── 3D Glowing Voxel Block Renderer ──────────────────────────────────────────
-// Shared box geometry for full voxel block glowing highlight (1.02x1.02x1.02)
-const sharedBlockGeo = new THREE.BoxGeometry(1.02, 1.02, 1.02);
+// ── Glowing Surface Block Renderer ───────────────────────────────────────────
+// Renders a thin glowing plane ON TOP of the ground block the player walks on,
+// making existing blocks appear to "light up" rather than having floating boxes.
+// The plane is 0.96×0.96 (slightly inset) and sits just above the top surface.
+const sharedSurfacePlaneGeo = new THREE.PlaneGeometry(0.96, 0.96);
+sharedSurfacePlaneGeo.rotateX(-Math.PI / 2); // Face upward (+Y)
 
 export function updatePathTrail(pathNodes) {
   if (!webgl.scene) return;
@@ -559,71 +562,87 @@ export function updatePathTrail(pathNodes) {
   for (let i = 0; i < pathNodes.length; i++) {
     const p = pathNodes[i];
 
-    // Determine the exact block position to illuminate:
-    // If mining through a block or swimming in water, illuminate node.y
-    // Otherwise illuminate the ground block below feet (node.y - 1)
+    // For normal blocks: illuminate top surface of ground block (p.y - 1)
+    // The top face of block at Y=by is at world-Y = by + 1.0
+    // We place our glow plane at by + 1.002 (just barely above surface)
     let bx = p.x;
-    let by = p.y - 1;
+    let by = p.y - 1; // This is the solid ground block Y
     let bz = p.z;
 
-    if (p.mine || p.water) {
+    if (p.mine) {
+      // Mining: illuminate the solid block at feet level
       by = p.y;
+    } else if (p.water) {
+      // Water: surface at p.y level
+      by = p.y - 1;
     }
 
-    // Color theme for block glow
-    let colorHex = 0x39ff14; // Emerald green
-    let baseOpacity = 0.50;
+    // Color theme
+    let colorHex = 0x39ff14; // Radioactive green
+    let baseOpacity = 0.72;
 
     if (i === 0) {
-      colorHex = 0x00e5ff; // Start block: Cyan glow
-      baseOpacity = 0.65;
-    } else if (i === pathNodes.length - 1) {
-      colorHex = 0xffff00; // Destination target block: Golden glow
+      colorHex = 0x00e5ff; // Start: Cyan
       baseOpacity = 0.80;
+    } else if (i === pathNodes.length - 1) {
+      colorHex = 0xffff00; // Destination: Gold
+      baseOpacity = 0.90;
     } else if (p.mine) {
-      colorHex = 0xff6600; // Mining block: Orange glow
-      baseOpacity = 0.60;
+      colorHex = 0xff6600; // Mining: Orange
+      baseOpacity = 0.78;
     } else if (p.water) {
-      colorHex = 0x00e5ff; // Water block: Cyan glow
-      baseOpacity = 0.55;
+      colorHex = 0x00e5ff; // Water: Cyan
+      baseOpacity = 0.68;
     }
 
-    // 1. Semi-transparent glowing 3D voxel box overlay
+    // Surface glow plane — sits directly on top surface of the ground block
     const mat = new THREE.MeshBasicMaterial({
       color: colorHex,
       transparent: true,
       opacity: baseOpacity,
       depthWrite: false,
+      side: THREE.DoubleSide,
     });
-    const mesh = new THREE.Mesh(sharedBlockGeo, mat);
-    mesh.position.set(bx + 0.5, by + 0.5, bz + 0.5);
+    const mesh = new THREE.Mesh(sharedSurfacePlaneGeo, mat);
+    // Place at the top face of the ground block (by + 1) with tiny float offset
+    mesh.position.set(bx + 0.5, by + 1.003, bz + 0.5);
 
-    // 2. Crisp 3D wireframe edges highlighting the block frame
-    const edgesGeo = new THREE.EdgesGeometry(sharedBlockGeo);
+    // Thin border outline around the glow plane for crisp definition
+    const borderGeo = new THREE.BufferGeometry();
+    const half = 0.48;
+    const verts = new Float32Array([
+      -half, 0,  half,
+       half, 0,  half,
+       half, 0, -half,
+      -half, 0, -half,
+      -half, 0,  half, // close loop
+    ]);
+    borderGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
     const lineMat = new THREE.LineBasicMaterial({
       color: colorHex,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.95,
     });
-    const wireframe = new THREE.LineSegments(edgesGeo, lineMat);
-    mesh.add(wireframe);
+    const border = new THREE.Line(borderGeo, lineMat);
+    border.position.set(bx + 0.5, by + 1.005, bz + 0.5);
 
     pathMeshGroup.add(mesh);
+    pathMeshGroup.add(border);
 
     glowingBlockItems.push({
       mesh, mat, lineMat, baseOpacity, colorHex, index: i
     });
   }
 
-  // Energy wave animation traveling along path blocks
+  // Pulsing energy wave animation along path
   let _animTime = 0;
   pathMeshGroup._animTick = (dt) => {
-    _animTime += dt * 3.5;
+    _animTime += dt * 3.0;
     glowingBlockItems.forEach(({ mat, lineMat, baseOpacity, index }) => {
-      const wave = Math.sin(_animTime - index * 0.35);
-      const pulseOpacity = baseOpacity + wave * 0.22;
-      mat.opacity = Math.max(0.18, Math.min(0.88, pulseOpacity));
-      lineMat.opacity = Math.max(0.40, Math.min(1.0, pulseOpacity + 0.25));
+      const wave = Math.sin(_animTime - index * 0.4);
+      const pulseOpacity = baseOpacity + wave * 0.20;
+      mat.opacity = Math.max(0.28, Math.min(0.98, pulseOpacity));
+      lineMat.opacity = Math.max(0.60, Math.min(1.0, pulseOpacity + 0.15));
     });
   };
 
@@ -637,14 +656,18 @@ export function tickPathTrail(dt) {
   }
 }
 
-/** Remove and dispose glowing block trail from the scene */
+/** Remove and dispose glowing surface trail from the scene */
 export function clearPathTrail() {
   if (pathMeshGroup && webgl.scene) {
     webgl.scene.remove(pathMeshGroup);
     pathMeshGroup.traverse(child => {
       if (child.isMesh || child.isLine) {
         child.geometry?.dispose();
-        child.material?.dispose();
+        if (Array.isArray(child.material)) {
+          child.material.forEach(m => m.dispose());
+        } else {
+          child.material?.dispose();
+        }
       }
     });
     pathMeshGroup = null;

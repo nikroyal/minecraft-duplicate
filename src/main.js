@@ -1359,7 +1359,8 @@ function loop(now){
   if (game.running && activeNavigation && activeNavigation.targetPos) {
     if (!webgl.navTimer) webgl.navTimer = 0;
     webgl.navTimer += dt;
-    if (webgl.navTimer >= 0.40) { // Recalculate every 400ms
+    // Only recalculate when auto-update is enabled (default: true)
+    if (webgl.navTimer >= 0.40 && window.__pathAutoUpdate !== false) {
       webgl.navTimer = 0;
       const startPos = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
       const pathNodes = findPath(startPos, activeNavigation.targetPos, 600);
@@ -1371,6 +1372,9 @@ function loop(now){
         const dz = activeNavigation.targetPos.z - player.pos.z;
         activeNavigation.distance = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
       }
+    } else if (webgl.navTimer >= 0.40) {
+      // Timer reset even when locked, so we don't spam recalc the moment it's re-enabled
+      webgl.navTimer = 0;
     }
 
   // Tick path trail pulsing animation every frame
@@ -1977,8 +1981,8 @@ export function bootGame() {
       return;
     }
 
-    // Toggle Wayfinder & Pathfinder Modal on 'KeyG' or 'KeyV'
-    if (e.code === "KeyG" || e.code === "KeyV" || e.key === "g" || e.key === "G" || e.key === "v" || e.key === "V") {
+    // Toggle Wayfinder & Pathfinder Modal on 'KeyG', 'KeyV', or 'KeyB'
+    if (e.code === "KeyG" || e.code === "KeyV" || e.code === "KeyB" || e.key === "g" || e.key === "G" || e.key === "v" || e.key === "V" || e.key === "b" || e.key === "B") {
       e.preventDefault();
       if (document.pointerLockElement) document.exitPointerLock();
       if (window.__toggleWayfinder) window.__toggleWayfinder();
