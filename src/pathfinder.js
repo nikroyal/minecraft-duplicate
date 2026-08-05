@@ -543,11 +543,17 @@ export function findAlternativeRoutes(start, target) {
 }
 
 // ── Glowing Surface Block Renderer ───────────────────────────────────────────
-// Renders a thin glowing plane ON TOP of the ground block the player walks on,
-// making existing blocks appear to "light up" rather than having floating boxes.
-// The plane is 0.96×0.96 (slightly inset) and sits just above the top surface.
-const sharedSurfacePlaneGeo = new THREE.PlaneGeometry(0.96, 0.96);
-sharedSurfacePlaneGeo.rotateX(-Math.PI / 2); // Face upward (+Y)
+// Renders a thin glowing plane ON TOP of the actual ground block the player
+// walks on. Two root causes of visual bugs are fixed:
+//
+//  1. MISSING BLOCKS — smoothPath() reduces A* output to a few LOS waypoints,
+//     leaving giant gaps. We re-interpolate every integer block position between
+//     consecutive waypoints so the path is fully continuous with no gaps.
+//
+//  2. FLOATING PLANES — interpolated/smoothed nodes can be at a Y that doesn't
+//     match the actual terrain height at that XZ. We raycast downward (up to 4
+//     blocks) from each node to find the real solid surface and place the glow
+//     there instead.
 
 export function updatePathTrail(pathNodes) {
   if (!webgl.scene) return;
@@ -559,43 +565,93 @@ export function updatePathTrail(pathNodes) {
 
   const glowingBlockItems = [];
 
+  // ─── Step 1: Expand smoothed waypoints back into every block position ─────
+  const visualBlocks = [];
+  const seenKeys     = new Set();
+
+  const addVisBlock = (x, y, z, nodeType, srcNode) => {
+    const k = `${x},${y},${z}`;
+    if (seenKeys.has(k)) return;
+    seenKeys.add(k);
+    visualBlocks.push({
+      x, y, z, nodeType,
+      mine:  srcNode?.mine  ?? false,
+      water: srcNode?.water ?? false,
+    });
+  };
+
   for (let i = 0; i < pathNodes.length; i++) {
-    const p = pathNodes[i];
+    const p        = pathNodes[i];
+    const nodeType = i === 0 ? 'start' : i === pathNodes.length - 1 ? 'end' : 'normal';
+    addVisBlock(p.x, p.y, p.z, nodeType, p);
 
-    // For normal blocks: illuminate top surface of ground block (p.y - 1)
-    // The top face of block at Y=by is at world-Y = by + 1.0
-    // We place our glow plane at by + 1.002 (just barely above surface)
-    let bx = p.x;
-    let by = p.y - 1; // This is the solid ground block Y
-    let bz = p.z;
+    if (i < pathNodes.length - 1) {
+      const q     = pathNodes[i + 1];
+      const dx    = q.x - p.x;
+      const dy    = q.y - p.y;
+      const dz    = q.z - p.z;
+      // Step along longest axis so every integer block position is covered
+      const steps = Math.max(Math.abs(dx), Math.abs(dz), Math.abs(dy));
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        addVisBlock(
+          Math.round(p.x + dx * t),
+          Math.round(p.y + dy * t),
+          Math.round(p.z + dz * t),
+          'interp',
+          null
+        );
+      }
+    }
+  }
 
-    if (p.mine) {
-      // Mining: illuminate the solid block at feet level
-      by = p.y;
-    } else if (p.water) {
-      // Water: surface at p.y level
-      by = p.y - 1;
+  // ─── Step 2: Render each visual block ────────────────────────────────────
+  for (let i = 0; i < visualBlocks.length; i++) {
+    const vb = visualBlocks[i];
+
+    // Raycast downward to find the real solid ground surface under this position.
+    // Fixes floating when LOS smoothing skips over terrain of varying height.
+    let groundY = vb.y - 1; // fallback: 1 block below feet
+    if (!vb.mine) {
+      for (let drop = 0; drop <= 4; drop++) {
+        const testY = vb.y - 1 - drop;
+        const bid   = getBlock(vb.x, testY, vb.z);
+        if (isSolid(bid) || bid === 8 || bid === 9) {
+          groundY = testY;
+          break;
+        }
+      }
+    } else {
+      groundY = vb.y; // mining: glow the solid block at feet level itself
     }
 
-    // Color theme
-    let colorHex = 0x39ff14; // Radioactive green
-    let baseOpacity = 0.72;
+    // Color by node role
+    let colorHex    = 0x39ff14; // Radioactive green — normal walkable
+    let baseOpacity = 0.70;
 
-    if (i === 0) {
-      colorHex = 0x00e5ff; // Start: Cyan
-      baseOpacity = 0.80;
-    } else if (i === pathNodes.length - 1) {
-      colorHex = 0xffff00; // Destination: Gold
+    if (vb.nodeType === 'start') {
+      colorHex    = 0x00e5ff; // Cyan — player start
+      baseOpacity = 0.82;
+    } else if (vb.nodeType === 'end') {
+      colorHex    = 0xffff00; // Gold — destination
       baseOpacity = 0.90;
-    } else if (p.mine) {
-      colorHex = 0xff6600; // Mining: Orange
+    } else if (vb.mine) {
+      colorHex    = 0xff6600; // Orange — block to be mined
       baseOpacity = 0.78;
-    } else if (p.water) {
-      colorHex = 0x00e5ff; // Water: Cyan
-      baseOpacity = 0.68;
+    } else if (vb.water) {
+      colorHex    = 0x00e5ff; // Cyan — water swim section
+      baseOpacity = 0.65;
     }
 
-    // Surface glow plane — sits directly on top surface of the ground block
+    // Place a flat glow plane on the TOP SURFACE of the real ground block.
+    // Top face of block at groundY is at world-Y = groundY + 1.
+    // Float 2mm above to avoid z-fighting with the chunk mesh.
+    const surfaceY = groundY + 1.002;
+
+    // Each block gets its own geometry (no shared-geo transform issues)
+    const geo = new THREE.PlaneGeometry(0.96, 0.96);
+    geo.rotateX(-Math.PI / 2); // Lie flat in XZ plane (face +Y)
+
     const mat = new THREE.MeshBasicMaterial({
       color: colorHex,
       transparent: true,
@@ -603,14 +659,13 @@ export function updatePathTrail(pathNodes) {
       depthWrite: false,
       side: THREE.DoubleSide,
     });
-    const mesh = new THREE.Mesh(sharedSurfacePlaneGeo, mat);
-    // Place at the top face of the ground block (by + 1) with tiny float offset
-    mesh.position.set(bx + 0.5, by + 1.003, bz + 0.5);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(vb.x + 0.5, surfaceY, vb.z + 0.5);
 
-    // Thin border outline around the glow plane for crisp definition
+    // Crisp square border outline at the same surface level
     const borderGeo = new THREE.BufferGeometry();
-    const half = 0.48;
-    const verts = new Float32Array([
+    const half      = 0.48;
+    const verts     = new Float32Array([
       -half, 0,  half,
        half, 0,  half,
        half, 0, -half,
@@ -624,25 +679,23 @@ export function updatePathTrail(pathNodes) {
       opacity: 0.95,
     });
     const border = new THREE.Line(borderGeo, lineMat);
-    border.position.set(bx + 0.5, by + 1.005, bz + 0.5);
+    border.position.set(vb.x + 0.5, surfaceY + 0.002, vb.z + 0.5);
 
     pathMeshGroup.add(mesh);
     pathMeshGroup.add(border);
 
-    glowingBlockItems.push({
-      mesh, mat, lineMat, baseOpacity, colorHex, index: i
-    });
+    glowingBlockItems.push({ mesh, mat, lineMat, baseOpacity, colorHex, index: i });
   }
 
-  // Pulsing energy wave animation along path
+  // Pulsing energy wave animation travelling along path
   let _animTime = 0;
   pathMeshGroup._animTick = (dt) => {
     _animTime += dt * 3.0;
     glowingBlockItems.forEach(({ mat, lineMat, baseOpacity, index }) => {
-      const wave = Math.sin(_animTime - index * 0.4);
+      const wave         = Math.sin(_animTime - index * 0.35);
       const pulseOpacity = baseOpacity + wave * 0.20;
-      mat.opacity = Math.max(0.28, Math.min(0.98, pulseOpacity));
-      lineMat.opacity = Math.max(0.60, Math.min(1.0, pulseOpacity + 0.15));
+      mat.opacity        = Math.max(0.28, Math.min(0.98, pulseOpacity));
+      lineMat.opacity    = Math.max(0.60, Math.min(1.0,  pulseOpacity + 0.15));
     });
   };
 
