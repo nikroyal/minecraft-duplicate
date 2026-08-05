@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import { inventory, world, reactBridge } from '../state.js';
 import { addItem, removeItem, invCount } from '../player.js';
 import { thingName } from '../config.js';
@@ -6,6 +6,7 @@ import { playPlaceSound } from '../audio.js';
 import Swatch3D from './Swatch3D.jsx';
 
 export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }) {
+  const [, forceUpdate] = useReducer(x => x + 1, 0);
   useEffect(() => {
     world.chests = world.chests || {};
     if (activeChestCoords && !world.chests[activeChestCoords]) {
@@ -22,16 +23,23 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
 
   const handleStoreItem = (id) => {
     if (typeof id !== 'number' || isNaN(id) || invCount(id) <= 0) return;
-    let slot = chest.find(s => s.id === id && (s.count || 0) < 64);
-    if (!slot) slot = chest.find(s => s.id === 0);
-    if (slot) {
+    let remaining = invCount(id);
+    while (remaining > 0) {
+      // Find an existing partial slot for this item type first, then an empty slot
+      let slot = chest.find(s => s.id === id && (s.count || 0) < 64);
+      if (!slot) slot = chest.find(s => s.id === 0);
+      if (!slot) break; // No more chest space
+      const space = 64 - (slot.count || 0);
+      const toStore = Math.min(space, remaining);
       slot.id = id;
-      slot.count = Math.min(64, (slot.count || 0) + 1);
-      removeItem(id, 1);
-      playPlaceSound(id);
-      scheduleSave();
-      if (reactBridge.updateUI) reactBridge.updateUI();
+      slot.count = (slot.count || 0) + toStore;
+      removeItem(id, toStore);
+      remaining -= toStore;
     }
+    playPlaceSound(id);
+    scheduleSave?.();
+    if (reactBridge.updateUI) reactBridge.updateUI();
+    forceUpdate();
   };
 
   const handleRetrieveItem = (idx) => {
@@ -46,8 +54,9 @@ export default function ChestScreen({ activeChestCoords, onClose, scheduleSave }
         slot.count = 0;
       }
       playPlaceSound(id);
-      scheduleSave();
+      scheduleSave?.();
       if (reactBridge.updateUI) reactBridge.updateUI();
+      forceUpdate();
     }
   };
 

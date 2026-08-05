@@ -249,7 +249,7 @@ export function craft(recipe) {
   if (reactBridge.updateUI) reactBridge.updateUI();
 }
 
-// Save / Load Progress
+// Save / Load Progress (Cloud Only — Firebase / Firestore)
 export function saveWorld() {
   // Execute pre-save anti-tamper state sanitization
   validateInventoryState();
@@ -285,11 +285,8 @@ export function saveWorld() {
     username: window.__currentUserEmail || 'player',
     lastUpdated: new Date().toISOString()
   };
-  try {
-    secureSaveToLocalStorage(SAVE_KEY, payload);
-    toast("world saved");
-  } catch (e) {}
 
+  // Cloud Save Only (Firestore)
   if (game.mode === 'room' && game.activeRoomId) {
     saveRoomWorldToCloud(game.activeRoomId, payload);
   } else if (game.mode === 'public') {
@@ -306,7 +303,9 @@ export function scheduleSave() {
 
 export function loadWorld() {
   try {
-    const p = secureLoadFromLocalStorage(SAVE_KEY);
+    // Load exclusively from cloud payload buffer (sessionStorage / in-memory window)
+    const rawPending = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('cloud_save_pending') : null;
+    const p = rawPending ? JSON.parse(rawPending) : (window.__cloudWorldData || null);
     if (!p) return false;
     world.edits = p.edits || {};
     world.chests = p.chests || {};
