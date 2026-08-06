@@ -879,24 +879,25 @@ export function updateAutoPilotSteering(dt, wish) {
     while (diff < -Math.PI) diff += Math.PI * 2;
     while (diff > Math.PI) diff -= Math.PI * 2;
 
-    // Human-like smooth turn rate (slight deceleration when close to target angle)
-    const turnSpeed = Math.min(6.0, 3.5 + Math.abs(diff) * 2.0);
+    // Human-like smooth turn rate (calm, natural mouse panning)
+    const turnSpeed = Math.min(3.8, 2.2 + Math.abs(diff) * 1.5);
     player.yaw += diff * Math.min(1.0, turnSpeed * dt);
 
     // Natural camera pitch (level horizon or slight incline/decline)
     const dy = ty - player.pos.y;
-    const desiredPitch = Math.max(-0.4, Math.min(0.4, Math.atan2(dy, dist2D) * 0.5));
-    player.pitch += (desiredPitch - player.pitch) * Math.min(1.0, 4.0 * dt);
+    const desiredPitch = Math.max(-0.4, Math.min(0.4, Math.atan2(dy, dist2D) * 0.4));
+    player.pitch += (desiredPitch - player.pitch) * Math.min(1.0, 3.5 * dt);
 
     // Movement vector aligned with camera orientation for humanlike walking
     const forwardX = -Math.sin(player.yaw);
     const forwardZ = -Math.cos(player.yaw);
 
-    // Speed modulation: Walk on turns/uphills, only sprint on long straight paths
-    const isStraight = Math.abs(diff) < 0.25;
-    player.sprinting = isStraight && dist2D > 3.5;
+    // Disable sprinting in Auto-Pilot for a realistic, relaxed human walking pace
+    player.sprinting = false;
 
-    const moveSpeedMult = player.sprinting ? 1.0 : 0.75;
+    // Modulate walking speed: slower on turns/curves (0.45), steady walk on straight paths (0.58)
+    const isStraight = Math.abs(diff) < 0.20;
+    const moveSpeedMult = isStraight ? 0.58 : 0.45;
     wish.x = forwardX * moveSpeedMult;
     wish.z = forwardZ * moveSpeedMult;
   }
