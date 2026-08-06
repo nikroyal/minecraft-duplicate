@@ -140,6 +140,33 @@ export default function CraftingScreen({ onClose }) {
     if (reactBridge.updateUI) reactBridge.updateUI();
   }, []);
 
+  const acquiredTools = useMemo(() => {
+    const tools = [];
+    const seen = new Set();
+    const allOwnedIds = new Set([...Object.keys(inventory || {}).map(Number), ...hotbar]);
+    for (const id of allOwnedIds) {
+      if (id > 0 && invCount(id) > 0 && !seen.has(id)) {
+        const def = ITEMS[id];
+        if (def && (def.tool || id === 146)) {
+          seen.add(id);
+          tools.push({ id, count: invCount(id), def });
+        }
+      }
+    }
+    tools.sort((a, b) => (b.def.tier || 1) - (a.def.tier || 1));
+    return tools;
+  }, [inventory, hotbar]);
+
+  const handleHoldTool = useCallback((id) => {
+    hotbar[game.selected] = id;
+    addItem(id, 1);
+    toast(`Holding ${thingName(id)} in main hand!`);
+    playPlaceSound(id);
+    forceUpdate(n => n + 1);
+    scheduleSave();
+    if (reactBridge.updateUI) reactBridge.updateUI();
+  }, []);
+
   // ── interactions ───────────────────────────────────────────────────────
 
   // Click an inventory item → pick it up into the cursor (or merge if same item)
@@ -468,6 +495,80 @@ export default function CraftingScreen({ onClose }) {
                   );
                 })}
               </div>
+            </div>
+
+            {/* ⛏️ ACQUIRED TOOLS & WEAPONS RACK */}
+            <div style={{
+              background: 'rgba(15, 12, 8, 0.85)',
+              border: '1px solid rgba(242, 217, 160, 0.3)',
+              borderRadius: 8,
+              padding: '10px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              minWidth: 220,
+              maxHeight: 250,
+              overflowY: 'auto',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(242, 217, 160, 0.2)', paddingBottom: 6 }}>
+                <span style={{ fontSize: 10, letterSpacing: 1.5, color: '#f2d9a0', fontWeight: 700, textTransform: 'uppercase' }}>
+                  ⛏️ TOOLS ACQUIRED ({acquiredTools.length})
+                </span>
+                <span style={{ fontSize: 9, color: '#8fd06a', fontWeight: 'bold' }}>
+                  HAND: {hotbar[game.selected] > 0 ? thingName(hotbar[game.selected]) : 'Bare Hands'}
+                </span>
+              </div>
+
+              {acquiredTools.length === 0 ? (
+                <div style={{ fontSize: 10, color: '#8a7a60', fontStyle: 'italic', padding: '12px 0', textAlign: 'center' }}>
+                  No tools acquired yet.<br />Craft a Wooden Pickaxe in the 3x3 grid!
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {acquiredTools.map(({ id, count, def }) => {
+                    const isCurrentlyHeld = hotbar[game.selected] === id;
+                    const tierName = def.tier === 4 ? 'Diamond' : def.tier === 3 ? 'Iron' : def.tier === 2 ? 'Stone' : 'Wood';
+                    const maxDur = [30, 60, 150, 500][(def.tier || 1) - 1] || 30;
+                    const currentDur = toolDurability[id] !== undefined ? toolDurability[id] : maxDur;
+
+                    return (
+                      <div key={id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                        background: isCurrentlyHeld ? 'rgba(242,217,160,0.15)' : 'rgba(25,20,14,0.6)',
+                        border: `1px solid ${isCurrentlyHeld ? '#f2d9a0' : 'rgba(214,178,120,0.15)'}`,
+                        borderRadius: 4, padding: '4px 8px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <SlotBox id={id} count={count} size={36} onClick={() => handleHoldTool(id)} />
+                          <div style={{ display: 'flex', flexDirection: 'column', fontSize: 10 }}>
+                            <span style={{ fontWeight: 700, color: isCurrentlyHeld ? '#f2d9a0' : '#fff' }}>
+                              {thingName(id)} {count > 1 ? `×${count}` : ''}
+                            </span>
+                            <span style={{ fontSize: 8, color: '#8fd06a' }}>
+                              Tier {def.tier || 1} ({tierName}) | Dur: {currentDur}/{maxDur}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleHoldTool(id)}
+                          style={{
+                            fontFamily: 'inherit', fontSize: 8, fontWeight: 'bold',
+                            color: isCurrentlyHeld ? '#000' : '#f2d9a0',
+                            background: isCurrentlyHeld ? '#f2d9a0' : 'rgba(40,32,22,0.9)',
+                            border: '1px solid rgba(214,178,120,0.3)',
+                            borderRadius: 3, padding: '3px 7px', cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {isCurrentlyHeld ? '✋ Holding' : '⚡ Equip'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* 3×3 Grid */}
