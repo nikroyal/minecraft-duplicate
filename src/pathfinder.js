@@ -152,8 +152,30 @@ export function findPath(start, target, maxExpansions = 1200, options = {}) {
   const undergroundBias = options.undergroundBias ?? 0;
   const maxFall         = options.maxFallBlocks   ?? 4;
 
-  const sx = Math.floor(start.x),  sy = Math.floor(start.y),  sz = Math.floor(start.z);
+  let sx = Math.floor(start.x),  sy = Math.floor(start.y),  sz = Math.floor(start.z);
   let tx = Math.floor(target.x), ty = Math.floor(target.y), tz = Math.floor(target.z);
+
+  // Auto-adjust start Y if player feet is inside a solid block/slab/farmland or standing on block edge
+  if (sy > 0 && sy < 255) {
+    if (isSolid(getBlock(sx, sy, sz))) {
+      // Inside solid block: search upwards for first clear standable Y
+      for (let dy = 1; dy <= 4; dy++) {
+        if (!isSolid(getBlock(sx, sy + dy, sz))) {
+          sy = sy + dy;
+          break;
+        }
+      }
+    } else if (!hasGround(sx, sy, sz) && !isSolid(getBlock(sx, sy - 1, sz)) && getBlock(sx, sy, sz) !== 8) {
+      // Floating or mid-air: search downwards for solid floor
+      for (let dy = 1; dy <= 4; dy++) {
+        if (sy - dy <= 1) break;
+        if (isSolid(getBlock(sx, sy - dy - 1, sz)) || getBlock(sx, sy - dy - 1, sz) === 8) {
+          sy = sy - dy;
+          break;
+        }
+      }
+    }
+  }
 
   // Auto-adjust target Y if specified target coordinate is inside a solid block or floating in air
   if (ty > 0 && ty < 255) {
@@ -693,6 +715,7 @@ export function updatePathTrail(pathNodes) {
       transparent: true,
       opacity: baseOpacity,
       depthWrite: false,
+      depthTest: false, // ALWAYS visible through terrain, grass, and slopes!
       side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(geo, mat);
@@ -713,25 +736,39 @@ export function updatePathTrail(pathNodes) {
       color: colorHex,
       transparent: true,
       opacity: 0.95,
+      depthTest: false, // ALWAYS visible through terrain!
     });
     const border = new THREE.Line(borderGeo, lineMat);
     border.position.set(vb.x + 0.5, surfaceY + 0.002, vb.z + 0.5);
 
+    // Floating 3D Glowing Waypoint Orb at +0.35m elevation so trail is 100% visible across 3D terrain
+    const orbGeo = new THREE.SphereGeometry(0.12, 8, 8);
+    const orbMat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: 0.88,
+      depthTest: false,
+    });
+    const orbMesh = new THREE.Mesh(orbGeo, orbMat);
+    orbMesh.position.set(vb.x + 0.5, surfaceY + 0.35, vb.z + 0.5);
+
     pathMeshGroup.add(mesh);
     pathMeshGroup.add(border);
+    pathMeshGroup.add(orbMesh);
 
-    glowingBlockItems.push({ mesh, mat, lineMat, baseOpacity, colorHex, index: i });
+    glowingBlockItems.push({ mesh, mat, lineMat, orbMat, baseOpacity, colorHex, index: i });
   }
 
   // Pulsing energy wave animation travelling along path
   let _animTime = 0;
   pathMeshGroup._animTick = (dt) => {
     _animTime += dt * 3.0;
-    glowingBlockItems.forEach(({ mat, lineMat, baseOpacity, index }) => {
+    glowingBlockItems.forEach(({ mat, lineMat, orbMat, baseOpacity, index }) => {
       const wave         = Math.sin(_animTime - index * 0.35);
       const pulseOpacity = baseOpacity + wave * 0.20;
       mat.opacity        = Math.max(0.28, Math.min(0.98, pulseOpacity));
       lineMat.opacity    = Math.max(0.60, Math.min(1.0,  pulseOpacity + 0.15));
+      if (orbMat) orbMat.opacity = Math.max(0.65, Math.min(1.0, pulseOpacity + 0.20));
     });
   };
 
