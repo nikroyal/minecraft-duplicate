@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { player, game, hotbar, inventory, toolDurability, getTotalArmorPoints } from '../state.js';
 import { thingName, BLOCKS, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
