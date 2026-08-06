@@ -486,27 +486,65 @@ export function updateMobs(dt){
         wishZ = -Math.cos(m.yaw);
       }
     } else {
-      // ── Passive wander ──────────────────────────────────────────────────────
-      m.wanderTimer -= dt;
-      if(m.wanderTimer <= 0){
-        m.wanderTimer = 2 + Math.random() * 4;
-        if(Math.random() < 0.6){
-          // Water-aware wander: avoid deep water
-          let attempts = 0;
-          do {
-            m.yaw = Math.random() * Math.PI * 2;
-            const nx = m.pos.x + (-Math.sin(m.yaw)) * 1.5;
-            const nz = m.pos.z + (-Math.cos(m.yaw)) * 1.5;
-            if (waterDepthAt(nx, nz) <= 1) break;
-            attempts++;
-          } while (attempts < 4);
-        } else {
-          m.yaw = null; // idle
+      // ── Passive Animal AI (Food Temptation, Herd Instinct & Panic Fleeing) ───
+      const heldId = hotbar ? hotbar[game.selected] : 0;
+      const isFood = (
+        (m.type === 'pig' && (heldId === 136 || heldId === 138 || heldId === 135)) ||
+        (m.type === 'sheep' && (heldId === 136 || heldId === 138))
+      );
+
+      if ((m.panicTimer || 0) > 0) {
+        m.panicTimer -= dt;
+        // Sprint away from attacker when damaged
+        const fleeDx = m.pos.x - px;
+        const fleeDz = m.pos.z - pz;
+        m.yaw = Math.atan2(-fleeDx, -fleeDz);
+        wishX = -Math.sin(m.yaw) * 1.8;
+        wishZ = -Math.cos(m.yaw) * 1.8;
+      } else if (isFood && distToP < 10.0) {
+        // Look at player holding food and follow player!
+        const dx = px - m.pos.x;
+        const dz = pz - m.pos.z;
+        m.yaw = Math.atan2(-dx, -dz);
+        if (distToP > 1.8) {
+          wishX = -Math.sin(m.yaw) * 0.9;
+          wishZ = -Math.cos(m.yaw) * 0.9;
         }
-      }
-      if(m.yaw !== null && m.yaw !== undefined){
-        wishX = -Math.sin(m.yaw);
-        wishZ = -Math.cos(m.yaw);
+      } else {
+        // Herd instinct: wander near nearby animals of same type
+        let herdDx = 0, herdDz = 0, herdCount = 0;
+        if (Array.isArray(game.mobs)) {
+          for (const other of game.mobs) {
+            if (other !== m && other.type === m.type && other.pos.distanceTo(m.pos) < 6.0) {
+              herdDx += other.pos.x - m.pos.x;
+              herdDz += other.pos.z - m.pos.z;
+              herdCount++;
+            }
+          }
+        }
+
+        m.wanderTimer -= dt;
+        if(m.wanderTimer <= 0){
+          m.wanderTimer = 2.5 + Math.random() * 3.5;
+          if (herdCount > 0 && Math.random() < 0.5) {
+            m.yaw = Math.atan2(-herdDx, -herdDz);
+          } else if(Math.random() < 0.65){
+            let attempts = 0;
+            do {
+              m.yaw = Math.random() * Math.PI * 2;
+              const nx = m.pos.x + (-Math.sin(m.yaw)) * 1.5;
+              const nz = m.pos.z + (-Math.cos(m.yaw)) * 1.5;
+              if (waterDepthAt(nx, nz) <= 1) break;
+              attempts++;
+            } while (attempts < 4);
+          } else {
+            m.yaw = null; // idle
+          }
+        }
+        if(m.yaw !== null && m.yaw !== undefined){
+          wishX = -Math.sin(m.yaw);
+          wishZ = -Math.cos(m.yaw);
+        }
       }
     }
     
@@ -731,6 +769,11 @@ export function attackMob(targetMob, customDamage){
   best.hp -= dmg;
   best.hurtFlash = 0.2;
   playHitSound();
+  if (!best.def.hostile) {
+    best.panicTimer = 4.0;
+    if (best.type === 'pig') playPigSound();
+    else if (best.type === 'sheep') playSheepSound();
+  }
   best.mesh.traverse(child => {
     if(child.material && child.material.emissive) child.material.emissive.setRGB(0.5, 0, 0);
   });
