@@ -58,99 +58,128 @@ export function makeMobMesh(type){
   webgl.scene?.add(group);
   
   const mat = new THREE.MeshLambertMaterial({ color: t.color });
+  const legs = [];
+  const arms = [];
+  let head = null;
+  let body = null;
   
   if(type === "pig"){
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 1.2), mat);
+    body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 1.2), mat);
     body.position.set(0, 0.525, 0);
     group.add(body);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
+    head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
     head.position.set(0, 0.65, -0.7);
     group.add(head);
     const snoutMat = new THREE.MeshLambertMaterial({ color: 0xd87070 });
     const snout = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 0.15), snoutMat);
-    snout.position.set(0, 0.6, -0.98);
-    group.add(snout);
+    snout.position.set(0, -0.05, -0.28);
+    head.add(snout);
+
+    const legGeo = new THREE.BoxGeometry(0.22, 0.4, 0.22);
+    legGeo.translate(0, -0.2, 0);
     for(let dx of [-0.3, 0.3]) for(let dz of [-0.4, 0.4]){
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.4, 0.22), mat);
-      leg.position.set(dx, 0.2, dz);
+      const leg = new THREE.Mesh(legGeo, mat);
+      leg.position.set(dx, 0.4, dz);
       group.add(leg);
+      legs.push(leg);
     }
   } else if(type === "sheep"){
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 1.3), mat);
+    body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 1.3), mat);
     body.position.set(0, 0.65, 0);
     group.add(body);
     const headMat = new THREE.MeshLambertMaterial({ color: 0xc8c8c0 });
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.5), headMat);
+    head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.5), headMat);
     head.position.set(0, 0.75, -0.75);
     group.add(head);
+
+    const legGeo = new THREE.BoxGeometry(0.22, 0.5, 0.22);
+    legGeo.translate(0, -0.25, 0);
     for(let dx of [-0.32, 0.32]) for(let dz of [-0.45, 0.45]){
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.5, 0.22), headMat);
-      leg.position.set(dx, 0.25, dz);
+      const leg = new THREE.Mesh(legGeo, headMat);
+      leg.position.set(dx, 0.5, dz);
       group.add(leg);
+      legs.push(leg);
     }
   } else if(type === "zombie"){
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.75, 0.35), mat);
+    body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.75, 0.35), mat);
     body.position.set(0, 1.075, 0);
     group.add(body);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
+    head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat);
     head.position.set(0, 1.7, 0);
     group.add(head);
+
+    const armGeo = new THREE.BoxGeometry(0.22, 0.65, 0.22);
+    armGeo.translate(0, -0.325, 0);
     for(let dx of [-0.42, 0.42]){
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.65, 0.22), mat);
-      arm.position.set(dx, 1.1, -0.35);
+      const arm = new THREE.Mesh(armGeo, mat);
+      arm.position.set(dx, 1.4, 0);
       arm.rotation.x = -Math.PI / 2.2;
       group.add(arm);
+      arms.push(arm);
     }
+
+    const legGeo = new THREE.BoxGeometry(0.24, 0.7, 0.24);
+    legGeo.translate(0, -0.35, 0);
     for(let dx of [-0.18, 0.18]){
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.7, 0.24), mat);
-      leg.position.set(dx, 0.35, 0);
+      const leg = new THREE.Mesh(legGeo, mat);
+      leg.position.set(dx, 0.7, 0);
       group.add(leg);
+      legs.push(leg);
     }
   } else if(type === "creeper"){
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.35), mat);
+    body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.35), mat);
     body.position.set(0, 0.8, 0);
     group.add(body);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), mat);
+    head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), mat);
     head.position.set(0, 1.475, 0);
     group.add(head);
+
+    const legGeo = new THREE.BoxGeometry(0.22, 0.4, 0.22);
+    legGeo.translate(0, -0.2, 0);
     for(let dx of [-0.2, 0.2]) for(let dz of [-0.2, 0.2]){
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.4, 0.22), mat);
-      leg.position.set(dx, 0.2, dz);
+      const leg = new THREE.Mesh(legGeo, mat);
+      leg.position.set(dx, 0.4, dz);
       group.add(leg);
+      legs.push(leg);
     }
   } else if(type === "skeleton"){
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.75, 0.25), mat);
+    body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.75, 0.25), mat);
     body.position.set(0, 1.075, 0);
     group.add(body);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), mat);
+    head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), mat);
     head.position.set(0, 1.7, 0);
     group.add(head);
+
+    const armGeo = new THREE.BoxGeometry(0.12, 0.65, 0.12);
+    armGeo.translate(0, -0.325, 0);
     for(let dx of [-0.32, 0.32]){
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.65, 0.12), mat);
-      arm.position.set(dx, 1.1, -0.2);
+      const arm = new THREE.Mesh(armGeo, mat);
+      arm.position.set(dx, 1.4, 0);
       arm.rotation.x = -Math.PI / 3;
       group.add(arm);
+      arms.push(arm);
     }
     const bowMat = new THREE.MeshLambertMaterial({ color: 0x9a7b4a });
     const bowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.08), bowMat);
     bowMesh.position.set(0.35, 1.0, -0.4);
     group.add(bowMesh);
+
+    const legGeo = new THREE.BoxGeometry(0.14, 0.7, 0.14);
+    legGeo.translate(0, -0.35, 0);
     for(let dx of [-0.14, 0.14]){
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.7, 0.14), mat);
-      leg.position.set(dx, 0.35, 0);
+      const leg = new THREE.Mesh(legGeo, mat);
+      leg.position.set(dx, 0.7, 0);
       group.add(leg);
+      legs.push(leg);
     }
   } else if(type === "spider"){
-    // Abdomen (big rear)
-    const abdomen = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 1.1), mat);
-    abdomen.position.set(0, 0.35, 0.35);
-    group.add(abdomen);
-    // Thorax (front smaller)
+    body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 1.1), mat);
+    body.position.set(0, 0.35, 0.35);
+    group.add(body);
     const thorax = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.5, 0.65), mat);
     thorax.position.set(0, 0.35, -0.3);
     group.add(thorax);
-    // Head with red eyes
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.45), mat);
+    head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.45), mat);
     head.position.set(0, 0.38, -0.72);
     group.add(head);
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
@@ -159,27 +188,27 @@ export function makeMobMesh(type){
       eye.position.set(ex, 0.42, -0.95);
       group.add(eye);
     }
-    // 8 legs (4 each side)
+
     const legMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
     for (let side of [-1, 1]) {
       for (let li = 0; li < 4; li++) {
         const legGrp = new THREE.Group();
         legGrp.position.set(side * 0.45, 0.25, -0.45 + li * 0.32);
-        // Upper segment
         const upper = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.45), legMat);
         upper.rotation.z = side * -0.7;
         upper.position.set(side * 0.22, 0.1, 0);
         legGrp.add(upper);
-        // Lower segment
         const lower = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.42), legMat);
         lower.rotation.z = side * 0.5;
         lower.position.set(side * 0.48, -0.14, 0);
         legGrp.add(lower);
         group.add(legGrp);
+        legs.push(legGrp);
       }
     }
   }
-  
+
+  group.userData = { legs, arms, head, body };
   return group;
 }
 
@@ -610,15 +639,61 @@ export function updateMobs(dt){
     mobMoveAxis(m, "y", m.vel.y * dt);
     
     m.mesh.position.copy(m.pos);
-    if (m.yaw !== null && m.yaw !== undefined) {
-      m.mesh.rotation.y = m.yaw;
+    // ── 3D Articulated Limb Animations & Spider Wall Climbing Pitch ─────────────
+    const ud = m.mesh.userData || {};
+    const isMoving = (wishX !== 0 || wishZ !== 0);
+
+    if (m.type === 'spider' && m.climbing) {
+      // Spider wall climbing pitch tilt
+      m.mesh.rotation.x = -Math.PI / 2.5;
+    } else {
+      m.mesh.rotation.x = 0;
     }
-    
-    // ── Walk animation (leg bob) ──────────────────────────────────────────────
-    if (wishX !== 0 || wishZ !== 0) {
-      m.animPhase += dt * m.def.speed * 3.5;
-      const bob = Math.sin(m.animPhase) * 0.07;
+
+    if (isMoving || m.climbing) {
+      const animSpeed = m.climbing ? 12.0 : (m.def.speed * 3.5);
+      m.animPhase += dt * animSpeed;
+      const bob = Math.sin(m.animPhase * 2) * 0.04;
       m.mesh.position.y += bob;
+
+      // Leg swing animations
+      if (Array.isArray(ud.legs) && ud.legs.length > 0) {
+        if (m.type === 'spider') {
+          // 8-leg scuttle motion
+          ud.legs.forEach((legGrp, idx) => {
+            const stepPhase = m.animPhase + (idx % 4) * 0.8;
+            legGrp.rotation.x = Math.sin(stepPhase) * 0.35;
+          });
+        } else if (ud.legs.length === 4) {
+          // Quadruped stride (Pigs, Sheep, Creepers)
+          const swing = Math.sin(m.animPhase) * 0.60;
+          ud.legs[0].rotation.x = swing;
+          ud.legs[1].rotation.x = -swing;
+          ud.legs[2].rotation.x = -swing;
+          ud.legs[3].rotation.x = swing;
+        } else if (ud.legs.length === 2) {
+          // Biped stride (Zombies, Skeletons)
+          const swing = Math.sin(m.animPhase) * 0.65;
+          ud.legs[0].rotation.x = swing;
+          ud.legs[1].rotation.x = -swing;
+
+          if (Array.isArray(ud.arms) && ud.arms.length === 2 && m.type !== 'skeleton') {
+            ud.arms[0].rotation.x = -Math.PI / 2.2 - swing * 0.25;
+            ud.arms[1].rotation.x = -Math.PI / 2.2 + swing * 0.25;
+          }
+        }
+      }
+    } else {
+      // Idle pose reset & head breathing tilt
+      m.animPhase = 0;
+      if (Array.isArray(ud.legs)) {
+        ud.legs.forEach(leg => {
+          leg.rotation.x += (0 - leg.rotation.x) * Math.min(1.0, dt * 8.0);
+        });
+      }
+      if (ud.head) {
+        ud.head.rotation.y = Math.sin(now * 0.0015 + i) * 0.12;
+      }
     }
     
     // ── Creeper fuse ─────────────────────────────────────────────────────────
