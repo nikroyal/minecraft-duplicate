@@ -11,7 +11,7 @@ import { validateInventoryState } from './player.js';
 import { toast } from './ui.js';
 
 let lastValidatedPos = null;
-let devToolsBlockerActive = true;
+let devToolsBlockerActive = false;
 
 // ── 1. CRYPTOGRAPHIC CHECKSUM FOR SAVE TAMPER PROTECTION ──
 

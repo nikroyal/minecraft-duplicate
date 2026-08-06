@@ -1860,9 +1860,9 @@ export function bootGame() {
     if (reactBridge.updateUI) reactBridge.updateUI();
   });
 
-  // Prevent right-click browser context menu on all document (not just canvas)
+  // Prevent right-click browser context menu only during active pointer-locked gameplay
   document.addEventListener("contextmenu", (e) => {
-    if (game.running) e.preventDefault();
+    if (document.pointerLockElement) e.preventDefault();
   });
 
   // Clear mining on pointer lock loss
