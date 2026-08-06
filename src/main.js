@@ -2035,6 +2035,19 @@ export function bootGame() {
       return;
     }
 
+    // Toggle Auto-Pilot Mode on 'KeyP' or 'p'
+    if (e.code === "KeyP" || e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      if (!activeNavigation) {
+        toast("📍 No active GPS navigation — open Wayfinder (G) to select a destination first!");
+      } else {
+        player.autoPilot = !player.autoPilot;
+        if (activeNavigation) activeNavigation.autoPilot = player.autoPilot;
+        toast(player.autoPilot ? "🤖 Auto-Pilot ENABLED — Auto-navigating to target..." : "🛑 Auto-Pilot DISABLED");
+      }
+      return;
+    }
+
     // Don't process other game controls (movement, flying, etc.) while paused and not locked
     if(game.paused && !document.pointerLockElement) return;
     

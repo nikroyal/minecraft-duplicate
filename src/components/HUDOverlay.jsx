@@ -200,6 +200,29 @@ export default function HUDOverlay({
                 📏 {navDist}m away • 🧭 Heading {navHeading}
               </span>
             </div>
+
+            <button
+              onClick={() => {
+                player.autoPilot = !player.autoPilot;
+                if (nav) nav.autoPilot = player.autoPilot;
+                forceUpdate();
+              }}
+              title="Toggle Auto-Pilot Mode (Press P)"
+              style={{
+                background: (player.autoPilot || nav.autoPilot) ? 'rgba(57,255,20,0.3)' : 'rgba(255,255,255,0.1)',
+                border: `1px solid ${(player.autoPilot || nav.autoPilot) ? '#39ff14' : 'rgba(255,255,255,0.2)'}`,
+                borderRadius: '12px',
+                padding: '4px 10px',
+                fontSize: '9px',
+                fontWeight: 800,
+                color: (player.autoPilot || nav.autoPilot) ? '#39ff14' : '#ccc',
+                cursor: 'pointer',
+                letterSpacing: '0.5px',
+              }}
+            >
+              {(player.autoPilot || nav.autoPilot) ? '🤖 AUTO-PILOT: ON' : '🤖 AUTO-PILOT'}
+            </button>
+
             <button
               onClick={() => clearActiveNavigation()}
               title="Cancel Navigation"

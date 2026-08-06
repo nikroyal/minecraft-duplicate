@@ -353,7 +353,7 @@ export function updatePlayer(dt){
 
   const isAutoPilotActive = Boolean(
     activeNavigation &&
-    activeNavigation.autoPilot &&
+    (activeNavigation.autoPilot || player.autoPilot) &&
     activeNavigation.pathNodes &&
     activeNavigation.pathNodes.length > 0 &&
     !game.paused &&
