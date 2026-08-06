@@ -1910,6 +1910,11 @@ export function bootGame() {
 
   // Keyboard binding updates
   window.addEventListener("keydown", (e) => {
+    // ALWAYS allow native browser DevTools shortcuts (F12, Ctrl+Shift+I, Ctrl+Shift+J, Cmd+Option+I) to pass through!
+    if (e.code === 'F12' || (e.ctrlKey && e.shiftKey && (e.code === 'KeyI' || e.code === 'KeyJ')) || (e.metaKey && e.altKey && (e.code === 'KeyI' || e.code === 'KeyJ'))) {
+      return;
+    }
+
     // CRITICAL: Ignore key shortcuts when typing in input, textarea, or contentEditable elements!
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
       return;
