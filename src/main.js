@@ -936,8 +936,9 @@ export function placeBlock(){
   }
   const heldId = hotbar[game.selected];
   const isBucket = (heldId === 144 || heldId === 145);
-  // Include water in raycast for placeable blocks so liquid voxels can be targeted directly or passed through
-  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"] || isPlaceable(heldId) || (heldId > 0 && BLOCKS[heldId]);
+  // Shift-clicking or Buckets target water surfaces directly (e.g. building a bridge on water).
+  // Standard block placement raycasts THROUGH liquid to hit the solid underwater floor/wall your crosshair is aiming at!
+  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"];
   const r = raycastVoxel(6, includeWater);
   if(!r) return;
   
@@ -1108,11 +1109,11 @@ export function placeBlock(){
   }
 
   // Target placement coordinates:
-  // If the hit voxel is a liquid (water 8/9), place DIRECTLY into that water voxel.
-  // If the hit voxel is solid, place at r.prev (the cell adjacent to the solid face).
+  // If r.hit is water (from Shift-clicking or Buckets), place at r.hit.
+  // Otherwise, place at r.prev (the cell adjacent to the solid underwater floor/wall that you aimed at).
   const hitId = getBlock(r.hit[0], r.hit[1], r.hit[2]);
   let x, y, z;
-  if (hitId === 8 || hitId === 9) {
+  if ((hitId === 8 || hitId === 9) && includeWater) {
     x = r.hit[0];
     y = r.hit[1];
     z = r.hit[2];
