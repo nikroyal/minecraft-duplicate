@@ -933,10 +933,10 @@ export function placeBlock(){
     return;
   }
   const heldId = hotbar[game.selected];
-  const isBucket = (heldId === 144 || heldId === 145);
-  // Always include water in raycast for placeable blocks so the ray hits the water
-  // voxel directly rather than the solid floor beneath it.
-  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"] || isPlaceable(heldId) || (heldId > 0 && BLOCKS[heldId]);
+  // For buckets or Shift-clicking, target liquid voxels directly.
+  // For normal blocks, raycast passes through water to target solid underwater surfaces,
+  // allowing blocks to be placed directly into underwater floor and wall cells!
+  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"];
   const r = raycastVoxel(6, includeWater);
   if(!r) return;
   
