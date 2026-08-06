@@ -180,12 +180,13 @@ export function generateChunk(ch){
     ch.set(10, h + 1, 8, 43);
     const chestKey = `10,${h + 1},8`;
     if (!world.chests[chestKey]) {
-      world.chests[chestKey] = [
+      const starterItems = [
         { id: 20, count: 5 },
         { id: 110, count: 5 },
         { id: 105, count: 1 },
         { id: 7, count: 10 }
       ];
+      world.chests[chestKey] = Array.from({ length: 27 }, (_, i) => starterItems[i] || { id: 0, count: 0 });
     }
   }
 
@@ -1751,21 +1752,29 @@ export function tickWater(){
 export function validateChestState() {
   if (!world.chests) return;
   for (const coords in world.chests) {
-    const slots = world.chests[coords];
+    let slots = world.chests[coords];
     if (!Array.isArray(slots)) {
-      delete world.chests[coords];
-      continue;
+      slots = [];
     }
-    slots.forEach(slot => {
-      if (slot) {
-        if (typeof slot.id !== 'number' || isNaN(slot.id) || slot.id < 0 || slot.id > 255) slot.id = 0;
-        if (typeof slot.count !== 'number' || isNaN(slot.count) || slot.count <= 0) {
-          slot.id = 0;
-          slot.count = 0;
-        } else if (slot.count > 64) {
-          slot.count = 64;
-        }
+    while (slots.length < 27) {
+      slots.push({ id: 0, count: 0 });
+    }
+    if (slots.length > 27) {
+      slots.length = 27;
+    }
+    slots.forEach((slot, idx) => {
+      if (!slot || typeof slot !== 'object') {
+        slots[idx] = { id: 0, count: 0 };
+        return;
+      }
+      if (typeof slot.id !== 'number' || isNaN(slot.id) || slot.id < 0 || slot.id > 255) slot.id = 0;
+      if (typeof slot.count !== 'number' || isNaN(slot.count) || slot.count <= 0) {
+        slot.id = 0;
+        slot.count = 0;
+      } else if (slot.count > 64) {
+        slot.count = 64;
       }
     });
+    world.chests[coords] = slots;
   }
 }
