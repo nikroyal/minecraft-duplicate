@@ -613,6 +613,38 @@ export function findAlternativeRoutes(start, target) {
 //     blocks) from each node to find the real solid surface and place the glow
 //     there instead.
 
+function createDestinationBillboard(name, icon = '📍') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = 'rgba(15, 18, 24, 0.88)';
+  ctx.strokeStyle = '#ffff00';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(8, 8, 496, 112, 24);
+  } else {
+    ctx.rect(8, 8, 496, 112);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.font = 'bold 36px sans-serif';
+  ctx.fillStyle = '#ffff00';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${icon} ${name}`, 256, 64);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(5.0, 1.25, 1.0);
+  return sprite;
+}
+
 export function updatePathTrail(pathNodes) {
   if (!webgl.scene) return;
   clearPathTrail();
@@ -667,8 +699,6 @@ export function updatePathTrail(pathNodes) {
   for (let i = 0; i < visualBlocks.length; i++) {
     const vb = visualBlocks[i];
 
-    // Raycast downward to find the real solid ground surface under this position.
-    // Fixes floating when LOS smoothing skips over terrain of varying height.
     let groundY = vb.y - 1; // fallback: 1 block below feet
     if (!vb.mine) {
       for (let drop = 0; drop <= 4; drop++) {
@@ -701,12 +731,8 @@ export function updatePathTrail(pathNodes) {
       baseOpacity = 0.65;
     }
 
-    // Place a flat glow plane on the TOP SURFACE of the real ground block.
-    // Top face of block at groundY is at world-Y = groundY + 1.
-    // Float 2mm above to avoid z-fighting with the chunk mesh.
     const surfaceY = groundY + 1.002;
 
-    // Each block gets its own geometry (no shared-geo transform issues)
     const geo = new THREE.PlaneGeometry(0.96, 0.96);
     geo.rotateX(-Math.PI / 2); // Lie flat in XZ plane (face +Y)
 
@@ -765,6 +791,11 @@ export function updatePathTrail(pathNodes) {
       const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
       beaconMesh.position.set(vb.x + 0.5, surfaceY + 25, vb.z + 0.5);
       pathMeshGroup.add(beaconMesh);
+
+      // Floating 3D Destination Name Tag Billboard
+      const tagSprite = createDestinationBillboard(activeNavigation?.name || 'Waypoint', activeNavigation?.icon || '📍');
+      tagSprite.position.set(vb.x + 0.5, surfaceY + 3.8, vb.z + 0.5);
+      pathMeshGroup.add(tagSprite);
     }
 
     pathMeshGroup.add(mesh);
@@ -790,23 +821,43 @@ export function updatePathTrail(pathNodes) {
   webgl.scene.add(pathMeshGroup);
 }
 
-/** Drive the glowing block pulsing animation & arrival check — called once per frame from main loop */
+let lastRepathTime = 0;
+
+/** Drive the glowing block pulsing animation & dynamic arrival/repath check — called once per frame from main loop */
 export function tickPathTrail(dt) {
   if (pathMeshGroup && typeof pathMeshGroup._animTick === 'function') {
     pathMeshGroup._animTick(dt);
   }
 
-  // Dynamic arrival check
-  if (activeNavigation && player && player.pos) {
-    const target = activeNavigation;
-    const dx = target.x - player.pos.x;
-    const dy = target.y - player.pos.y;
-    const dz = target.z - player.pos.z;
-    const dist = Math.hypot(dx, dz);
+  if (!activeNavigation || !player || !player.pos) return;
 
-    if (dist < 1.8 && Math.abs(dy) < 3.0) {
-      toast(`🎯 Reached Destination: ${activeNavigation.name || 'Waypoint'}!`);
-      clearActiveNavigation();
+  const target = activeNavigation;
+  const dx = target.x - player.pos.x;
+  const dy = target.y - player.pos.y;
+  const dz = target.z - player.pos.z;
+  const dist = Math.hypot(dx, dz);
+
+  // Dynamic arrival check
+  if (dist < 1.8 && Math.abs(dy) < 3.0) {
+    toast(`🎯 Reached Destination: ${activeNavigation.name || 'Waypoint'}!`);
+    clearActiveNavigation();
+    return;
+  }
+
+  // Dynamic Auto-Repath when player strays > 4.5m off-track
+  const now = performance.now();
+  if (now - lastRepathTime > 2500) {
+    lastRepathTime = now;
+    const startNode = activeNavigation.pathNodes ? activeNavigation.pathNodes[0] : null;
+    if (startNode) {
+      const offTrackDist = Math.hypot(player.pos.x - startNode.x, player.pos.z - startNode.z);
+      if (offTrackDist > 4.5) {
+        const newPath = findPath(player.pos, { x: target.x, y: target.y, z: target.z });
+        if (newPath && newPath.length > 1) {
+          activeNavigation.pathNodes = newPath;
+          updatePathTrail(newPath);
+        }
+      }
     }
   }
 }
