@@ -10,7 +10,7 @@ import {
   updateChunkLoading, processGenBudget, buildAtlas, buildCrackTexture, 
   showCrack, hideCrack, spawnBreakBurst, updateParticles, initParticles,
   disturbWater, tickWater, wkey, setWater, WATER_TICK, queueWater, genQueue,
-  createWaterMaterial
+  createWaterMaterial, getTileDataURL
 } from './world.js';
 import { 
   spawnPlayer, collidesAt, moveAxis, updatePlayer, hurtPlayer, healPlayer, 
@@ -2124,6 +2124,67 @@ export function bootGame() {
   requestAnimationFrame(loop);
 }
 
+const blockTextureCache = new Map();
+
+function getBlockFaceTexture(tileName) {
+  if (typeof document === 'undefined' || !tileName) return null;
+  if (blockTextureCache.has(tileName)) return blockTextureCache.get(tileName);
+
+  const dataUrl = getTileDataURL(tileName);
+  if (!dataUrl) return null;
+
+  const img = new Image();
+  const texture = new THREE.CanvasTexture(img);
+  img.onload = () => { texture.needsUpdate = true; };
+  img.src = dataUrl;
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  blockTextureCache.set(tileName, texture);
+  return texture;
+}
+
+function getBlockMaterials(id) {
+  const block = BLOCKS[id];
+  if (!block) return new THREE.MeshLambertMaterial({ color: 0x8a8a8a });
+
+  let topTile = block.top || block.all;
+  let sideTile = block.side || block.all;
+  let bottomTile = block.bottom || sideTile;
+
+  if (block.ore || !topTile) {
+    const nameLower = (block.name || '').toLowerCase();
+    if (nameLower.includes("diamond")) topTile = sideTile = bottomTile = "diamond_ore";
+    else if (nameLower.includes("coal")) topTile = sideTile = bottomTile = "coal_ore";
+    else if (nameLower.includes("iron")) topTile = sideTile = bottomTile = "iron_ore";
+    else if (nameLower.includes("gold")) topTile = sideTile = bottomTile = "gold_ore";
+    else if (nameLower.includes("redstone")) topTile = sideTile = bottomTile = "redstone_ore";
+    else if (nameLower.includes("cobble")) topTile = sideTile = bottomTile = "cobble";
+    else if (nameLower.includes("plank")) topTile = sideTile = bottomTile = "plank";
+    else if (nameLower.includes("wood") || nameLower.includes("log")) {
+      topTile = "wood_top"; sideTile = "wood_side"; bottomTile = "wood_top";
+    }
+  }
+
+  const createMat = (tileName) => {
+    if (tileName) {
+      const tex = getBlockFaceTexture(tileName);
+      if (tex) return new THREE.MeshLambertMaterial({ map: tex });
+    }
+    const col = block.color || block.all || 0x8a8a8a;
+    return new THREE.MeshLambertMaterial({ color: col });
+  };
+
+  return [
+    createMat(sideTile),   // Right
+    createMat(sideTile),   // Left
+    createMat(topTile),    // Top
+    createMat(bottomTile), // Bottom
+    createMat(sideTile),   // Front
+    createMat(sideTile),   // Back
+  ];
+}
+
 export function createToolMesh(id) {
   const toolGroup = new THREE.Group();
   if (!id || id <= 0) return toolGroup;
@@ -2217,22 +2278,9 @@ export function createToolMesh(id) {
     string.position.set(-0.02, 0.15, 0);
     toolGroup.add(string);
   } else if (BLOCKS[id]) {
-    const block = BLOCKS[id];
-    const topCol = block.top !== undefined ? block.top : (block.all !== undefined ? block.all : color);
-    const sideCol = block.side !== undefined ? block.side : (block.all !== undefined ? block.all : color);
-    const bottomCol = block.bottom !== undefined ? block.bottom : sideCol;
-
-    const mats = [
-      new THREE.MeshLambertMaterial({ color: sideCol }),   // Right
-      new THREE.MeshLambertMaterial({ color: sideCol }),   // Left
-      new THREE.MeshLambertMaterial({ color: topCol }),    // Top
-      new THREE.MeshLambertMaterial({ color: bottomCol }), // Bottom
-      new THREE.MeshLambertMaterial({ color: sideCol }),   // Front
-      new THREE.MeshLambertMaterial({ color: sideCol }),   // Back
-    ];
-    const blockMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), mats);
-    blockMesh.position.set(0, 0.06, 0);
-    blockMesh.rotation.set(0.2, 0.4, 0);
+    const mats = getBlockMaterials(id);
+    const blockMesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.14), mats);
+    blockMesh.position.set(0, 0, 0);
     toolGroup.add(blockMesh);
   } else {
     const itemMesh = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), mat);
@@ -2364,36 +2412,46 @@ export function updateHeldItemMesh() {
       else c.material.dispose();
     }
   }
-  
-  // 1. Render Player Sleeve & Hand in First-Person View
+
   const avatar = player.avatar || { shirtColor: "#008080", skinColor: "#dfcfb7" };
   const shirtMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.shirtColor || "#008080") });
   const skinMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.skinColor || "#dfcfb7") });
 
-  // Sleeve
-  const sleeveMesh = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.18), shirtMat);
-  sleeveMesh.position.set(0, -0.02, 0.06);
+  // 1. Human Forearm / Sleeve
+  const sleeveGeo = new THREE.BoxGeometry(0.10, 0.10, 0.28);
+  const sleeveMesh = new THREE.Mesh(sleeveGeo, shirtMat);
+  sleeveMesh.position.set(0.04, -0.04, 0.08);
+  sleeveMesh.rotation.set(0.15, -0.2, 0.1);
   webgl.heldGroup.add(sleeveMesh);
 
-  // Hand
-  const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.075, 0.10), skinMat);
-  handMesh.position.set(0, -0.02, -0.06);
+  // 2. Human Hand / Wrist
+  const handGeo = new THREE.BoxGeometry(0.088, 0.088, 0.12);
+  const handMesh = new THREE.Mesh(handGeo, skinMat);
+  handMesh.position.set(0.02, -0.03, -0.10);
+  handMesh.rotation.set(0.15, -0.2, 0.1);
   webgl.heldGroup.add(handMesh);
 
-  // 2. Render Held 3D Tool / Item / Block in Hand
+  // 3. Render Held 3D Item or Block in Palm
   if (currentSelectedId > 0) {
     const tool3D = createToolMesh(currentSelectedId);
     if (BLOCKS[currentSelectedId]) {
-      tool3D.position.set(0.02, 0.02, -0.12);
-      tool3D.rotation.set(0.1, -0.2, 0.1);
+      // 3D Block in Hand (Isometric perspective)
+      tool3D.position.set(0.02, 0.03, -0.18);
+      tool3D.rotation.set(0.25, 0.55, -0.1);
     } else {
-      tool3D.position.set(0.02, -0.02, -0.12);
-      tool3D.rotation.set(-0.2, -0.3, 0.1);
+      // 3D Tool in Hand
+      tool3D.position.set(0.02, -0.04, -0.18);
+      tool3D.rotation.set(-0.15, -0.35, 0.15);
     }
     webgl.heldGroup.add(tool3D);
   }
-  
-  webgl.heldGroup.position.set(0.24, -0.22, -0.38);
+
+  // Idle Sway Animation
+  const time = performance.now() * 0.002;
+  const bobY = Math.sin(time * 2) * 0.006;
+  const bobX = Math.cos(time) * 0.004;
+
+  webgl.heldGroup.position.set(0.26 + bobX, -0.22 + bobY, -0.38);
 
   if (player.swingProgress > 0) {
     const phase = player.swingProgress;
@@ -2403,7 +2461,6 @@ export function updateHeldItemMesh() {
     webgl.heldGroup.rotation.set(0, 0, 0);
   }
 
-  // Refresh 3D armor and 3rd person held tools on local player mesh
   if (webgl.playerMesh) {
     updatePlayerArmorMesh(webgl.playerMesh, player.armor);
     updatePlayerRightHandTool(webgl.playerMesh, currentSelectedId);
