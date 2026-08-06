@@ -934,6 +934,7 @@ export function placeBlock(){
     toast("⚠️ Build Lockdown Active: World edits restricted by Admin.");
     return;
   }
+  const heldId = hotbar[game.selected];
   const isBucket = (heldId === 144 || heldId === 145);
   const isLilyPad = (heldId === 139);
   // ONLY Buckets and LilyPads target water surfaces directly.
