@@ -1,30 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { capturedErrors, subscribeErrors, clearCapturedErrors } from '../errorLog.js';
+import { capturedLogs, subscribeLogs, clearCapturedLogs, getSystemTelemetry } from '../errorLog.js';
 
 export default function ErrorConsoleModal({ onClose }) {
-  const [errors, setErrors] = useState([...capturedErrors]);
+  const [logs, setLogs] = useState([...capturedLogs]);
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'error' | 'warn' | 'network' | 'telemetry'
   const [copied, setCopied] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
-    return subscribeErrors((latest) => {
-      setErrors([...latest]);
+    return subscribeLogs((latest) => {
+      setLogs([...latest]);
     });
   }, []);
 
-  const handleCopy = () => {
-    if (errors.length === 0) return;
-    const text = errors.map(e => `[${e.timestamp}] [${e.source}] ${e.message}\n${e.stack ? e.stack + '\n' : ''}`).join('\n---\n');
-    navigator.clipboard.writeText(text).then(() => {
+  const counts = {
+    all: logs.length,
+    error: logs.filter(l => l.type === 'error').length,
+    warn: logs.filter(l => l.type === 'warn').length,
+    network: logs.filter(l => l.type === 'network').length,
+    telemetry: logs.filter(l => l.type === 'telemetry').length,
+  };
+
+  const filteredLogs = logs.filter(l => {
+    if (activeTab === 'all') return true;
+    return l.type === activeTab;
+  });
+
+  const handleCopyDiagnostics = () => {
+    const sys = getSystemTelemetry();
+    let report = `### 🐞 GAME DIAGNOSTICS & TELEMETRY REPORT\n`;
+    report += `**Time**: ${new Date().toLocaleString()}\n`;
+    report += `**UserAgent**: ${sys.userAgent || 'N/A'}\n`;
+    report += `**Viewport**: ${sys.viewportWidth}x${sys.viewportHeight} (Ratio: ${sys.devicePixelRatio})\n`;
+    report += `**Memory**: ${typeof sys.memory === 'object' ? `${sys.memory.usedJSHeapSize} / ${sys.memory.totalJSHeapSize}` : 'N/A'}\n`;
+    report += `**Network**: ${sys.online ? 'Online 🟢' : 'Offline 🔴'}\n\n`;
+
+    report += `### LOGS & STACK TRACES (${logs.length}):\n`;
+    logs.forEach((l, idx) => {
+      report += `${idx + 1}. [${l.timestamp}] [${l.type.toUpperCase()}] [${l.source}]: ${l.message}\n`;
+      if (l.details) report += `   Details/Stack:\n${l.details.split('\n').map(line => '   ' + line).join('\n')}\n`;
+    });
+
+    navigator.clipboard.writeText(report).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
   };
 
+  const telemetryData = getSystemTelemetry();
+
   return (
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: 'rgba(0, 0, 0, 0.75)',
+      background: 'rgba(0, 0, 0, 0.80)',
       backdropFilter: 'blur(8px)',
       zIndex: 9999,
       display: 'flex',
@@ -35,14 +64,14 @@ export default function ErrorConsoleModal({ onClose }) {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '750px',
-        maxHeight: '85vh',
-        background: '#12100d',
-        border: '1px solid #ff4d4d',
+        maxWidth: '850px',
+        maxHeight: '88vh',
+        background: '#100d0a',
+        border: '1px solid rgba(242, 217, 160, 0.3)',
         borderRadius: '12px',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 8px 32px rgba(255, 77, 77, 0.25)',
+        boxShadow: '0 8px 36px rgba(0,0,0,0.8)',
         overflow: 'hidden',
         color: '#f0e6cc',
         fontFamily: 'monospace',
@@ -50,19 +79,21 @@ export default function ErrorConsoleModal({ onClose }) {
         {/* Header */}
         <div style={{
           padding: '14px 20px',
-          background: 'rgba(255, 77, 77, 0.12)',
-          borderBottom: '1px solid rgba(255, 77, 77, 0.3)',
+          background: 'rgba(30, 24, 18, 0.95)',
+          borderBottom: '1px solid rgba(242, 217, 160, 0.2)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '18px' }}>🐞</span>
+            <span style={{ fontSize: '20px' }}>🐞</span>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 800, color: '#ff4d4d', letterSpacing: '1px' }}>
-                IN-GAME ERROR CONSOLE ({errors.length})
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#f2d9a0', letterSpacing: '1px' }}>
+                DEVTOOLS CONSOLE & SYSTEM TELEMETRY INSPECTOR
               </div>
-              <div style={{ fontSize: '10px', color: '#aaa' }}>
+              <div style={{ fontSize: '9px', color: '#a89880' }}>
                 Press F9 or ` ~ ` anytime to toggle mid-game
               </div>
             </div>
@@ -70,33 +101,31 @@ export default function ErrorConsoleModal({ onClose }) {
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              onClick={handleCopy}
-              disabled={errors.length === 0}
+              onClick={handleCopyDiagnostics}
               style={{
-                background: copied ? '#39ff14' : '#ff4d4d',
-                color: copied ? '#000' : '#fff',
+                background: copied ? '#39ff14' : '#f2d9a0',
+                color: '#000',
                 border: 'none',
                 borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '11px',
-                fontWeight: 'bold',
+                padding: '6px 14px',
+                fontSize: '10px',
+                fontWeight: 800,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
             >
-              {copied ? '✓ COPIED TO CLIPBOARD' : '📋 COPY ERRORS FOR AI'}
+              {copied ? '✓ DIAGNOSTICS COPIED!' : '📋 COPY FULL DIAGNOSTICS FOR AI'}
             </button>
 
             <button
-              onClick={clearCapturedErrors}
-              disabled={errors.length === 0}
+              onClick={clearCapturedLogs}
               style={{
-                background: 'rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.08)',
                 color: '#ccc',
-                border: '1px solid rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.15)',
                 borderRadius: '6px',
                 padding: '6px 10px',
-                fontSize: '11px',
+                fontSize: '10px',
                 cursor: 'pointer',
               }}
             >
@@ -111,7 +140,7 @@ export default function ErrorConsoleModal({ onClose }) {
                 border: 'none',
                 borderRadius: '6px',
                 padding: '6px 12px',
-                fontSize: '12px',
+                fontSize: '11px',
                 fontWeight: 'bold',
                 cursor: 'pointer',
               }}
@@ -121,69 +150,144 @@ export default function ErrorConsoleModal({ onClose }) {
           </div>
         </div>
 
-        {/* Error List */}
+        {/* System Telemetry Quick Strip */}
+        <div style={{
+          background: 'rgba(20, 16, 12, 0.9)',
+          borderBottom: '1px solid rgba(242, 217, 160, 0.15)',
+          padding: '8px 20px',
+          display: 'flex',
+          gap: '16px',
+          fontSize: '9px',
+          color: '#c8b896',
+          flexWrap: 'wrap',
+        }}>
+          <span>🌐 <strong>Status</strong>: {telemetryData.online ? 'Online 🟢' : 'Offline 🔴'}</span>
+          <span>🖥️ <strong>Viewport</strong>: {telemetryData.viewportWidth}×{telemetryData.viewportHeight} (@{telemetryData.devicePixelRatio}x)</span>
+          {typeof telemetryData.memory === 'object' && (
+            <span>💾 <strong>Memory Heap</strong>: {telemetryData.memory.usedJSHeapSize} / {telemetryData.memory.totalJSHeapSize}</span>
+          )}
+        </div>
+
+        {/* Tab Selector */}
+        <div style={{
+          display: 'flex',
+          background: 'rgba(15, 12, 8, 0.9)',
+          borderBottom: '1px solid rgba(242, 217, 160, 0.15)',
+          padding: '0 20px',
+          gap: '4px',
+        }}>
+          {[
+            { key: 'all', label: 'ALL LOGS', count: counts.all, color: '#f2d9a0' },
+            { key: 'error', label: 'ERRORS', count: counts.error, color: '#ff4d4d' },
+            { key: 'warn', label: 'WARNINGS', count: counts.warn, color: '#ffb830' },
+            { key: 'network', label: 'NETWORK', count: counts.network, color: '#3897f0' },
+            { key: 'telemetry', label: 'TELEMETRY', count: counts.telemetry, color: '#39ff14' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: '10px',
+                fontWeight: activeTab === tab.key ? 800 : 400,
+                color: activeTab === tab.key ? tab.color : '#8a7a60',
+                background: activeTab === tab.key ? 'rgba(40,32,22,0.8)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === tab.key ? `2px solid ${tab.color}` : '2px solid transparent',
+                padding: '8px 12px',
+                cursor: 'pointer',
+              }}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
+        </div>
+
+        {/* Log Stream Area */}
         <div style={{
           flex: 1,
           overflowY: 'auto',
           padding: '16px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
-          background: '#0a0907',
+          gap: '8px',
+          background: '#070605',
         }}>
-          {errors.length === 0 ? (
+          {filteredLogs.length === 0 ? (
             <div style={{
               padding: '40px 20px',
               textAlign: 'center',
-              color: '#39ff14',
-              fontSize: '13px',
-              fontWeight: 'bold',
-              background: 'rgba(57, 255, 20, 0.05)',
-              borderRadius: '8px',
-              border: '1px dashed rgba(57, 255, 20, 0.3)',
+              color: '#8a7a60',
+              fontSize: '11px',
+              fontStyle: 'italic',
             }}>
-              ✓ No runtime or UI errors detected! Game is running smoothly.
+              No logs recorded in this category yet.
             </div>
           ) : (
-            errors.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  background: 'rgba(255, 77, 77, 0.08)',
-                  border: '1px solid rgba(255, 77, 77, 0.3)',
-                  borderRadius: '6px',
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#ff8888' }}>
-                  <span>SOURCE: {item.source}</span>
-                  <span>{item.timestamp}</span>
-                </div>
+            filteredLogs.map((item) => {
+              const typeColors = {
+                error: { bg: 'rgba(255, 77, 77, 0.1)', border: '#ff4d4d', tag: '🔴 ERROR' },
+                warn: { bg: 'rgba(255, 184, 48, 0.1)', border: '#ffb830', tag: '⚠️ WARN' },
+                info: { bg: 'rgba(214, 178, 120, 0.08)', border: '#d6b278', tag: 'ℹ️ INFO' },
+                network: { bg: 'rgba(56, 151, 240, 0.1)', border: '#3897f0', tag: '🌐 NET' },
+                telemetry: { bg: 'rgba(57, 255, 20, 0.1)', border: '#39ff14', tag: '📊 TELEMETRY' },
+              };
+              const styleConfig = typeColors[item.type] || typeColors.info;
+              const isExpanded = expandedId === item.id;
 
-                <div style={{ fontSize: '12px', color: '#ffaaaa', fontWeight: 700, wordBreak: 'break-word' }}>
-                  {item.message}
-                </div>
-
-                {item.stack && (
-                  <pre style={{
-                    margin: 0,
-                    padding: '8px',
-                    background: 'rgba(0,0,0,0.6)',
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                  style={{
+                    background: styleConfig.bg,
+                    borderLeft: `3px solid ${styleConfig.border}`,
+                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                    borderRight: '1px solid rgba(255,255,255,0.05)',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
                     borderRadius: '4px',
-                    fontSize: '10px',
-                    color: '#888',
-                    overflowX: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}>
-                    {item.stack}
-                  </pre>
-                )}
-              </div>
-            ))
+                    padding: '8px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    transition: 'background 0.1s',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', opacity: 0.8 }}>
+                    <span style={{ fontWeight: 'bold', color: styleConfig.border }}>{styleConfig.tag} • [{item.source}]</span>
+                    <span>{item.timestamp}</span>
+                  </div>
+
+                  <div style={{ fontSize: '11px', color: '#f0e6cc', fontWeight: 600, wordBreak: 'break-word' }}>
+                    {item.message}
+                  </div>
+
+                  {item.details && (
+                    <div>
+                      <div style={{ fontSize: '8px', color: '#a09075', marginTop: '2px' }}>
+                        {isExpanded ? '▼ Hide Stack / Details' : '▶ Click to expand stack trace / details'}
+                      </div>
+                      {isExpanded && (
+                        <pre style={{
+                          margin: '6px 0 0 0',
+                          padding: '8px',
+                          background: 'rgba(0,0,0,0.7)',
+                          borderRadius: '4px',
+                          fontSize: '9px',
+                          color: '#ccc',
+                          overflowX: 'auto',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}>
+                          {item.details}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
