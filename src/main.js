@@ -941,7 +941,10 @@ export function placeBlock(){
   // ALL OTHER BLOCKS raycast THROUGH liquids to target the solid underwater floor/wall your crosshair points at!
   const includeWater = isBucket || isLilyPad;
   const r = raycastVoxel(6, includeWater);
-  if(!r) return;
+  if(!r) {
+    toast("No target in range (max 6 blocks)");
+    return;
+  }
   
   // Intercept right click container interaction
   const hitBlockId = getBlock(r.hit[0], r.hit[1], r.hit[2]);
@@ -1152,6 +1155,7 @@ export function placeBlock(){
   playPlaceSound(id);
   updateAfterEdit(x, y, z);
   disturbWater(x, y, z);
+  toast(`Placed ${thingName(id)}!`);
 
   // Architect placement achievement (Chest block ID: 43)
   if (id === 43) {
