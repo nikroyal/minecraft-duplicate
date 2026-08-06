@@ -163,12 +163,18 @@ export default function HUDOverlay({
       {/* ── Top-Center GPS Target Navigation HUD ── */}
       {activeNavigation && player && player.pos && (() => {
         const nav = activeNavigation;
-        const dx = nav.x - player.pos.x;
-        const dz = nav.z - player.pos.z;
+        const tx = nav.targetPos?.x ?? nav.x;
+        const tz = nav.targetPos?.z ?? nav.z;
+        if (tx === undefined || tz === undefined) return null;
+
+        const dx = tx - player.pos.x;
+        const dz = tz - player.pos.z;
         const navDist = Math.round(Math.hypot(dx, dz));
         const angle = (Math.atan2(dx, -dz) * 180 / Math.PI + 360) % 360;
         const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
         const navHeading = dirs[Math.floor((angle + 22.5) / 45) % 8];
+        const name = nav.targetName || nav.name || 'Waypoint';
+        const icon = nav.targetIcon || nav.icon || '📍';
 
         return (
           <div style={{
@@ -191,10 +197,10 @@ export default function HUDOverlay({
             fontSize: '11px',
             userSelect: 'none',
           }}>
-            <span style={{ fontSize: '15px' }}>{nav.icon || '📍'}</span>
+            <span style={{ fontSize: '15px' }}>{icon}</span>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontWeight: 800, color: '#39ff14', letterSpacing: '0.5px' }}>
-                GPS: {nav.name || 'Waypoint'}
+                GPS: {name}
               </span>
               <span style={{ fontSize: '9px', color: '#c8b896' }}>
                 📏 {navDist}m away • 🧭 Heading {navHeading}

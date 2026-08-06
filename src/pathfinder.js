@@ -9,8 +9,29 @@ export let activeNavigation = null;
 let pathMeshGroup = null;
 
 export function setActiveNavigation(navObj) {
-  activeNavigation = navObj;
-  if (!navObj) clearPathTrail();
+  if (!navObj) {
+    activeNavigation = null;
+    clearPathTrail();
+    return;
+  }
+
+  const tx = navObj.targetPos?.x ?? navObj.x ?? 0;
+  const ty = navObj.targetPos?.y ?? navObj.y ?? 64;
+  const tz = navObj.targetPos?.z ?? navObj.z ?? 0;
+  const name = navObj.targetName || navObj.name || 'Waypoint';
+  const icon = navObj.targetIcon || navObj.icon || '📍';
+
+  activeNavigation = {
+    ...navObj,
+    x: tx,
+    y: ty,
+    z: tz,
+    targetPos: { x: tx, y: ty, z: tz },
+    name,
+    targetName: name,
+    icon,
+    targetIcon: icon,
+  };
 }
 
 export function clearActiveNavigation() {
@@ -831,15 +852,20 @@ export function tickPathTrail(dt) {
 
   if (!activeNavigation || !player || !player.pos) return;
 
-  const target = activeNavigation;
-  const dx = target.x - player.pos.x;
-  const dy = target.y - player.pos.y;
-  const dz = target.z - player.pos.z;
+  const tx = activeNavigation.targetPos?.x ?? activeNavigation.x;
+  const ty = activeNavigation.targetPos?.y ?? activeNavigation.y;
+  const tz = activeNavigation.targetPos?.z ?? activeNavigation.z;
+
+  if (tx === undefined || ty === undefined || tz === undefined) return;
+
+  const dx = tx - player.pos.x;
+  const dy = ty - player.pos.y;
+  const dz = tz - player.pos.z;
   const dist = Math.hypot(dx, dz);
 
   // Dynamic arrival check
   if (dist < 1.8 && Math.abs(dy) < 3.0) {
-    toast(`🎯 Reached Destination: ${activeNavigation.name || 'Waypoint'}!`);
+    toast(`🎯 Reached Destination: ${activeNavigation.name || activeNavigation.targetName || 'Waypoint'}!`);
     clearActiveNavigation();
     return;
   }
@@ -849,10 +875,10 @@ export function tickPathTrail(dt) {
   if (now - lastRepathTime > 2500) {
     lastRepathTime = now;
     const startNode = activeNavigation.pathNodes ? activeNavigation.pathNodes[0] : null;
-    if (startNode) {
+    if (startNode && Number.isFinite(startNode.x) && Number.isFinite(startNode.z)) {
       const offTrackDist = Math.hypot(player.pos.x - startNode.x, player.pos.z - startNode.z);
       if (offTrackDist > 4.5) {
-        const newPath = findPath(player.pos, { x: target.x, y: target.y, z: target.z });
+        const newPath = findPath(player.pos, { x: tx, y: ty, z: tz });
         if (newPath && newPath.length > 1) {
           activeNavigation.pathNodes = newPath;
           updatePathTrail(newPath);
