@@ -1888,8 +1888,9 @@ export function bootGame() {
     // CRITICAL: Ignore mousedown when game is paused, dead, not running, menu open, or target is UI element!
     if (player.dead || !game.running || game.paused || isMenuOpen()) return;
 
-    const isCanvas = (e.target === webgl.renderer?.domElement || e.target.id === 'game' || e.target.tagName === 'CANVAS');
-    if (!isCanvas) return;
+    const isLocked = Boolean(document.pointerLockElement);
+    const isCanvas = (e.target === webgl.renderer?.domElement || e.target.id === 'game' || e.target.tagName === 'CANVAS' || e.target === document.body);
+    if (!isLocked && !isCanvas) return;
 
     if(document.pointerLockElement !== webgl.renderer.domElement){
       // Click on canvas when pointer not locked: re-acquire lock
