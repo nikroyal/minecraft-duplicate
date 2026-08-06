@@ -676,7 +676,7 @@ function updateMining(dt){
 
 function completeMine(x, y, z, id){
   spawnBreakBurst(x, y, z, id);
-  setBlock(x, y, z, 0, true, scheduleSave);
+  setBlock(x, y, z, 0, false, scheduleSave);
   mining.active = false; mining.progress = 0; hideCrack();
 
   // ── Immediate underwater fill ─────────────────────────────────────────────
@@ -816,7 +816,7 @@ function checkLeafDecayAround(x, y, z) {
             }
           }
           if (!hasLog) {
-            setBlock(lx, ly, lz, 0, true, scheduleSave);
+            setBlock(lx, ly, lz, 0, false, scheduleSave);
             spawnBreakBurst(lx, ly, lz, 6);
             if (Math.random() < 0.12) {
               spawnItemDrop(Math.random() < 0.5 ? 130 : 138, 1, lx + 0.5, ly + 0.5, lz + 0.5); // Apple or Sapling
@@ -851,7 +851,7 @@ function tickCrops(dt) {
     const belowId = getBlock(cx, cy - 1, cz);
     if (belowId !== 89) {
       delete crops[key];
-      setBlock(cx, cy, cz, 0, true, scheduleSave);
+      setBlock(cx, cy, cz, 0, false, scheduleSave);
       updateAfterEdit(cx, cy, cz);
       changed = true;
       return;
@@ -881,12 +881,12 @@ function tickCrops(dt) {
     // Stage 1 -> 2: needs 15 growth points
     // Stage 2 -> 3: needs 30 growth points
     if (id === 90 && crop.timer >= 15) {
-      setBlock(cx, cy, cz, 91, true, scheduleSave);
+      setBlock(cx, cy, cz, 91, false, scheduleSave);
       updateAfterEdit(cx, cy, cz);
       crop.timer = 0;
       changed = true;
     } else if (id === 91 && crop.timer >= 30) {
-      setBlock(cx, cy, cz, 92, true, scheduleSave);
+      setBlock(cx, cy, cz, 92, false, scheduleSave);
       updateAfterEdit(cx, cy, cz);
       crop.timer = 0;
       changed = true;
@@ -947,7 +947,7 @@ export function placeBlock(){
   }
   if(hitBlockId === 56){ // TNT Block right-click ignite
     spawnPrimedTnt(r.hit[0], r.hit[1], r.hit[2]);
-    setBlock(r.hit[0], r.hit[1], r.hit[2], 0, true, scheduleSave);
+    setBlock(r.hit[0], r.hit[1], r.hit[2], 0, false, scheduleSave);
     updateAfterEdit(r.hit[0], r.hit[1], r.hit[2]);
     playHissSound();
     toast("TNT Primed!");
@@ -987,7 +987,7 @@ export function placeBlock(){
   if (heldId > 0 && ITEMS[heldId] && ITEMS[heldId].tool === "hoe") {
     if (hitBlockId === 1 || hitBlockId === 2) {
       const [hx, hy, hz] = r.hit;
-      setBlock(hx, hy, hz, 89, true, scheduleSave);
+      setBlock(hx, hy, hz, 89, false, scheduleSave);
       playPlaceSound(2); // dirt sound
       updateAfterEdit(hx, hy, hz);
       
@@ -1015,7 +1015,7 @@ export function placeBlock(){
       const [hx, hy, hz] = r.hit;
       const plantY = hy + 1;
       if (getBlock(hx, plantY, hz) === 0) {
-        setBlock(hx, plantY, hz, 90, true, scheduleSave);
+        setBlock(hx, plantY, hz, 90, false, scheduleSave);
         playPlaceSound(1); // grass-like sound
         updateAfterEdit(hx, plantY, hz);
         
@@ -1041,7 +1041,7 @@ export function placeBlock(){
       const [bx, by, bz] = r.prev;
       const cur = getBlock(bx, by, bz);
       if (cur === 0 || cur === 9) {
-        setBlock(bx, by, bz, 8, true, scheduleSave);
+        setBlock(bx, by, bz, 8, false, scheduleSave);
         setWater(bx, by, bz, 0); // source water
         if (game.survival) {
           removeItem(145, 1);     // consume water bucket
@@ -1059,7 +1059,7 @@ export function placeBlock(){
       const [hx, hy, hz] = r.hit;
       const hitId = getBlock(hx, hy, hz);
       if (hitId === 8) {
-        setBlock(hx, hy, hz, 0, true, scheduleSave);
+        setBlock(hx, hy, hz, 0, false, scheduleSave);
         if (game.survival) {
           removeItem(144, 1);     // consume empty bucket
           addItem(145, 1);        // get water bucket
@@ -1099,7 +1099,7 @@ export function placeBlock(){
   if(intersects){ toast("too close — step back"); return; }
   
   if(id === 8){ // Water block id
-    setBlock(x, y, z, 8, true, scheduleSave);
+    setBlock(x, y, z, 8, false, scheduleSave);
     setWater(x, y, z, undefined); // source
     playPlaceSound(id);
     updateAfterEdit(x, y, z);
@@ -1107,7 +1107,7 @@ export function placeBlock(){
     return;
   }
   
-  setBlock(x, y, z, id, true, scheduleSave);
+  setBlock(x, y, z, id, false, scheduleSave);
   if(game.survival){ removeItem(id, 1); }
   playPlaceSound(id);
   updateAfterEdit(x, y, z);

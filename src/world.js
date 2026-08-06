@@ -1593,7 +1593,7 @@ export function triggerWorldExplosion(ex, ey, ez, radius, scheduleSaveCallback) 
         if (blockId === 0 || blockId === 30) continue; // Bedrock (obsidian) is unbreakable
         
         // Destroy block
-        setBlock(wx, wy, wz, 0, true, scheduleSaveCallback);
+        setBlock(wx, wy, wz, 0, false, scheduleSaveCallback);
         spawnBreakBurst(wx, wy, wz, blockId);
         disturbWater(wx, wy, wz);
         

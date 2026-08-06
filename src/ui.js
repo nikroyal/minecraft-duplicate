@@ -306,10 +306,20 @@ export function loadWorld() {
     // Load exclusively from cloud payload buffer (sessionStorage / in-memory window)
     const rawPending = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('cloud_save_pending') : null;
     const p = rawPending ? JSON.parse(rawPending) : (window.__cloudWorldData || null);
-    if (!p) return false;
-    world.edits = p.edits || {};
-    world.chests = p.chests || {};
-    world.furnaces = p.furnaces || {};
+    const normalizeKeys = (obj) => {
+      if (!obj || typeof obj !== 'object') return {};
+      const res = {};
+      for (const k in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, k)) {
+          const safeKey = String(k).replace(/_/g, ',');
+          res[safeKey] = obj[k];
+        }
+      }
+      return res;
+    };
+    world.edits = normalizeKeys(p.edits);
+    world.chests = normalizeKeys(p.chests);
+    world.furnaces = normalizeKeys(p.furnaces);
     if (p.inventory && typeof p.inventory === 'object') Object.assign(inventory, p.inventory);
     if (Array.isArray(p.hotbar) && p.hotbar.length === 8) {
       for (let i = 0; i < 8; i++) hotbar[i] = p.hotbar[i];

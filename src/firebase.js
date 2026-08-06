@@ -232,7 +232,7 @@ function sanitizePayload(obj) {
     if (Object.prototype.hasOwnProperty.call(obj, k)) {
       const keyStr = String(k);
       if (keyStr === '__proto__' || keyStr === 'constructor' || keyStr === 'prototype') continue;
-      const safeKey = keyStr.replace(/\./g, '_');
+      const safeKey = keyStr.replace(/[.,]/g, '_');
       const val = obj[k];
       clean[safeKey] = val === undefined ? null : sanitizePayload(val);
     }
