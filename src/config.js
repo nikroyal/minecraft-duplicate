@@ -89,6 +89,26 @@ export const BLOCKS = {
   55:{ name: "Black Wool",  all:0x2a2a2a, solid:true, hardness:0.8 },
   56:{ name: "TNT",         top:0xd83030, side:0xd84030, bottom:0x9a2020, solid:true, hardness:0.1 },
   57:{ name: "Bed",         top:0xd83030, side:0xe8e8e8, bottom:0x8a5a2a, solid:true, hardness:0.2 },
+
+  // === Redstone & Automation Blocks ===
+  60:{ name: "Redstone Wire",   all:0xd81818, solid:false, alpha:true, cutout:true, hardness:0.1, redstone:true },
+  61:{ name: "Redstone Torch",  all:0xff4444, solid:false, alpha:true, cutout:true, hardness:0.1, light:7, redstone:true },
+  62:{ name: "Redstone Block",  all:0xd81818, solid:true, hardness:2.0, redstone:true, power:15 },
+  63:{ name: "Piston",          top:0x9a7040, side:0x6a6a6a, bottom:0x5a5a5a, solid:true, hardness:1.5, mechanical:true },
+  64:{ name: "Sticky Piston",   top:0x5a7a3f, side:0x6a6a6a, bottom:0x5a5a5a, solid:true, hardness:1.5, mechanical:true },
+  65:{ name: "Piston Head",      top:0x9a7040, side:0x5a4a34, bottom:0x5a4a34, solid:true, hardness:1.5 },
+  66:{ name: "Lever",           all:0x7a6a5a, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  67:{ name: "Stone Button",    all:0x8a8a8a, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  68:{ name: "Wooden Pressure Plate", all:0xb08a52, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  69:{ name: "Stone Pressure Plate",  all:0x8a8a8a, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  70:{ name: "Redstone Repeater", all:0x9a9a9a, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  71:{ name: "Redstone Comparator", all:0x9a9a9a, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  72:{ name: "Dispenser",       top:0x6a6a6a, side:0x5a5a5a, bottom:0x5a5a5a, solid:true, hardness:3.5, station:"dispenser" },
+  73:{ name: "Dropper",         top:0x6a6a6a, side:0x5a5a5a, bottom:0x5a5a5a, solid:true, hardness:3.5, station:"dropper" },
+  74:{ name: "Daylight Sensor",  top:0xb08a52, side:0x5a5a5a, bottom:0x5a5a5a, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  75:{ name: "Tripwire Hook",   all:0x7a7a7a, solid:false, alpha:true, cutout:true, hardness:0.2, redstone:true },
+  76:{ name: "Redstone Ore",    all:0x8a8a8a, solid:true, hardness:3.0, ore:true },
+
   89:{ name: "Farmland",    top:0x5c4033, side:0x6b4f34, bottom:0x6b4f34, solid:true, hardness:0.6 },
   90:{ name: "Wheat Crop (Seeded)", all:0x7a6a4a, solid:false, alpha:true, cutout:true, hardness:0.1 },
   91:{ name: "Wheat Crop (Growing)", all:0x6aa84f, solid:false, alpha:true, cutout:true, hardness:0.1 },
@@ -143,6 +163,7 @@ export const ITEMS = {
   147: { name: "Arrow",         color: 0xd8d8d8 },
   148: { name: "Gunpowder",     color: 0x4a4a4a },
   150: { name: "Heart",         color: 0xff2244, food: 0, heal: 4 },
+  151: { name: "Redstone Dust", color: 0xd81818 },
 };
 
 for (const id in ITEMS) {
@@ -297,6 +318,23 @@ export const RECIPES = [];
   R({117:3,7:6},44,1,"Bookshelf","3 Books + 6 Planks → Bookshelf");
   R({100:7},45,3,"Ladder","7 Sticks → 3 Ladders");
   R({9:6},49,16,"Glass Pane","6 Glass → 16 Panes");
+
+  // === Redstone Recipes ===
+  R({100:1,151:1},61,4,"Redstone Torch","Stick + Redstone Dust → 4 Redstone Torches");
+  R({151:9},62,1,"Redstone Block","9 Redstone Dust → 1 Redstone Block");
+  R({62:1},151,9,"Redstone Dust","1 Redstone Block → 9 Redstone Dust");
+  R({100:1,15:1},66,1,"Lever","Stick + Cobble → Lever");
+  R({3:1,151:1},67,1,"Stone Button","1 Stone + 1 Redstone Dust → Stone Button");
+  R({7:2,151:1},68,1,"Wooden Pressure Plate","2 Planks + 1 Redstone Dust → Wooden Pressure Plate");
+  R({3:2},69,1,"Stone Pressure Plate","2 Stone → Stone Pressure Plate");
+  R({7:3,15:4,102:1,151:1},63,1,"Piston","3 Planks + 4 Cobble + 1 Iron Ingot + 1 Redstone Dust → Piston");
+  R({63:1,28:1},64,1,"Sticky Piston","Piston + Clay → Sticky Piston");
+  R({61:2,151:1,40:3},70,1,"Redstone Repeater","2 Redstone Torches + 1 Redstone Dust + 3 Smooth Stone → Repeater");
+  R({61:3,62:1,40:3},71,1,"Redstone Comparator","3 Redstone Torches + 1 Redstone Block + 3 Smooth Stone → Comparator");
+  R({15:7,146:1,151:1},72,1,"Dispenser","7 Cobble + 1 Bow + 1 Redstone Dust → Dispenser");
+  R({15:7,151:1},73,1,"Dropper","7 Cobble + 1 Redstone Dust → Dropper");
+  R({9:3,3:3,7:3},74,1,"Daylight Sensor","3 Glass + 3 Stone + 3 Planks → Daylight Sensor");
+  R({102:1,100:1,7:1},75,2,"Tripwire Hook","1 Iron Ingot + 1 Stick + 1 Plank → 2 Tripwire Hooks");
 
   R({102:9},46,1,"Iron Block","9 Iron Ingots → Iron Block");
   R({103:9},47,1,"Gold Block","9 Gold Ingots → Gold Block");

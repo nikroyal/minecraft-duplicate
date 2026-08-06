@@ -24,6 +24,9 @@ import {
   MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob 
 } from './mobs.js';
 import { 
+  tickRedstone, toggleLever, pressButton, cycleRepeaterDelay, toggleComparatorMode 
+} from './redstone.js';
+import { 
   initUI, toast, updateHUD, updateClock, updateStatsHUD, flashDamage, 
   showDeathScreen, hideDeathScreen, buildHotbar, selectSlot, refreshCounts, 
   openCraft, closeCraft, closeChest, closeFurnace, craft, saveWorld, scheduleSave, loadWorld, getCraftOpen,
@@ -74,7 +77,11 @@ export function spawnItemDrop(id, count, x, y, z) {
   }
 
   const safeCount = Math.min(64, Math.floor(count));
-  if (typeof window !== 'undefined') window.__spawnItemDrop = spawnItemDrop;
+  if (typeof window !== 'undefined') {
+    window.__spawnItemDrop = spawnItemDrop;
+    window.__spawnPrimedTnt = spawnPrimedTnt;
+    window.__spawnProjectile = spawnProjectile;
+  }
   const col = thingColor(id);
   const placeable = isPlaceable(id);
   
@@ -945,6 +952,30 @@ export function placeBlock(){
     openFurnace(r.hit[0], r.hit[1], r.hit[2]);
     return;
   }
+  if(hitBlockId === 66){ // Lever toggle
+    toggleLever(r.hit[0], r.hit[1], r.hit[2]);
+    playPlaceSound(15);
+    toast("Lever Toggled!");
+    return;
+  }
+  if(hitBlockId === 67){ // Stone Button press
+    pressButton(r.hit[0], r.hit[1], r.hit[2]);
+    playPlaceSound(3);
+    toast("Button Pressed!");
+    return;
+  }
+  if(hitBlockId === 70){ // Redstone Repeater delay cycle
+    cycleRepeaterDelay(r.hit[0], r.hit[1], r.hit[2]);
+    playPlaceSound(3);
+    toast("Repeater Delay Adjusted!");
+    return;
+  }
+  if(hitBlockId === 71){ // Redstone Comparator mode toggle
+    toggleComparatorMode(r.hit[0], r.hit[1], r.hit[2]);
+    playPlaceSound(3);
+    toast("Comparator Mode Toggled!");
+    return;
+  }
   if(hitBlockId === 56){ // TNT Block right-click ignite
     spawnPrimedTnt(r.hit[0], r.hit[1], r.hit[2]);
     setBlock(r.hit[0], r.hit[1], r.hit[2], 0, false, scheduleSave);
@@ -1142,6 +1173,7 @@ function loop(now){
     updateMobs(dt);
     tickFurnaces(dt);
     tickCrops(dt);
+    tickRedstone(dt);
     updateItemDrops(dt);
     updateXpOrbs(dt);
     updateProjectiles(dt);

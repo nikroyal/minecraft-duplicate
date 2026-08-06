@@ -182,6 +182,25 @@ const ONBOARDING_STEPS = [
   },
   {
     step: 11,
+    title: "⚡ Redstone & Automation Systems",
+    category: "REDSTONE & AUTOMATION",
+    icon: "⚡",
+    badge: "REDSTONE",
+    content: (
+      <>
+        <p>Build intricate mechanical contraptions, automated doors, and logic gates:</p>
+        <ul className="agent-list">
+          <li><strong>Redstone Power Grid (0–15):</strong> Redstone Dust carries power up to 15 blocks. Redstone Blocks &amp; Torches provide constant power.</li>
+          <li><strong>Triggers &amp; Devices:</strong> Right-Click <strong>Levers</strong> to toggle power, press <strong>Buttons</strong> for 1.0s pulses, or step on <strong>Pressure Plates</strong>.</li>
+          <li><strong>Pistons &amp; Sticky Pistons:</strong> When powered, push blocks up to 12 blocks ahead. Sticky Pistons pull blocks back on power off!</li>
+          <li><strong>Repeaters &amp; Comparators:</strong> Adjust signal delay with Repeaters or measure container capacity (chests/furnaces) using Comparators.</li>
+          <li><strong>Dispensers &amp; Droppers:</strong> Fire arrows, place water, or eject items automatically when triggered by Redstone power.</li>
+        </ul>
+      </>
+    )
+  },
+  {
+    step: 12,
     title: "🧟 Mobs, Combat & Undead Sunlight Burning",
     category: "COMBAT & MOBS",
     icon: "⚔️",
@@ -199,7 +218,7 @@ const ONBOARDING_STEPS = [
     )
   },
   {
-    step: 12,
+    step: 13,
     title: "🛰️ 3D Voxel Pathfinder & GPS Wayfinder",
     category: "NAVIGATION",
     icon: "🛰️",
@@ -216,7 +235,7 @@ const ONBOARDING_STEPS = [
     )
   },
   {
-    step: 13,
+    step: 14,
     title: "🎉 Onboarding Training Complete!",
     category: "COMPLETION",
     icon: "🏆",

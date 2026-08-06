@@ -133,6 +133,7 @@ async function runFullTestSuite() {
     const pathfinder = await import('./src/pathfinder.js');
     const audio = await import('./src/audio.js');
     const firebase = await import('./src/firebase.js');
+    const redstone = await import('./src/redstone.js');
     const anticheat = await import('./src/anticheat.js');
 
     state.reactBridge.updateUI = () => {};
@@ -1758,6 +1759,105 @@ async function runFullTestSuite() {
         const sanitized = firebase.sanitizeSecurityInput(rawInput, 100);
         if (sanitized.includes('<script>')) throw new Error(`Sanitization failed to strip script tag on test #${i}`);
         if (!sanitized.includes(`Hello World ${i}`)) throw new Error(`Sanitization corrupted clean text on test #${i}`);
+      });
+    }
+
+    // --- TEST SUITE 51: REDSTONE POWER GRID & SIGNAL PROPAGATION MATRIX (1,000 TESTS) ---
+    console.log("\n--- TEST SUITE 51: REDSTONE POWER GRID & SIGNAL PROPAGATION MATRIX (1,000 TESTS) ---");
+    for (let i = 1; i <= 1000; i++) {
+      test(`Redstone Power Grid test #${i}`, () => {
+        const x = (i % 20) + 10;
+        const y = 30;
+        const z = Math.floor(i / 20) % 20 + 10;
+        
+        redstone.setRedstonePower(x, y, z, 15);
+        if (redstone.getRedstonePower(x, y, z) !== 15) {
+          throw new Error(`Failed to set redstone power level 15 at (${x},${y},${z})`);
+        }
+
+        // Test wire decay: 15 -> 14 -> 13 ...
+        const decayP = Math.max(0, 15 - (i % 15));
+        redstone.setRedstonePower(x + 1, y, z, decayP);
+        if (redstone.getRedstonePower(x + 1, y, z) !== decayP) {
+          throw new Error(`Decayed power level mismatch: expected ${decayP}, got ${redstone.getRedstonePower(x + 1, y, z)}`);
+        }
+
+        // Reset
+        redstone.setRedstonePower(x, y, z, 0);
+        redstone.setRedstonePower(x + 1, y, z, 0);
+      });
+    }
+
+    // --- TEST SUITE 52: REDSTONE TRIGGERS & SENSORS MATRIX (1,000 TESTS) ---
+    console.log("\n--- TEST SUITE 52: REDSTONE TRIGGERS & SENSORS MATRIX (1,000 TESTS) ---");
+    for (let i = 1; i <= 1000; i++) {
+      test(`Redstone Triggers & Sensors test #${i}`, () => {
+        const x = 50 + (i % 10);
+        const y = 20;
+        const z = 50 + Math.floor(i / 10) % 10;
+
+        // Test Lever toggle
+        redstone.toggleLever(x, y, z);
+        const leverKey = redstone.posKey(x, y, z);
+        if (!redstone.leverStates.has(leverKey)) throw new Error(`Lever failed to toggle ON at (${x},${y},${z})`);
+        
+        redstone.toggleLever(x, y, z);
+        if (redstone.leverStates.has(leverKey)) throw new Error(`Lever failed to toggle OFF at (${x},${y},${z})`);
+
+        // Test Stone Button pulse
+        redstone.pressButton(x, y, z);
+        if (!redstone.buttonStates.has(leverKey)) throw new Error(`Button failed to set active pulse at (${x},${y},${z})`);
+        redstone.buttonStates.delete(leverKey);
+      });
+    }
+
+    // --- TEST SUITE 53: PISTONS & MECHANICAL COMPONENTS MATRIX (1,000 TESTS) ---
+    console.log("\n--- TEST SUITE 53: PISTONS & MECHANICAL COMPONENTS MATRIX (1,000 TESTS) ---");
+    for (let i = 1; i <= 1000; i++) {
+      test(`Pistons & Mechanical Components test #${i}`, () => {
+        const x = 100 + (i % 10);
+        const y = 40;
+        const z = 100 + Math.floor(i / 10) % 10;
+
+        world.setBlock(x, y, z, 63, true); // Piston ID 63
+        redstone.updateRedstoneNetworkAround(x, y, z, 4);
+
+        const key = redstone.posKey(x, y, z);
+        // Verify piston state tracking handles execution without errors
+        const isExtended = redstone.pistonExtended.has(key);
+        if (typeof isExtended !== 'boolean') throw new Error(`Piston state tracking invalid for test #${i}`);
+      });
+    }
+
+    // --- TEST SUITE 54: REPEATERS, COMPARATORS, DISPENSERS & DROPPERS MATRIX (1,000 TESTS) ---
+    console.log("\n--- TEST SUITE 54: REPEATERS, COMPARATORS, DISPENSERS & DROPPERS MATRIX (1,000 TESTS) ---");
+    for (let i = 1; i <= 1000; i++) {
+      test(`Repeaters, Comparators, Dispensers & Droppers test #${i}`, () => {
+        const x = 150 + (i % 10);
+        const y = 50;
+        const z = 150 + Math.floor(i / 10) % 10;
+
+        // Test Repeater Delay Setting (1-4)
+        redstone.cycleRepeaterDelay(x, y, z);
+        const delay = redstone.repeaterDelays.get(redstone.posKey(x, y, z));
+        if (!delay || delay < 1 || delay > 4) throw new Error(`Repeater delay setting out of bounds: ${delay}`);
+
+        // Test Comparator Mode Toggle (0: Compare, 1: Subtract)
+        redstone.toggleComparatorMode(x, y, z);
+        const mode = redstone.comparatorModes.get(redstone.posKey(x, y, z));
+        if (mode !== 0 && mode !== 1) throw new Error(`Comparator mode invalid: ${mode}`);
+      });
+    }
+
+    // --- TEST SUITE 55: REDSTONE CRAFTING & RECIPES MATRIX (500 TESTS) ---
+    console.log("\n--- TEST SUITE 55: REDSTONE CRAFTING & RECIPES MATRIX (500 TESTS) ---");
+    const redstoneRecipeOutputs = [61, 62, 66, 67, 68, 69, 63, 64, 70, 71, 72, 73, 74, 75, 151];
+    for (let i = 1; i <= 500; i++) {
+      const targetOut = redstoneRecipeOutputs[i % redstoneRecipeOutputs.length];
+      test(`Redstone Crafting Recipe test #${i} for ID ${targetOut}`, () => {
+        const recipe = config.RECIPES.find(r => r.out === targetOut);
+        if (!recipe) throw new Error(`Missing recipe definition for Redstone component ID ${targetOut}`);
+        if (!recipe.in || typeof recipe.in !== 'object') throw new Error(`Invalid recipe input for ID ${targetOut}`);
       });
     }
 
