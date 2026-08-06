@@ -2417,41 +2417,45 @@ export function updateHeldItemMesh() {
   const shirtMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.shirtColor || "#008080") });
   const skinMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.skinColor || "#dfcfb7") });
 
-  // 1. Human Forearm / Sleeve
-  const sleeveGeo = new THREE.BoxGeometry(0.10, 0.10, 0.28);
+  // 1. Unified Forearm Sleeve & Hand Hierarchy (prevents disconnection/shearing)
+  const armGroup = new THREE.Group();
+
+  // Forearm Sleeve (shirt color)
+  const sleeveGeo = new THREE.BoxGeometry(0.095, 0.095, 0.24);
   const sleeveMesh = new THREE.Mesh(sleeveGeo, shirtMat);
-  sleeveMesh.position.set(0.04, -0.04, 0.08);
-  sleeveMesh.rotation.set(0.15, -0.2, 0.1);
-  webgl.heldGroup.add(sleeveMesh);
+  sleeveMesh.position.set(0, 0, 0.10);
+  armGroup.add(sleeveMesh);
 
-  // 2. Human Hand / Wrist
-  const handGeo = new THREE.BoxGeometry(0.088, 0.088, 0.12);
+  // Hand / Wrist (skin color) - perfectly flush with sleeve along Z-axis
+  const handGeo = new THREE.BoxGeometry(0.088, 0.088, 0.10);
   const handMesh = new THREE.Mesh(handGeo, skinMat);
-  handMesh.position.set(0.02, -0.03, -0.10);
-  handMesh.rotation.set(0.15, -0.2, 0.1);
-  webgl.heldGroup.add(handMesh);
+  handMesh.position.set(0, 0, -0.06);
+  armGroup.add(handMesh);
 
-  // 3. Render Held 3D Item or Block in Palm
+  // 2. Render Held 3D Item or Block in Palm
   if (currentSelectedId > 0) {
     const tool3D = createToolMesh(currentSelectedId);
     if (BLOCKS[currentSelectedId]) {
-      // 3D Block in Hand (Isometric perspective)
-      tool3D.position.set(0.02, 0.03, -0.18);
-      tool3D.rotation.set(0.25, 0.55, -0.1);
+      tool3D.position.set(0.01, 0.04, -0.14);
+      tool3D.rotation.set(0.2, 0.45, -0.1);
     } else {
-      // 3D Tool in Hand
-      tool3D.position.set(0.02, -0.04, -0.18);
+      tool3D.position.set(0, -0.02, -0.14);
       tool3D.rotation.set(-0.15, -0.35, 0.15);
     }
-    webgl.heldGroup.add(tool3D);
+    armGroup.add(tool3D);
   }
 
-  // Idle Sway Animation
-  const time = performance.now() * 0.002;
-  const bobY = Math.sin(time * 2) * 0.006;
-  const bobX = Math.cos(time) * 0.004;
+  // Single unified angle for arm
+  armGroup.position.set(0.02, -0.02, 0);
+  armGroup.rotation.set(0.12, -0.22, 0.08);
+  webgl.heldGroup.add(armGroup);
 
-  webgl.heldGroup.position.set(0.26 + bobX, -0.22 + bobY, -0.38);
+  // Idle Sway & Swing Animations
+  const time = performance.now() * 0.002;
+  const bobY = Math.sin(time * 2) * 0.005;
+  const bobX = Math.cos(time) * 0.003;
+
+  webgl.heldGroup.position.set(0.25 + bobX, -0.22 + bobY, -0.38);
 
   if (player.swingProgress > 0) {
     const phase = player.swingProgress;
