@@ -762,7 +762,7 @@ export function updatePathTrail(pathNodes) {
       transparent: true,
       opacity: baseOpacity,
       depthWrite: false,
-      depthTest: false, // ALWAYS visible through terrain, grass, and slopes!
+      depthTest: true, // Respects 3D block occlusion (hidden behind solid walls/terrain)
       side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(geo, mat);
@@ -783,18 +783,18 @@ export function updatePathTrail(pathNodes) {
       color: colorHex,
       transparent: true,
       opacity: 0.95,
-      depthTest: false, // ALWAYS visible through terrain!
+      depthTest: true, // Respects 3D block occlusion
     });
     const border = new THREE.Line(borderGeo, lineMat);
     border.position.set(vb.x + 0.5, surfaceY + 0.002, vb.z + 0.5);
 
-    // Floating 3D Glowing Waypoint Orb at +0.35m elevation so trail is 100% visible across 3D terrain
+    // Floating 3D Waypoint Orb at +0.35m elevation
     const orbGeo = new THREE.SphereGeometry(0.12, 8, 8);
     const orbMat = new THREE.MeshBasicMaterial({
       color: colorHex,
       transparent: true,
       opacity: 0.88,
-      depthTest: false,
+      depthTest: true,
     });
     const orbMesh = new THREE.Mesh(orbGeo, orbMat);
     orbMesh.position.set(vb.x + 0.5, surfaceY + 0.35, vb.z + 0.5);
