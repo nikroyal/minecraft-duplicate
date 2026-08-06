@@ -53,6 +53,103 @@ export default function HUDOverlay({
       {/* Voxel Title */}
       <div className="title">VOXEL</div>
 
+      {/* ── ⚔️ EQUIPMENT & HOLDING HUD WIDGET — top left ── */}
+      <div style={{
+        position: 'fixed',
+        top: '60px',
+        left: '14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        zIndex: 120,
+        userSelect: 'none',
+        pointerEvents: 'none',
+      }}>
+        {/* Main Hand Widget */}
+        <div style={{
+          background: 'rgba(12, 10, 8, 0.70)',
+          border: '1px solid rgba(242, 217, 160, 0.3)',
+          borderRadius: '8px',
+          padding: '6px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          backdropFilter: 'blur(6px)',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+          minWidth: '180px',
+        }}>
+          <div style={{
+            width: '36px', height: '36px',
+            background: selectedId > 0 ? 'rgba(35,28,18,0.9)' : 'rgba(20,16,10,0.6)',
+            border: `1px solid ${selectedId > 0 ? '#f2d9a0' : 'rgba(214,178,120,0.15)'}`,
+            borderRadius: '4px',
+            display: 'grid', placeItems: 'center',
+          }}>
+            {selectedId > 0 ? <Swatch3D id={selectedId} /> : <span style={{ fontSize: '16px', opacity: 0.4 }}>✋</span>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '9px', color: '#c8b896', letterSpacing: '0.8px', textTransform: 'uppercase', fontWeight: 700 }}>
+              MAIN HAND
+            </span>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: selectedId > 0 ? '#f2d9a0' : '#8a7a60' }}>
+              {selectedId > 0 ? thingName(selectedId) : 'Bare Hands'}
+            </span>
+            {selectedId > 0 && ITEMS[selectedId]?.tool && (
+              <span style={{ fontSize: '8px', color: '#8fd06a', fontWeight: 'bold' }}>
+                Tier {ITEMS[selectedId].tier || 1} • {toolDurability[selectedId] !== undefined ? toolDurability[selectedId] : ([30, 60, 150, 500][(ITEMS[selectedId].tier || 1) - 1] || 30)} Durability
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Armor Status Widget */}
+        <div style={{
+          background: 'rgba(12, 10, 8, 0.70)',
+          border: '1px solid rgba(111,230,224,0.3)',
+          borderRadius: '8px',
+          padding: '6px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          backdropFilter: 'blur(6px)',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+          minWidth: '180px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '9px', color: '#6fe6e0', letterSpacing: '0.8px', textTransform: 'uppercase', fontWeight: 700 }}>
+              🛡️ ARMOR ({armorPoints}/20)
+            </span>
+            <span style={{ fontSize: '8px', color: '#8fd06a', fontWeight: 'bold' }}>
+              -{Math.round(Math.min(80, armorPoints * 4))}% DMG
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginTop: '2px' }}>
+            {['helmet', 'chestplate', 'leggings', 'boots'].map(slot => {
+              const piece = player.armor ? player.armor[slot] : null;
+              const icons = { helmet: '🪖', chestplate: '🦺', leggings: '👖', boots: '👢' };
+              
+              return (
+                <div key={slot} title={piece ? `${thingName(piece.id)} (+${ITEMS[piece.id]?.defense || 0} Def)` : `Empty ${slot}`} style={{
+                  width: '32px', height: '32px',
+                  background: piece ? 'rgba(30,55,65,0.9)' : 'rgba(20,16,10,0.6)',
+                  border: `1px solid ${piece ? '#6fe6e0' : 'rgba(214,178,120,0.15)'}`,
+                  borderRadius: '4px',
+                  display: 'grid', placeItems: 'center',
+                  position: 'relative'
+                }}>
+                  {piece && piece.id ? (
+                    <Swatch3D id={piece.id} />
+                  ) : (
+                    <span style={{ fontSize: '13px', opacity: 0.3 }}>{icons[slot]}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* ── Time / Clock + Coords HUD — top right ── */}
       <div style={{
         position: 'fixed',
