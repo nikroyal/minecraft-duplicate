@@ -4,7 +4,7 @@ import { thingName, BLOCKS, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
 import Swatch3D from './Swatch3D.jsx';
 import { capturedErrors, subscribeErrors } from '../errorLog.js';
-import { activeNavigation } from '../pathfinder.js';
+import { activeNavigation, clearActiveNavigation } from '../pathfinder.js';
 
 import { selectSlot } from '../ui.js';
 
@@ -159,6 +159,70 @@ export default function HUDOverlay({
           </div>
         </div>
       </div>
+
+      {/* ── Top-Center GPS Target Navigation HUD ── */}
+      {activeNavigation && player && player.pos && (() => {
+        const nav = activeNavigation;
+        const dx = nav.x - player.pos.x;
+        const dz = nav.z - player.pos.z;
+        const navDist = Math.round(Math.hypot(dx, dz));
+        const angle = (Math.atan2(dx, -dz) * 180 / Math.PI + 360) % 360;
+        const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+        const navHeading = dirs[Math.floor((angle + 22.5) / 45) % 8];
+
+        return (
+          <div style={{
+            position: 'fixed',
+            top: '14px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, rgba(20,24,30,0.95), rgba(10,12,16,0.98))',
+            border: '2px solid #39ff14',
+            borderRadius: '20px',
+            padding: '6px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            zIndex: 130,
+            boxShadow: '0 0 24px rgba(57,255,20,0.4)',
+            backdropFilter: 'blur(8px)',
+            color: '#fff',
+            fontFamily: 'sans-serif',
+            fontSize: '11px',
+            userSelect: 'none',
+          }}>
+            <span style={{ fontSize: '15px' }}>{nav.icon || '📍'}</span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 800, color: '#39ff14', letterSpacing: '0.5px' }}>
+                GPS: {nav.name || 'Waypoint'}
+              </span>
+              <span style={{ fontSize: '9px', color: '#c8b896' }}>
+                📏 {navDist}m away • 🧭 Heading {navHeading}
+              </span>
+            </div>
+            <button
+              onClick={() => clearActiveNavigation()}
+              title="Cancel Navigation"
+              style={{
+                background: 'rgba(255,77,77,0.25)',
+                border: '1px solid #ff4d4d',
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                color: '#ff4d4d',
+                fontWeight: 800,
+                fontSize: '10px',
+                cursor: 'pointer',
+                display: 'grid',
+                placeItems: 'center',
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ── Time / Clock + Coords HUD — top right ── */}
       <div style={{

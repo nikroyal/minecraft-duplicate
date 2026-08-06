@@ -752,6 +752,21 @@ export function updatePathTrail(pathNodes) {
     const orbMesh = new THREE.Mesh(orbGeo, orbMat);
     orbMesh.position.set(vb.x + 0.5, surfaceY + 0.35, vb.z + 0.5);
 
+    if (vb.nodeType === 'end') {
+      // Tall glowing 3D Vertical Sky Beacon Pillar at destination
+      const beaconGeo = new THREE.CylinderGeometry(0.35, 0.35, 50, 16);
+      const beaconMat = new THREE.MeshBasicMaterial({
+        color: 0xffff00,
+        transparent: true,
+        opacity: 0.55,
+        depthTest: false,
+        side: THREE.DoubleSide,
+      });
+      const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
+      beaconMesh.position.set(vb.x + 0.5, surfaceY + 25, vb.z + 0.5);
+      pathMeshGroup.add(beaconMesh);
+    }
+
     pathMeshGroup.add(mesh);
     pathMeshGroup.add(border);
     pathMeshGroup.add(orbMesh);
@@ -775,10 +790,24 @@ export function updatePathTrail(pathNodes) {
   webgl.scene.add(pathMeshGroup);
 }
 
-/** Drive the glowing block pulsing animation — called once per frame from main loop */
+/** Drive the glowing block pulsing animation & arrival check — called once per frame from main loop */
 export function tickPathTrail(dt) {
   if (pathMeshGroup && typeof pathMeshGroup._animTick === 'function') {
     pathMeshGroup._animTick(dt);
+  }
+
+  // Dynamic arrival check
+  if (activeNavigation && player && player.pos) {
+    const target = activeNavigation;
+    const dx = target.x - player.pos.x;
+    const dy = target.y - player.pos.y;
+    const dz = target.z - player.pos.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist < 1.8 && Math.abs(dy) < 3.0) {
+      toast(`🎯 Reached Destination: ${activeNavigation.name || 'Waypoint'}!`);
+      clearActiveNavigation();
+    }
   }
 }
 
