@@ -2217,8 +2217,22 @@ export function createToolMesh(id) {
     string.position.set(-0.02, 0.15, 0);
     toolGroup.add(string);
   } else if (BLOCKS[id]) {
-    const blockMesh = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), mat);
-    blockMesh.position.set(0, 0.1, 0);
+    const block = BLOCKS[id];
+    const topCol = block.top !== undefined ? block.top : (block.all !== undefined ? block.all : color);
+    const sideCol = block.side !== undefined ? block.side : (block.all !== undefined ? block.all : color);
+    const bottomCol = block.bottom !== undefined ? block.bottom : sideCol;
+
+    const mats = [
+      new THREE.MeshLambertMaterial({ color: sideCol }),   // Right
+      new THREE.MeshLambertMaterial({ color: sideCol }),   // Left
+      new THREE.MeshLambertMaterial({ color: topCol }),    // Top
+      new THREE.MeshLambertMaterial({ color: bottomCol }), // Bottom
+      new THREE.MeshLambertMaterial({ color: sideCol }),   // Front
+      new THREE.MeshLambertMaterial({ color: sideCol }),   // Back
+    ];
+    const blockMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), mats);
+    blockMesh.position.set(0, 0.06, 0);
+    blockMesh.rotation.set(0.2, 0.4, 0);
     toolGroup.add(blockMesh);
   } else {
     const itemMesh = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), mat);
@@ -2351,18 +2365,31 @@ export function updateHeldItemMesh() {
     }
   }
   
-  // 1. Render Player Hand
-  const avatar = player.avatar || { skinColor: "#dfcfb7" };
-  const handMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.skinColor || "#dfcfb7") });
-  const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.26), handMat);
-  handMesh.position.set(0, 0, 0);
+  // 1. Render Player Sleeve & Hand in First-Person View
+  const avatar = player.avatar || { shirtColor: "#008080", skinColor: "#dfcfb7" };
+  const shirtMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.shirtColor || "#008080") });
+  const skinMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.skinColor || "#dfcfb7") });
+
+  // Sleeve
+  const sleeveMesh = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.18), shirtMat);
+  sleeveMesh.position.set(0, -0.02, 0.06);
+  webgl.heldGroup.add(sleeveMesh);
+
+  // Hand
+  const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.075, 0.10), skinMat);
+  handMesh.position.set(0, -0.02, -0.06);
   webgl.heldGroup.add(handMesh);
 
   // 2. Render Held 3D Tool / Item / Block in Hand
   if (currentSelectedId > 0) {
     const tool3D = createToolMesh(currentSelectedId);
-    tool3D.position.set(0.04, 0.04, -0.15);
-    tool3D.rotation.set(Math.PI / 6, -Math.PI / 8, 0);
+    if (BLOCKS[currentSelectedId]) {
+      tool3D.position.set(0.02, 0.02, -0.12);
+      tool3D.rotation.set(0.1, -0.2, 0.1);
+    } else {
+      tool3D.position.set(0.02, -0.02, -0.12);
+      tool3D.rotation.set(-0.2, -0.3, 0.1);
+    }
     webgl.heldGroup.add(tool3D);
   }
   
