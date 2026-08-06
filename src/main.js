@@ -1401,30 +1401,7 @@ function loop(now){
   }
 
   // ── Pathfinder Real-Time Trail Recalculation ──
-  if (game.running && activeNavigation && activeNavigation.targetPos) {
-    if (!webgl.navTimer) webgl.navTimer = 0;
-    webgl.navTimer += dt;
-    // Only recalculate when auto-update is enabled (default: true)
-    if (webgl.navTimer >= 0.40 && window.__pathAutoUpdate !== false) {
-      webgl.navTimer = 0;
-      const startPos = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
-      const pathNodes = findPath(startPos, activeNavigation.targetPos, 600);
-      if (pathNodes && pathNodes.length > 0) {
-        updatePathTrail(pathNodes);
-        activeNavigation.pathNodes = pathNodes;
-        const dx = activeNavigation.targetPos.x - player.pos.x;
-        const dy = activeNavigation.targetPos.y - player.pos.y;
-        const dz = activeNavigation.targetPos.z - player.pos.z;
-        activeNavigation.distance = Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
-      }
-    } else if (webgl.navTimer >= 0.40) {
-      // Timer reset even when locked, so we don't spam recalc the moment it's re-enabled
-      webgl.navTimer = 0;
-    }
-
-  // Tick path trail pulsing animation every frame
   tickPathTrail(dt);
-  }
 
   if (game.running && !game.paused) {
     let targetInfo = null;
