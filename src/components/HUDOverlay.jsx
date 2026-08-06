@@ -1,5 +1,5 @@
 import React from 'react';
-import { player, game, hotbar, inventory, toolDurability } from '../state.js';
+import { player, game, hotbar, inventory, toolDurability, getTotalArmorPoints } from '../state.js';
 import { thingName, BLOCKS, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
 import Swatch3D from './Swatch3D.jsx';
@@ -31,6 +31,14 @@ export default function HUDOverlay({
     if (hungerVal >= 0.5) return '🦴';
     return '⚪';
   });
+
+  const armorPoints = getTotalArmorPoints();
+  const armorIcons = Array.from({ length: 10 }, (_, i) => {
+    const val = armorPoints - i * 2;
+    if (val >= 1.5) return '🛡️';
+    if (val >= 0.5) return '🛡️';
+    return null;
+  }).filter(Boolean);
 
   const selectedId = hotbar[activeSelected];
 
@@ -168,18 +176,30 @@ export default function HUDOverlay({
         </span>
       </div>
 
-      {/* Survival Health & Hunger Overlay */}
+      {/* Survival Health, Armor & Hunger Overlay */}
       {game.survival && (
-        <div id="survivalHud" className="survival-hud" style={{ display: 'flex' }}>
-          <div className="bar-row health" id="healthBar">
-            {hearts.map((h, i) => (
-              <span key={i} className="unit">{h}</span>
-            ))}
-          </div>
-          <div className="bar-row hunger" id="hungerBar">
-            {hungers.map((h, i) => (
-              <span key={i} className="unit">{h}</span>
-            ))}
+        <div id="survivalHud" className="survival-hud" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {armorPoints > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(111,230,224,0.4)', alignSelf: 'flex-start' }}>
+              <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6fe6e0', letterSpacing: '0.5px' }}>DEFENSE ({armorPoints}/20):</span>
+              <div style={{ display: 'flex', gap: '1px' }}>
+                {armorIcons.map((a, i) => (
+                  <span key={i} style={{ fontSize: '11px', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))' }}>{a}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '18px' }}>
+            <div className="bar-row health" id="healthBar">
+              {hearts.map((h, i) => (
+                <span key={i} className="unit">{h}</span>
+              ))}
+            </div>
+            <div className="bar-row hunger" id="hungerBar">
+              {hungers.map((h, i) => (
+                <span key={i} className="unit">{h}</span>
+              ))}
+            </div>
           </div>
         </div>
       )}

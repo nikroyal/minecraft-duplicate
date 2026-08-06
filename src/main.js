@@ -2124,8 +2124,222 @@ export function bootGame() {
   requestAnimationFrame(loop);
 }
 
+export function createToolMesh(id) {
+  const toolGroup = new THREE.Group();
+  if (!id || id <= 0) return toolGroup;
+
+  const itemDef = ITEMS[id] || BLOCKS[id];
+  const color = itemDef?.color || 0x8a8a8a;
+  
+  const isMetal = itemDef?.tier && itemDef.tier >= 3;
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: isMetal ? 0.3 : 0.6,
+    metalness: isMetal ? 0.7 : 0.1,
+  });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6a4a24, roughness: 0.8 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a14, roughness: 0.9 });
+
+  if (itemDef && itemDef.tool === "pickaxe") {
+    // Pickaxe Wooden Handle
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.40, 0.025), woodMat);
+    handle.position.set(0, 0.14, 0);
+    toolGroup.add(handle);
+    // Iron Binding Strap
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.04, 0.035), darkMat);
+    strap.position.set(0, 0.28, 0);
+    toolGroup.add(strap);
+    // Pickaxe Head
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.05, 0.05), mat);
+    head.position.set(0, 0.31, 0);
+    toolGroup.add(head);
+    // Left & Right Curved Tips
+    const tipL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.07, 0.04), mat);
+    tipL.position.set(-0.12, 0.28, 0);
+    const tipR = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.07, 0.04), mat);
+    tipR.position.set(0.12, 0.28, 0);
+    toolGroup.add(tipL);
+    toolGroup.add(tipR);
+  } else if (itemDef && itemDef.tool === "sword") {
+    // Pommel Knob
+    const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.04), darkMat);
+    pommel.position.set(0, -0.04, 0);
+    toolGroup.add(pommel);
+    // Wooden Grip
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.14, 0.025), woodMat);
+    handle.position.set(0, 0.03, 0);
+    toolGroup.add(handle);
+    // Crossguard
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.04), mat);
+    guard.position.set(0, 0.10, 0);
+    toolGroup.add(guard);
+    // Blade Body
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.44, 0.018), mat);
+    blade.position.set(0, 0.32, 0);
+    toolGroup.add(blade);
+    // Blade Tip
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.06, 0.018), mat);
+    tip.position.set(0, 0.55, 0);
+    toolGroup.add(tip);
+  } else if (itemDef && itemDef.tool === "axe") {
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.40, 0.025), woodMat);
+    handle.position.set(0, 0.14, 0);
+    toolGroup.add(handle);
+    // Main Wedge Blade
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.14, 0.04), mat);
+    head.position.set(0.05, 0.28, 0);
+    toolGroup.add(head);
+    // Back Poll
+    const backPoll = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.045), mat);
+    backPoll.position.set(-0.04, 0.28, 0);
+    toolGroup.add(backPoll);
+  } else if (itemDef && itemDef.tool === "shovel") {
+    // Handle & D-Grip
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.40, 0.025), woodMat);
+    handle.position.set(0, 0.14, 0);
+    toolGroup.add(handle);
+    // Spade Scoop Head
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.16, 0.02), mat);
+    blade.position.set(0, 0.32, 0);
+    toolGroup.add(blade);
+  } else if (itemDef && itemDef.tool === "hoe") {
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.40, 0.025), woodMat);
+    handle.position.set(0, 0.14, 0);
+    toolGroup.add(handle);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.04), mat);
+    blade.position.set(0.04, 0.31, 0);
+    toolGroup.add(blade);
+  } else if (itemDef && itemDef.tool === "bow") {
+    const arc = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.42, 0.04), woodMat);
+    arc.position.set(0, 0.15, 0);
+    toolGroup.add(arc);
+    const string = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.40, 0.008), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+    string.position.set(-0.02, 0.15, 0);
+    toolGroup.add(string);
+  } else if (BLOCKS[id]) {
+    const blockMesh = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), mat);
+    blockMesh.position.set(0, 0.1, 0);
+    toolGroup.add(blockMesh);
+  } else {
+    const itemMesh = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), mat);
+    itemMesh.position.set(0, 0.08, 0);
+    toolGroup.add(itemMesh);
+  }
+
+  return toolGroup;
+}
+
+export function updatePlayerArmorMesh(pMesh, armorObj = player.armor) {
+  if (!pMesh) return;
+
+  if (!pMesh.armorGroup) {
+    pMesh.armorGroup = new THREE.Group();
+    pMesh.add(pMesh.armorGroup);
+  }
+
+  while (pMesh.armorGroup.children.length > 0) {
+    const child = pMesh.armorGroup.children[0];
+    pMesh.armorGroup.remove(child);
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
+  }
+
+  if (!armorObj) return;
+
+  const armorColors = {
+    160: 0x8a5a2a, 161: 0x8a5a2a, 162: 0x8a5a2a, 163: 0x8a5a2a, // Leather
+    164: 0xcccccc, 165: 0xcccccc, 166: 0xcccccc, 167: 0xcccccc, // Iron
+    168: 0x5fe6e0, 169: 0x5fe6e0, 170: 0x5fe6e0, 171: 0x5fe6e0, // Diamond
+    172: 0xf2d24a, 173: 0xf2d24a, 174: 0xf2d24a, 175: 0xf2d24a, // Gold
+  };
+
+  // 1. Helmet + Visor Brim
+  if (armorObj.helmet && armorObj.helmet.id) {
+    const col = armorColors[armorObj.helmet.id] || 0xcccccc;
+    const helmMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.4, metalness: 0.5 });
+    const helmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), helmMat);
+    helmMesh.position.set(0, 1.575, 0);
+    
+    // Visor Brim
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.39, 0.06, 0.08), helmMat);
+    brim.position.set(0, 1.62, 0.16);
+    helmMesh.add(brim);
+
+    pMesh.armorGroup.add(helmMesh);
+  }
+
+  // 2. Chestplate + Shoulder Pauldrons
+  if (armorObj.chestplate && armorObj.chestplate.id) {
+    const col = armorColors[armorObj.chestplate.id] || 0xcccccc;
+    const chestMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.4, metalness: 0.5 });
+    
+    // Main Torso Plate
+    const chestMesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.54, 0.20), chestMat);
+    chestMesh.position.set(0, 1.1375, 0);
+
+    // Left & Right Shoulder Pauldrons
+    const leftPauldron = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.16, 0.15), chestMat);
+    leftPauldron.position.set(-0.25, 1.32, 0);
+    const rightPauldron = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.16, 0.15), chestMat);
+    rightPauldron.position.set(0.25, 1.32, 0);
+
+    pMesh.armorGroup.add(chestMesh);
+    pMesh.armorGroup.add(leftPauldron);
+    pMesh.armorGroup.add(rightPauldron);
+  }
+
+  // 3. Leggings
+  if (armorObj.leggings && armorObj.leggings.id) {
+    const col = armorColors[armorObj.leggings.id] || 0xcccccc;
+    const legMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.4, metalness: 0.5 });
+    const leftLegArmor = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.42, 0.18), legMat);
+    leftLegArmor.position.set(-0.09, 0.32, 0);
+    const rightLegArmor = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.42, 0.18), legMat);
+    rightLegArmor.position.set(0.09, 0.32, 0);
+    pMesh.armorGroup.add(leftLegArmor);
+    pMesh.armorGroup.add(rightLegArmor);
+  }
+
+  // 4. Boots
+  if (armorObj.boots && armorObj.boots.id) {
+    const col = armorColors[armorObj.boots.id] || 0xcccccc;
+    const bootMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.4, metalness: 0.5 });
+    const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.18, 0.19), bootMat);
+    leftBoot.position.set(-0.09, 0.09, 0);
+    const rightBoot = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.18, 0.19), bootMat);
+    rightBoot.position.set(0.09, 0.09, 0);
+    pMesh.armorGroup.add(leftBoot);
+    pMesh.armorGroup.add(rightBoot);
+  }
+}
+
+export function updatePlayerRightHandTool(pMesh, selectedId = hotbar[game.selected]) {
+  if (!pMesh || !pMesh.rightArm) return;
+
+  if (!pMesh.rightArm.toolGroup) {
+    pMesh.rightArm.toolGroup = new THREE.Group();
+    pMesh.rightArm.add(pMesh.rightArm.toolGroup);
+  }
+
+  while (pMesh.rightArm.toolGroup.children.length > 0) {
+    const c = pMesh.rightArm.toolGroup.children[0];
+    pMesh.rightArm.toolGroup.remove(c);
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) c.material.dispose();
+  }
+
+  if (selectedId > 0) {
+    const tool3D = createToolMesh(selectedId);
+    tool3D.position.set(0, -0.22, 0.12);
+    tool3D.rotation.set(Math.PI / 4, 0, 0);
+    pMesh.rightArm.toolGroup.add(tool3D);
+  }
+}
+
 export function updateHeldItemMesh() {
   if (!webgl.heldGroup) return;
+
+  const currentSelectedId = hotbar[game.selected];
   
   while(webgl.heldGroup.children.length > 0) {
     const c = webgl.heldGroup.children[0];
@@ -2137,15 +2351,36 @@ export function updateHeldItemMesh() {
     }
   }
   
-  // Always render a constant player hand in first-person view
-  const geo = new THREE.BoxGeometry(0.06, 0.06, 0.22);
-  const mat = new THREE.MeshLambertMaterial({ color: 0xdfcfb7 });
-  const handMesh = new THREE.Mesh(geo, mat);
+  // 1. Render Player Hand
+  const avatar = player.avatar || { skinColor: "#dfcfb7" };
+  const handMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(avatar.skinColor || "#dfcfb7") });
+  const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.26), handMat);
   handMesh.position.set(0, 0, 0);
   webgl.heldGroup.add(handMesh);
+
+  // 2. Render Held 3D Tool / Item / Block in Hand
+  if (currentSelectedId > 0) {
+    const tool3D = createToolMesh(currentSelectedId);
+    tool3D.position.set(0.04, 0.04, -0.15);
+    tool3D.rotation.set(Math.PI / 6, -Math.PI / 8, 0);
+    webgl.heldGroup.add(tool3D);
+  }
   
-  webgl.heldGroup.position.set(0.24, -0.2, -0.35);
-  webgl.heldGroup.rotation.set(0, 0, 0);
+  webgl.heldGroup.position.set(0.24, -0.22, -0.38);
+
+  if (player.swingProgress > 0) {
+    const phase = player.swingProgress;
+    const swingAngle = Math.sin(phase * Math.PI) * -0.9;
+    webgl.heldGroup.rotation.set(swingAngle, 0, swingAngle * 0.4);
+  } else {
+    webgl.heldGroup.rotation.set(0, 0, 0);
+  }
+
+  // Refresh 3D armor and 3rd person held tools on local player mesh
+  if (webgl.playerMesh) {
+    updatePlayerArmorMesh(webgl.playerMesh, player.armor);
+    updatePlayerRightHandTool(webgl.playerMesh, currentSelectedId);
+  }
 }
 
 export function createPlayerMesh() {
@@ -2228,6 +2463,9 @@ export function updatePlayerMeshMaterials() {
   rightLegMat.color.copy(pantsCol);
   leftArmMat.color.copy(shirtCol);
   rightArmMat.color.copy(shirtCol);
+
+  updatePlayerArmorMesh(webgl.playerMesh, player.armor);
+  updatePlayerRightHandTool(webgl.playerMesh, hotbar[game.selected]);
 }
 
 // ── 3D MULTIPLAYER OTHER PLAYER AVATARS & RENDERING ENGINE ──

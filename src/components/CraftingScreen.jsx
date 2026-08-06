@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { inventory, hotbar, game, reactBridge } from '../state.js';
+import { inventory, hotbar, game, reactBridge, player, getTotalArmorPoints } from '../state.js';
 import { RECIPES, BLOCKS, ITEMS, thingName, isPlaceable, resolveRecipe } from '../config.js';
 import { invCount, addItem, removeItem } from '../player.js';
-import { craft, scheduleSave } from '../ui.js';
+import { craft, scheduleSave, toast } from '../ui.js';
+import { playPlaceSound } from '../audio.js';
 import Swatch3D from './Swatch3D.jsx';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -82,6 +83,62 @@ export default function CraftingScreen({ onClose }) {
 
   const outputId  = matchedRecipe?.out  ?? 0;
   const outputQty = matchedRecipe?.qty  ?? 1;
+  const [, forceUpdate] = useState(0);
+  const armorPoints = getTotalArmorPoints();
+
+  const handleArmorSlotClick = useCallback((slotKey) => {
+    if (!player.armor) player.armor = { helmet: null, chestplate: null, leggings: null, boots: null };
+    const currentPiece = player.armor[slotKey];
+
+    if (held) {
+      const itemDef = ITEMS[held.id];
+      if (itemDef && itemDef.armorSlot === slotKey) {
+        const oldId = currentPiece ? currentPiece.id : 0;
+        player.armor[slotKey] = { id: held.id, durability: itemDef.durability || 100 };
+        playPlaceSound(held.id);
+        toast(`Equipped ${thingName(held.id)} (+${itemDef.defense || 0} Defense)`);
+
+        if (held.count > 1) {
+          if (oldId > 0) addItem(oldId, 1);
+          setHeld({ id: held.id, count: held.count - 1 });
+        } else {
+          if (oldId > 0) {
+            setHeld({ id: oldId, count: 1 });
+          } else {
+            setHeld(null);
+          }
+        }
+      } else {
+        toast(`Item must be a ${slotKey} armor piece!`);
+      }
+    } else if (currentPiece && currentPiece.id) {
+      setHeld({ id: currentPiece.id, count: 1 });
+      player.armor[slotKey] = null;
+      toast(`Unequipped ${thingName(currentPiece.id)}`);
+    }
+    forceUpdate(n => n + 1);
+    scheduleSave();
+    if (reactBridge.updateUI) reactBridge.updateUI();
+  }, [held]);
+
+  const handleQuickEquip = useCallback((id) => {
+    const itemDef = ITEMS[id];
+    if (!itemDef || !itemDef.armorSlot) return;
+    const slotKey = itemDef.armorSlot;
+    if (!player.armor) player.armor = { helmet: null, chestplate: null, leggings: null, boots: null };
+    const currentPiece = player.armor[slotKey];
+
+    removeItem(id, 1);
+    player.armor[slotKey] = { id, durability: itemDef.durability || 100 };
+    if (currentPiece && currentPiece.id) {
+      addItem(currentPiece.id, 1);
+    }
+    playPlaceSound(id);
+    toast(`Equipped ${thingName(id)} (+${itemDef.defense || 0} Defense)`);
+    forceUpdate(n => n + 1);
+    scheduleSave();
+    if (reactBridge.updateUI) reactBridge.updateUI();
+  }, []);
 
   // ── interactions ───────────────────────────────────────────────────────
 
@@ -338,8 +395,80 @@ export default function CraftingScreen({ onClose }) {
         {/* ── Body ── */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* ── TOP: Grid + Output ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 28, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {/* ── TOP: Armor Equipment + Grid + Output ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
+
+            {/* 🛡️ ARMOR EQUIPMENT SLOTS */}
+            <div style={{
+              background: 'rgba(15, 12, 8, 0.85)',
+              border: '1px solid rgba(111,230,224,0.3)',
+              borderRadius: 8,
+              padding: '10px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              minWidth: 200,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(111,230,224,0.2)', paddingBottom: 6 }}>
+                <span style={{ fontSize: 10, letterSpacing: 1.5, color: '#6fe6e0', fontWeight: 700, textTransform: 'uppercase' }}>
+                  🛡️ ARMOR ({armorPoints}/20)
+                </span>
+                <span style={{ fontSize: 9, color: '#8fd06a', fontWeight: 'bold' }}>
+                  -{Math.round(Math.min(80, armorPoints * 4))}% DMG
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {['helmet', 'chestplate', 'leggings', 'boots'].map(slot => {
+                  const piece = player.armor ? player.armor[slot] : null;
+                  const icons = { helmet: '🪖', chestplate: '🦺', leggings: '👖', boots: '👢' };
+                  const labels = { helmet: 'Helmet', chestplate: 'Chestplate', leggings: 'Leggings', boots: 'Boots' };
+                  const isMatchHeld = held !== null && ITEMS[held.id]?.armorSlot === slot;
+
+                  return (
+                    <div key={slot} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div
+                        onClick={() => handleArmorSlotClick(slot)}
+                        title={piece ? `${thingName(piece.id)} (Defense: +${ITEMS[piece.id]?.defense || 0})` : `Equip ${labels[slot]}`}
+                        style={{
+                          width: 42, height: 42,
+                          background: piece ? 'rgba(30,55,65,0.9)' : isMatchHeld ? 'rgba(111,230,224,0.15)' : 'rgba(20,16,10,0.8)',
+                          border: `1px solid ${piece ? '#6fe6e0' : isMatchHeld ? '#6fe6e0' : 'rgba(214,178,120,0.2)'}`,
+                          borderRadius: 4,
+                          display: 'grid', placeItems: 'center',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          boxShadow: piece ? '0 0 8px rgba(111,230,224,0.3)' : 'none',
+                          transition: 'all .15s',
+                        }}
+                      >
+                        {piece && piece.id ? (
+                          <Swatch3D id={piece.id} />
+                        ) : (
+                          <span style={{ fontSize: 18, opacity: isMatchHeld ? 0.8 : 0.3 }}>{icons[slot]}</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', fontSize: 10 }}>
+                        <span style={{ fontWeight: 700, color: piece ? '#6fe6e0' : '#8a7a60' }}>
+                          {piece ? thingName(piece.id) : `Empty ${labels[slot]}`}
+                        </span>
+                        {piece && (
+                          <span style={{ fontSize: 8, color: '#8fd06a' }}>
+                            +{ITEMS[piece.id]?.defense || 0} Def | Dur: {piece.durability || ITEMS[piece.id]?.durability || 100}
+                          </span>
+                        )}
+                        {!piece && isMatchHeld && (
+                          <span style={{ fontSize: 8, color: '#6fe6e0' }}>
+                            Click to equip held armor
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* 3×3 Grid */}
             <div>
@@ -508,21 +637,37 @@ export default function CraftingScreen({ onClose }) {
                 overflowY: 'auto',
                 paddingRight: 4,
               }}>
-                {playerItems.map(({ id, count }) => (
-                  <div key={id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                    <SlotBox
-                      id={id}
-                      count={count}
-                      size={52}
-                      onClick={() => handlePickItem(id)}
-                      highlighted={held?.id === id}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <div style={{ fontSize: 8, color: '#c8b896', textAlign: 'center', maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {thingName(id)}
+                {playerItems.map(({ id, count }) => {
+                  const isArmor = !!ITEMS[id]?.armorSlot;
+                  return (
+                    <div key={id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                      <SlotBox
+                        id={id}
+                        count={count}
+                        size={52}
+                        onClick={() => handlePickItem(id)}
+                        highlighted={held?.id === id}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <div style={{ fontSize: 8, color: '#c8b896', textAlign: 'center', maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {thingName(id)}
+                      </div>
+                      {isArmor && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleQuickEquip(id); }}
+                          title="Quick Equip Armor"
+                          style={{
+                            fontSize: 8, color: '#6fe6e0', background: 'rgba(20,40,50,0.9)',
+                            border: '1px solid rgba(111,230,224,0.6)', borderRadius: 3, padding: '1px 5px',
+                            cursor: 'pointer', marginTop: 1, fontFamily: 'inherit', fontWeight: 'bold'
+                          }}
+                        >
+                          🛡️ Equip
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

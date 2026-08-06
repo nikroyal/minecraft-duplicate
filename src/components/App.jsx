@@ -1047,27 +1047,110 @@ export default function App() {
                 {craftTab === 'manual' && (
                   <div className="manual-body" style={{ padding: 0 }}>
                     <h3>🎮 Welcome to Voxel</h3>
-                    <p>Mine resources, craft tools &amp; weapons, build structures, farm crops, cook in furnaces, manage health and hunger, and survive hostile mobs through the night in an infinitely expandable voxel world.</p>
-                    
-                    <h3>⌨️ Key Bindings &amp; Navigation</h3>
+                    <p>Mine resources, craft tools &amp; weapons, build structures, farm crops, cook in furnaces, manage health and hunger, and survive hostile mobs through the night in an infinitely expandable 3D voxel world.</p>
+                    <div className="m-tip"><strong>Unbreakable Bedrock:</strong> Deep underground at <strong>Y = 0</strong> lies unbreakable Bedrock that cannot be destroyed.</div>
+
+                    <h3>⌨️ Key Bindings, Controls &amp; Camera</h3>
                     <ul>
-                      <li><span className="m-key">W A S D</span> Move &nbsp;|&nbsp; <span className="m-key">Space</span> Jump &nbsp;|&nbsp; <span className="m-key">Ctrl / Shift</span> Sprint</li>
-                      <li><span className="m-key">Left-click</span> Mine block / attack mob (hold left-click to break)</li>
-                      <li><span className="m-key">Right-click</span> Place block / interact with Chest, Furnace, Bed, TNT, Hoe, Seeds</li>
+                      <li><span className="m-key">W A S D</span> Move forward, left, backward, right.</li>
+                      <li><span className="m-key">Mouse Move</span> Look around in 360° 3D space.</li>
+                      <li><span className="m-key">Left-Click Game Screen</span> Locks mouse pointer into the game for smooth camera rotation.</li>
+                      <li><span className="m-key">Left-Click Block</span> Mine block / attack mob (hold left-click to see block crack overlay).</li>
+                      <li><span className="m-key">Right-Click</span> Place block / interact with Chest, Furnace, Bed, TNT, Hoe, Seeds, Levers, Buttons.</li>
                       <li><span className="m-key">1–8</span> Select Hotbar Slot &nbsp;|&nbsp; <span className="m-key">Scroll Wheel</span> Cycle Hotbar</li>
                       <li><span className="m-key">E</span> Open / Close Handbook (Inventory &amp; Crafting)</li>
                       <li><span className="m-key">Q</span> Drop 1 held item (or eat food when holding food)</li>
-                      <li><span className="m-key">F</span> Toggle Creative Flying</li>
+                      <li><span className="m-key">F</span> Toggle Creative Flying mode</li>
                       <li><span className="m-key">F3</span> Toggle 3D Physics Debug Overlay &amp; Telemetry</li>
                       <li><span className="m-key">F5 / H</span> Cycle Camera View (First-Person, Third-Person Back, Third-Person Front)</li>
-                      <li><span className="m-key">Esc (Press 1x)</span> Pause session &amp; show pause menu</li>
+                      <li><span className="m-key">G / V</span> Open 3D Voxel Pathfinder &amp; GPS Wayfinder modal</li>
+                      <li><span className="m-key">Esc (Press 1x)</span> Pause session &amp; release pointer lock to access UI</li>
                       <li><span className="m-key">Esc (Press 2x)</span> Exit game session &amp; return to Home Screen / Main Menu</li>
                     </ul>
 
-                    <h3>🧲 Long-Range Item Pickup (30-Block Magnet)</h3>
+                    <h3>🏃 Movement, Sprinting &amp; Parkour Physics</h3>
                     <ul>
-                      <li><strong>Instant Long-Range Magnet:</strong> Mined blocks and experience orbs feature a 30-block magnetic pickup range. Mined items fly directly to your inventory from across large caves or cliffs.</li>
-                      <li><strong>Surface Placement:</strong> Dropped items land cleanly on top of block surfaces without getting stuck inside terrain geometry.</li>
+                      <li><span className="m-key">Space</span> Jump / Swim Up in water.</li>
+                      <li><span className="m-key">Ctrl / Shift</span> Sprint (increases movement speed &amp; expands FOV; drains hunger faster).</li>
+                      <li><strong>Ground Step-Up:</strong> Walking forward into <strong>0.5-block slabs, carpets, or trapdoors</strong> automatically steps up onto them. (Full 1-block steps require Space to jump).</li>
+                      <li><strong>Jump Buffering:</strong> Pressing <span className="m-key">Space</span> up to 150ms before touching the ground triggers an instant jump upon landing.</li>
+                      <li><strong>Coyote Timer:</strong> Allows jumping up to 120ms after walking off ledges or block edges.</li>
+                      <li><strong>Fluid Swimming:</strong> Hold <span className="m-key">Space</span> to swim up. Leaping out of water at the surface gives a boost to land on terrain.</li>
+                    </ul>
+
+                    <h3>⛏️ Mining, Harvesting &amp; Tool Tiers</h3>
+                    <ul>
+                      <li><strong>Hold Left-Click:</strong> Mine targeted block. Progressive crack overlay shows mining progress.</li>
+                      <li><strong>Block Hardness:</strong> Dirt and leaves break fast, while Stone and Ores require Pickaxes.</li>
+                      <li><strong>Tool Efficiency:</strong> Pickaxes mine Stone/Ores, Axes chop Wood/Logs, Shovels dig Dirt/Sand.</li>
+                      <li><strong>Tool Tiers:</strong> Wood (30 durability) &rarr; Stone (60) &rarr; Iron (150) &rarr; Diamond (500). Higher tiers mine faster and unlock higher-grade ores.</li>
+                    </ul>
+
+                    <h3>📦 3D Floating Item Drops &amp; Magnetic Pickup</h3>
+                    <ul>
+                      <li><strong>Magnetic Pickup Range:</strong> Mined blocks and XP orbs attract automatically to your player and fly directly into your inventory.</li>
+                      <li><strong>Pickup Toasts:</strong> Text notifications appear in the bottom-left showing collected items (e.g. <em>Picked up +1 Oak Log</em>).</li>
+                      <li><strong>100-Entity Drop Cap:</strong> Active item entity drops are capped at 100 max entities for smooth performance.</li>
+                      <li><strong>Surface Placement:</strong> Dropped items land cleanly on top of block surfaces without clipping inside terrain geometry.</li>
+                    </ul>
+
+                    <h3>🧱 Hotbar &amp; Block Building Mechanics</h3>
+                    <ul>
+                      <li><span className="m-key">1–8</span> or <span className="m-key">Scroll Wheel</span> — Select active Hotbar slot.</li>
+                      <li><span className="m-key">Right-Click</span> — Place selected block onto targeted block face.</li>
+                      <li><span className="m-key">Shift + Right-Click</span> — Place blocks directly onto liquid water surfaces to build bridges across oceans!</li>
+                      <li><strong>Torches:</strong> Must be attached to solid floor or wall surfaces.</li>
+                    </ul>
+
+                    <h3>❤️ Survival HUD — Health, Hunger &amp; Food</h3>
+                    <ul>
+                      <li>❤️ <strong>Health (20 HP / 10 Hearts):</strong> Reduced by fall damage (falling &gt;3.5 blocks), drowning, void, zombie hits, creeper explosions, or starvation.</li>
+                      <li>🍗 <strong>Hunger (20 Points / 10 Drumsticks):</strong> Drains over time (faster when sprinting). At 16+ hunger, health regenerates automatically. At 0 hunger, starvation damage occurs.</li>
+                      <li><strong>Eating Food:</strong> Select food (Apples, Berries, Bread, Cooked Meat) in hotbar and press <span className="m-key">Q</span> (or right-click) to restore health &amp; hunger.</li>
+                    </ul>
+
+                    <h3>📘 Inventory &amp; 3x3 Crafting Handbook</h3>
+                    <ul>
+                      <li>Press <span className="m-key">E</span> — Open your Inventory &amp; Crafting Handbook.</li>
+                      <li><strong>Essential Recipes:</strong>
+                        <ul>
+                          <li>1 Log &rarr; 4 Wood Planks</li>
+                          <li>4 Planks &rarr; Crafting Table (place down to unlock full 3x3 crafting grid!)</li>
+                          <li>2 Planks &rarr; 4 Sticks</li>
+                          <li>3 Planks + 2 Sticks &rarr; Wooden Pickaxe!</li>
+                        </ul>
+                      </li>
+                      <li><strong>Editable Hotbar:</strong> Click any item in your inventory to pick it up, then click a Hotbar slot (1–8) or press number keys <span className="m-key">1–8</span> to assign it.</li>
+                    </ul>
+
+                    <h3>🔥 Smelting &amp; Cooking (Furnace)</h3>
+                    <ul>
+                      <li>Craft a <strong>Furnace (8 Cobblestone)</strong>, place it down, and <span className="m-key">Right-Click</span> to open.</li>
+                      <li><strong>Fuel Slot (Bottom):</strong> Burn Coal, Charcoal, Wood Logs, or Planks as fuel.</li>
+                      <li><strong>Input Slot (Top):</strong> Place Iron Ore, Gold Ore, Sand (smelts into Glass), Clay (smelts into Terracotta), or Raw Meat over a 10-second cook cycle.</li>
+                    </ul>
+
+                    <h3>📦 Chest Storage, Cloud Sync &amp; Beds (Night Passing)</h3>
+                    <ul>
+                      <li><strong>Chest Storage:</strong> Craft a Chest (8 Planks) to store up to 27 item stacks. World edits and chest inventories automatically save locally and sync with Firebase Firestore cloud storage.</li>
+                      <li><strong>Beds &amp; Night Passing:</strong> Craft a Bed (3 Wool + 3 Planks), place inside shelter, and <span className="m-key">Right-Click</span> at night to skip instantly to dawn, restore +6 HP, and update your respawn point.</li>
+                    </ul>
+
+                    <h3>⚡ Redstone &amp; Automation Systems</h3>
+                    <ul>
+                      <li><strong>Redstone Power Grid (0–15):</strong> Redstone Dust carries power up to 15 blocks. Redstone Blocks &amp; Torches provide constant power.</li>
+                      <li><strong>Triggers &amp; Devices:</strong> Right-click <strong>Levers</strong> to toggle power, press <strong>Buttons</strong> for 1.0s pulses, or step on <strong>Pressure Plates</strong>.</li>
+                      <li><strong>Pistons &amp; Sticky Pistons:</strong> When powered, push chains of up to 12 blocks ahead. Sticky Pistons pull attached blocks back on power off!</li>
+                      <li><strong>Repeaters &amp; Comparators:</strong> Right-click Repeaters to cycle signal delays (1–4 ticks); right-click Comparators to toggle subtract mode or measure container capacity (chests/furnaces).</li>
+                      <li><strong>Dispensers &amp; Droppers:</strong> Fire arrows, place water, or eject items automatically / deposit into adjacent chests when triggered by Redstone power.</li>
+                    </ul>
+
+                    <h3>🧟 Mobs, Undead Sunlight Burning &amp; Combat</h3>
+                    <ul>
+                      <li>🧟 <strong>Zombies:</strong> Melee attackers. Burn in direct sunlight during daytime!</li>
+                      <li>💀 <strong>Skeletons:</strong> Ranged archers. Burn in direct sunlight during daytime!</li>
+                      <li>💥 <strong>Creepers:</strong> Stealth explosive mobs! Back away immediately when they start flashing and hissing!</li>
+                      <li><strong>Weapons &amp; TNT:</strong> Craft Swords for melee knockback, Bow &amp; Arrows for ranged attacks, or place TNT (ignite with right-click, 3s fuse, 4-block explosion radius).</li>
                     </ul>
 
                     <h3>🪣 Bucket &amp; Fluid Interactions</h3>
@@ -1076,67 +1159,18 @@ export default function App() {
                       <li><strong>Water Bucket (145):</strong> Right-click air or flowing water to place a water source block (8), returning an Empty Bucket.</li>
                     </ul>
 
-                    <h3>🧰 Editable Hotbar &amp; Inventory Management</h3>
-                    <ul>
-                      <li>Click any item in your inventory to pick it up, then click a Hotbar slot (1–8) or Crafting Grid slot to place/swap it.</li>
-                      <li>Hold an item and press number keys <span className="m-key">1–8</span> to assign it directly to that Hotbar slot.</li>
-                    </ul>
-
-                    <h3>🏃 Movement &amp; Parkour Physics</h3>
-                    <ul>
-                      <li><strong>Ground Step-Up:</strong> Step up 0.5-block slabs, carpets, and trapdoors while walking grounded (1-block mountain steps require Space to jump).</li>
-                      <li><strong>Jump Buffering:</strong> Pressing <span className="m-key">Space</span> up to 150ms before touching the ground triggers an instant jump upon landing.</li>
-                      <li><strong>Coyote Timer:</strong> Allows jumping up to 120ms after walking off ledges or block edges.</li>
-                      <li><strong>Fluid Swimming:</strong> Hold <span className="m-key">Space</span> to swim up. Leaping out of water at the surface gives a boost to land on terrain.</li>
-                    </ul>
-
-                    <h3>❤️ Health, Hunger &amp; Survival</h3>
-                    <ul>
-                      <li><strong>Health (20 HP / 10 Hearts):</strong> Damage taken from fall (3.5+ blocks), drowning, void, zombies, creepers, or starvation.</li>
-                      <li><strong>Hunger (20 / 10 Drumsticks):</strong> Drains over time (faster while sprinting). At 16+ HP regens over time. At 0 hunger, starvation damage occurs.</li>
-                      <li><strong>Eating Food:</strong> Select food in hotbar and press <span className="m-key">Q</span> (or right-click) to restore hunger &amp; health.</li>
-                    </ul>
-
-                    <h3>⛏️ Tools &amp; Durability Tiers</h3>
-                    <ul>
-                      <li><strong>Pickaxe:</strong> Required for Stone, Cobblestone, Coal/Iron/Gold/Diamond Ores, Bricks, Sandstone, Obsidian.</li>
-                      <li><strong>Axe:</strong> Efficiently chops Logs, Planks, Wood, Crafting Tables, Chests, Bookshelves.</li>
-                      <li><strong>Shovel:</strong> Fast digging for Dirt, Grass, Sand, Gravel, Snow, Clay.</li>
-                      <li><strong>Hoe:</strong> Right-click Grass or Dirt to till into Farmland for planting crops.</li>
-                      <li><strong>Tool Tiers:</strong> Wood (30 durability) &rarr; Stone (60) &rarr; Iron (150) &rarr; Diamond (500). Higher tiers mine faster and unlock higher-grade ores.</li>
-                    </ul>
-
-                    <h3>🔥 Smelting &amp; Cooking (Furnace)</h3>
-                    <ul>
-                      <li>Right-click a placed <strong>Furnace (42)</strong> to open the smelting interface.</li>
-                      <li><strong>Top Input Slot:</strong> Raw Iron Ore, Gold Ore, Sand (smelts into Glass), Clay (smelts into Terracotta), Raw Meat.</li>
-                      <li><strong>Bottom Fuel Slot:</strong> Coal, Charcoal, Wood Logs, or Planks.</li>
-                      <li>Automated smelting progress bar refines inputs into pure ingots, glass, terracotta, or cooked meals.</li>
-                    </ul>
-
-                    <h3>📦 Chest Storage &amp; Cloud Sync</h3>
-                    <ul>
-                      <li>Right-click a placed <strong>Chest (43)</strong> to store up to 27 item slots.</li>
-                      <li>World edits and chest inventories automatically save locally and sync with Firebase Firestore cloud storage.</li>
-                    </ul>
-
                     <h3>🌾 Farming &amp; Agriculture</h3>
                     <ul>
-                      <li>Right-click Grass/Dirt with a <strong>Hoe</strong> to create Farmland (89).</li>
-                      <li>Right-click Farmland with <strong>Wheat Seeds</strong> (138) to plant crops.</li>
+                      <li>Right-click Grass/Dirt with a <strong>Hoe</strong> to create Farmland.</li>
+                      <li>Right-click Farmland with <strong>Wheat Seeds</strong> to plant crops.</li>
                       <li>Harvest ripe wheat &rarr; Craft 3 Wheat into 1 Bread!</li>
                     </ul>
 
-                    <h3>🏹 Combat, Weapons &amp; TNT</h3>
+                    <h3>🛰️ 3D Voxel Pathfinder &amp; GPS Wayfinder</h3>
                     <ul>
-                      <li><strong>Swords:</strong> High melee damage for fighting zombies &amp; creepers.</li>
-                      <li><strong>Bow &amp; Arrows:</strong> Craft Bow (146) and Arrows (147). Right-click to fire high-velocity physics arrows!</li>
-                      <li><strong>TNT Explosions:</strong> Place TNT (56) and right-click to ignite. Primed TNT pulses for 3s before triggering a 4-block radius terrain explosion.</li>
-                    </ul>
-
-                    <h3>🛌 Bed &amp; Passing the Night</h3>
-                    <ul>
-                      <li>Right-click a placed <strong>Bed (57)</strong> at night to pass the night instantly to dawn, restore HP/hunger, and update your respawn point.</li>
+                      <li>Press <span className="m-key">G</span> or <span className="m-key">V</span> — Open the 3D Voxel Pathfinder &amp; GPS Wayfinder modal.</li>
+                      <li><strong>Save Waypoints:</strong> Bookmark Home Base, Mineshaft, Furnace Room, or Portals.</li>
+                      <li><strong>3D A* Navigation:</strong> Computes connected 3D paths through terrain and projects glowing GPS guide dots directly in the 3D world!</li>
                     </ul>
                   </div>
                 )}

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { keys, touch, player, inventory, hotbar, game, webgl, reactBridge } from './state.js';
+import { keys, touch, player, inventory, hotbar, game, webgl, reactBridge, getTotalArmorPoints } from './state.js';
 import { 
   CHUNK, HEIGHT, SEA, isSolid, isFood, ITEMS, BLOCKS, thingName, surfaceHeight,
   AIR, SHAPE_OF
@@ -533,9 +533,39 @@ export function updatePlayer(dt){
   }
 }
 
+export function damageEquippedArmor(dmg) {
+  if (!player || !player.armor) return;
+  let changed = false;
+  for (const slot of ['helmet', 'chestplate', 'leggings', 'boots']) {
+    const piece = player.armor[slot];
+    if (piece && piece.id) {
+      piece.durability = (piece.durability !== undefined ? piece.durability : (ITEMS[piece.id]?.durability || 100)) - dmg;
+      if (piece.durability <= 0) {
+        player.armor[slot] = null;
+        toast(`Your ${thingName(piece.id)} broke!`);
+      }
+      changed = true;
+    }
+  }
+  if (changed && reactBridge.updateUI) {
+    reactBridge.updateUI();
+  }
+}
+
 export function hurtPlayer(amount, cause){
   if(!game.survival || player.dead || player.invuln > 0 || amount <= 0) return;
-  const roundedDmg = Math.max(1, Math.round(amount));
+
+  let finalDmg = amount;
+  if (cause !== 'void' && cause !== 'starve' && cause !== 'drown') {
+    const armorPoints = getTotalArmorPoints();
+    if (armorPoints > 0) {
+      const reduction = Math.min(0.80, armorPoints * 0.04);
+      finalDmg = Math.max(1, amount * (1 - reduction));
+      damageEquippedArmor(Math.max(1, Math.floor(amount)));
+    }
+  }
+
+  const roundedDmg = Math.max(1, Math.round(finalDmg));
   player.health = Math.max(0, player.health - roundedDmg);
   player.invuln = 0.5;
   player.vel.y += 3.2; // Add vertical knockback

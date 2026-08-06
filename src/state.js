@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ITEMS } from './config.js';
 
 export const SAVE_KEY = "voxel_world_save";
 
@@ -37,6 +38,12 @@ export const player = {
   sprinting: false,
   spawnPoint: null,
   bowCharge: 0,
+  armor: {
+    helmet: null,
+    chestplate: null,
+    leggings: null,
+    boots: null,
+  },
   avatar: {
     headType: "steve",
     shirtColor: "#008080",
@@ -151,6 +158,7 @@ export function resetGameState() {
   player.sprinting = false;
   player.spawnPoint = null;
   player.bowCharge = 0;
+  player.armor = { helmet: null, chestplate: null, leggings: null, boots: null };
   
   game.mobs.length = 0;
   game.particles.length = 0;
@@ -160,4 +168,16 @@ export function resetGameState() {
   game.timeOfDay = 0.3;
   game.running = false;
   touch.reset();
+}
+
+export function getTotalArmorPoints() {
+  if (!player || !player.armor) return 0;
+  let total = 0;
+  for (const slot of ['helmet', 'chestplate', 'leggings', 'boots']) {
+    const item = player.armor[slot];
+    if (item && item.id && ITEMS[item.id]) {
+      total += ITEMS[item.id].defense || 0;
+    }
+  }
+  return Math.min(20, total);
 }

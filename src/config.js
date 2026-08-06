@@ -164,6 +164,27 @@ export const ITEMS = {
   148: { name: "Gunpowder",     color: 0x4a4a4a },
   150: { name: "Heart",         color: 0xff2244, food: 0, heal: 4 },
   151: { name: "Redstone Dust", color: 0xd81818 },
+
+  // === Armor Equipment Items ===
+  160: { name: "Leather Helmet",     color: 0x9a6a3a, armorSlot: "helmet",     defense: 1, durability: 55 },
+  161: { name: "Leather Chestplate", color: 0x9a6a3a, armorSlot: "chestplate", defense: 3, durability: 80 },
+  162: { name: "Leather Leggings",   color: 0x9a6a3a, armorSlot: "leggings",   defense: 2, durability: 75 },
+  163: { name: "Leather Boots",      color: 0x9a6a3a, armorSlot: "boots",      defense: 1, durability: 65 },
+
+  164: { name: "Iron Helmet",        color: 0xd8d8d8, armorSlot: "helmet",     defense: 2, durability: 165 },
+  165: { name: "Iron Chestplate",    color: 0xd8d8d8, armorSlot: "chestplate", defense: 6, durability: 240 },
+  166: { name: "Iron Leggings",      color: 0xd8d8d8, armorSlot: "leggings",   defense: 5, durability: 225 },
+  167: { name: "Iron Boots",         color: 0xd8d8d8, armorSlot: "boots",      defense: 2, durability: 195 },
+
+  168: { name: "Diamond Helmet",     color: 0x6fe6e0, armorSlot: "helmet",     defense: 3, durability: 360 },
+  169: { name: "Diamond Chestplate", color: 0x6fe6e0, armorSlot: "chestplate", defense: 8, durability: 528 },
+  170: { name: "Diamond Leggings",   color: 0x6fe6e0, armorSlot: "leggings",   defense: 6, durability: 495 },
+  171: { name: "Diamond Boots",      color: 0x6fe6e0, armorSlot: "boots",      defense: 3, durability: 429 },
+
+  172: { name: "Gold Helmet",        color: 0xf2d24a, armorSlot: "helmet",     defense: 2, durability: 77 },
+  173: { name: "Gold Chestplate",    color: 0xf2d24a, armorSlot: "chestplate", defense: 5, durability: 112 },
+  174: { name: "Gold Leggings",      color: 0xf2d24a, armorSlot: "leggings",   defense: 3, durability: 105 },
+  175: { name: "Gold Boots",         color: 0xf2d24a, armorSlot: "boots",      defense: 1, durability: 91 },
 };
 
 for (const id in ITEMS) {
@@ -352,6 +373,18 @@ export const RECIPES = [];
     if(shov[ti]) R({[mat]:1,100:2}, shov[ti], 1, `${label} Shovel`, `1 ${label} + 2 Sticks`);
     if(axe[ti])  R({[mat]:3,100:3}, axe[ti], 1, `${label} Axe`, `3 ${label} + 3 Sticks`);
     if(hoe[ti])  R({[mat]:2,100:2}, hoe[ti], 1, `${label} Hoe`, `2 ${label} + 2 Sticks`);
+  });
+
+  const armorMats = [[7,"Leather"],[102,"Iron"],[104,"Diamond"],[103,"Gold"]];
+  const helm = [160,164,168,172];
+  const chest = [161,165,169,173];
+  const legs = [162,166,170,174];
+  const boot = [163,167,171,175];
+  armorMats.forEach(([mat,label], ai) => {
+    R({[mat]:5}, helm[ai], 1, `${label} Helmet`, `5 ${label} → ${label} Helmet`);
+    R({[mat]:8}, chest[ai], 1, `${label} Chestplate`, `8 ${label} → ${label} Chestplate`);
+    R({[mat]:7}, legs[ai], 1, `${label} Leggings`, `7 ${label} → ${label} Leggings`);
+    R({[mat]:4}, boot[ai], 1, `${label} Boots`, `4 ${label} → ${label} Boots`);
   });
 
   R({6:1},123,1,"Green Dye","Leaves → Green Dye");

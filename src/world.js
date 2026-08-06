@@ -1438,6 +1438,29 @@ export function getItemDataURL(id) {
   } else if (id === 102 || id === 103) { // Iron / Gold Ingot
     for (let y = 5; y <= 10; y++) for (let x = 3; x <= 12; x++) px(x, y, colStr);
     for (let x = 3; x <= 12; x++) { px(x, 5, lightStr); px(x, 10, darkStr); }
+  } else if (it?.armorSlot === "helmet") {
+    for (let y = 3; y <= 9; y++) for (let x = 3; x <= 12; x++) {
+      if (y === 3 && (x === 3 || x === 12)) continue;
+      if (y > 6 && (x >= 5 && x <= 10) && y !== 9) continue;
+      px(x, y, (x === 3 || y === 3) ? lightStr : (x === 12 || y === 9) ? darkStr : colStr);
+    }
+  } else if (it?.armorSlot === "chestplate") {
+    for (let y = 3; y <= 13; y++) for (let x = 2; x <= 13; x++) {
+      if (y === 3 && (x >= 6 && x <= 9)) continue;
+      if (y === 3 && (x < 4 || x > 11)) continue;
+      if (y > 4 && y < 8 && (x < 3 || x > 12)) continue;
+      px(x, y, (x === 2 || y === 3) ? lightStr : (x === 13 || y === 13) ? darkStr : colStr);
+    }
+  } else if (it?.armorSlot === "leggings") {
+    for (let y = 3; y <= 13; y++) for (let x = 3; x <= 12; x++) {
+      if (y >= 6 && (x >= 7 && x <= 8)) continue;
+      px(x, y, (x === 3 || y === 3) ? lightStr : (x === 12 || y === 13) ? darkStr : colStr);
+    }
+  } else if (it?.armorSlot === "boots") {
+    for (let y = 7; y <= 13; y++) {
+      for (let x = 3; x <= 6; x++) px(x, y, (x === 3 || y === 7) ? lightStr : darkStr);
+      for (let x = 9; x <= 12; x++) px(x, y, (x === 9 || y === 7) ? lightStr : darkStr);
+    }
   } else {
     for (let y = 4; y <= 11; y++) for (let x = 4; x <= 11; x++) {
       if ((x === 4 || x === 11) && (y === 4 || y === 11)) continue;
