@@ -791,7 +791,7 @@ export function updateCosmeticParticles(dt) {
   }
 }
 
-// 🤖 Auto-Pilot Autonomous Player Movement Controller
+// 🤖 Enhanced Auto-Pilot Autonomous Player Movement Controller
 export function updateAutoPilotSteering(dt, wish) {
   if (!activeNavigation || !activeNavigation.pathNodes || activeNavigation.pathNodes.length === 0) return;
 
@@ -812,7 +812,7 @@ export function updateAutoPilotSteering(dt, wish) {
     const dy = Math.abs(n.y - player.pos.y);
     const dist2D = Math.hypot(dx, dz);
 
-    if (dist2D < 0.60 && dy < 1.4) {
+    if (dist2D < 0.65 && dy < 1.4) {
       nodeIdx++;
       activeNavigation.autoNodeIndex = nodeIdx;
     } else {
@@ -858,27 +858,89 @@ export function updateAutoPilotSteering(dt, wish) {
   const dz = tz - player.pos.z;
   const dist2D = Math.hypot(dx, dz);
 
+  // ── 1. Stuck Detection & Recovery System ──
+  if (!activeNavigation._stuckState) {
+    activeNavigation._stuckState = { lastPos: new THREE.Vector3().copy(player.pos), timer: 0 };
+  }
+  const stuck = activeNavigation._stuckState;
+  const distMoved = player.pos.distanceTo(stuck.lastPos);
+
+  if (distMoved < 0.20 * dt) {
+    stuck.timer += dt;
+  } else {
+    stuck.timer = Math.max(0, stuck.timer - dt * 2.0);
+    stuck.lastPos.copy(player.pos);
+  }
+
+  // ── 2. Humanlike Camera Steering ──
   if (dist2D > 0.04) {
-    // 1. Smooth Camera Yaw Rotation towards movement target
     const desiredYaw = Math.atan2(-dx, -dz);
     let diff = desiredYaw - player.yaw;
     while (diff < -Math.PI) diff += Math.PI * 2;
     while (diff > Math.PI) diff -= Math.PI * 2;
 
-    const turnRate = 5.5 * dt;
-    player.yaw += Math.max(-turnRate, Math.min(turnRate, diff));
+    // Human-like smooth turn rate (slight deceleration when close to target angle)
+    const turnSpeed = Math.min(6.0, 3.5 + Math.abs(diff) * 2.0);
+    player.yaw += diff * Math.min(1.0, turnSpeed * dt);
 
-    // 2. Drive movement vector towards node
-    wish.x = dx / dist2D;
-    wish.z = dz / dist2D;
+    // Natural camera pitch (level horizon or slight incline/decline)
+    const dy = ty - player.pos.y;
+    const desiredPitch = Math.max(-0.4, Math.min(0.4, Math.atan2(dy, dist2D) * 0.5));
+    player.pitch += (desiredPitch - player.pitch) * Math.min(1.0, 4.0 * dt);
+
+    // Movement vector aligned with camera orientation for humanlike walking
+    const forwardX = -Math.sin(player.yaw);
+    const forwardZ = -Math.cos(player.yaw);
+
+    // Speed modulation: Walk on turns/uphills, only sprint on long straight paths
+    const isStraight = Math.abs(diff) < 0.25;
+    player.sprinting = isStraight && dist2D > 3.5;
+
+    const moveSpeedMult = player.sprinting ? 1.0 : 0.75;
+    wish.x = forwardX * moveSpeedMult;
+    wish.z = forwardZ * moveSpeedMult;
   }
 
-  // Auto-Jump for 1-block steps, obstacles, or gap jumps
+  // ── 3. Water Physics & Swimming ──
+  const feetB = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z));
+  const headB = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 1.2), Math.floor(player.pos.z));
+  const inWater = (feetB === 8 || feetB === 9 || headB === 8 || headB === 9);
+
+  if (inWater) {
+    // Pulse swim jump continuously to float up and swim out onto land
+    player.jumpBuffer = 0.20;
+  }
+
+  // ── 4. Obstacle & Jump Management ──
   const isHigher = (ty > player.pos.y + 0.15);
-  const feetAhead = getBlock(Math.floor(player.pos.x + wish.x * 0.45), Math.floor(player.pos.y), Math.floor(player.pos.z + wish.z * 0.45));
+  const feetAhead = getBlock(Math.floor(player.pos.x + wish.x * 0.5), Math.floor(player.pos.y), Math.floor(player.pos.z + wish.z * 0.5));
   const hasObstacle = isSolid(feetAhead);
 
-  if ((isHigher || hasObstacle) && player.onGround) {
-    player.jumpBuffer = 0.15;
+  if ((isHigher || hasObstacle) && (player.onGround || inWater)) {
+    player.jumpBuffer = 0.20;
+  }
+
+  // ── 5. Un-stuck Recovery Logic ──
+  if (stuck.timer > 1.2) {
+    // Jump and wiggle laterally if stuck against terrain
+    player.jumpBuffer = 0.25;
+    wish.x += (Math.random() - 0.5) * 0.9;
+    wish.z += (Math.random() - 0.5) * 0.9;
+    wish.normalize();
+  }
+
+  if (stuck.timer > 2.5) {
+    // Force path recalculation around obstacle from current player position
+    stuck.timer = 0;
+    const tx = finalPos.x + 0.5;
+    const ty = finalPos.y;
+    const tz = finalPos.z + 0.5;
+    const newPath = findPath(player.pos, { x: tx, y: ty, z: tz }, 900);
+    if (newPath && newPath.length > 1) {
+      activeNavigation.pathNodes = newPath;
+      activeNavigation.autoNodeIndex = 0;
+      updatePathTrail(newPath);
+      toast("🤖 Auto-Pilot rerouting around obstacle...");
+    }
   }
 }
