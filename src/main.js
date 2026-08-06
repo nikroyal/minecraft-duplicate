@@ -591,9 +591,11 @@ function raycastVoxel(maxDist, includeWater = false){
   let tMZ = ((stepZ>0 ? (z+1-o.z) : (o.z-z)))*tDZ;
   let px = x, py = y, pz = z, t = 0;
   
+  const startX = x, startY = y, startZ = z;
   for(let i=0; i<128; i++){
     const b = getBlock(x, y, z);
-    if(b !== 0 && BLOCKS[b] && (includeWater || (b !== 8 && b !== 9))){
+    const isStartVoxel = (x === startX && y === startY && z === startZ);
+    if(b !== 0 && BLOCKS[b] && (!isStartVoxel || (b !== 8 && b !== 9)) && (includeWater || (b !== 8 && b !== 9))){
       return { hit: [x,y,z], prev: [px,py,pz] };
     }
     px = x; py = y; pz = z;
