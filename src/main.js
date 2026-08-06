@@ -933,10 +933,9 @@ export function placeBlock(){
     return;
   }
   const heldId = hotbar[game.selected];
-  // For buckets or Shift-clicking, target liquid voxels directly.
-  // For normal blocks, raycast passes through water to target solid underwater surfaces,
-  // allowing blocks to be placed directly into underwater floor and wall cells!
-  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"];
+  const isBucket = (heldId === 144 || heldId === 145);
+  // Include water in raycast for placeable blocks so liquid voxels can be targeted directly or passed through
+  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"] || isPlaceable(heldId) || (heldId > 0 && BLOCKS[heldId]);
   const r = raycastVoxel(6, includeWater);
   if(!r) return;
   
@@ -1107,13 +1106,19 @@ export function placeBlock(){
   }
 
   // Target placement coordinates:
-  // Always place at r.prev (the last air cell the ray traversed before the hit),
-  // even when the hit block is water. This ensures blocks land ON TOP of (or
-  // beside) water rather than sinking into the water cell and disappearing.
+  // If the hit voxel is a liquid (water 8/9), place DIRECTLY into that water voxel.
+  // If the hit voxel is solid, place at r.prev (the cell adjacent to the solid face).
+  const hitId = getBlock(r.hit[0], r.hit[1], r.hit[2]);
   let x, y, z;
-  x = r.prev[0];
-  y = r.prev[1];
-  z = r.prev[2];
+  if (hitId === 8 || hitId === 9) {
+    x = r.hit[0];
+    y = r.hit[1];
+    z = r.hit[2];
+  } else {
+    x = r.prev[0];
+    y = r.prev[1];
+    z = r.prev[2];
+  }
   const id = heldId;
   
   if(!isPlaceable(heldId)){ toast(`${thingName(heldId)} can't be placed`); return; }
