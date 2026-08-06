@@ -934,11 +934,11 @@ export function placeBlock(){
     toast("⚠️ Build Lockdown Active: World edits restricted by Admin.");
     return;
   }
-  const heldId = hotbar[game.selected];
   const isBucket = (heldId === 144 || heldId === 145);
-  // Shift-clicking or Buckets target water surfaces directly (e.g. building a bridge on water).
-  // Standard block placement raycasts THROUGH liquid to hit the solid underwater floor/wall your crosshair is aiming at!
-  const includeWater = isBucket || keys["ShiftLeft"] || keys["ShiftRight"];
+  const isLilyPad = (heldId === 139);
+  // ONLY Buckets and LilyPads target water surfaces directly.
+  // ALL OTHER BLOCKS raycast THROUGH liquids to target the solid underwater floor/wall your crosshair points at!
+  const includeWater = isBucket || isLilyPad;
   const r = raycastVoxel(6, includeWater);
   if(!r) return;
   
