@@ -24,6 +24,7 @@ import OnboardingAgentModal from './OnboardingAgentModal.jsx';
 import ChatPanel from './ChatPanel.jsx';
 import DailyLoginModal from './DailyLoginModal.jsx';
 import NotificationCenterModal from './NotificationCenterModal.jsx';
+import ErrorConsoleModal from './ErrorConsoleModal.jsx';
 import { activeNavigation, clearActiveNavigation } from '../pathfinder.js';
 import { toggleAmbientBGM } from '../audio.js';
 import { 
@@ -38,8 +39,15 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showChatSidePanel, setShowChatSidePanel] = useState(false);
   const [chatTargetUser, setChatTargetUser] = useState(null);
+  const [showErrorConsole, setShowErrorConsole] = useState(false);
 
   useEffect(() => {
+    window.__toggleErrorConsole = () => {
+      setShowErrorConsole(prev => !prev);
+    };
+    window.__openErrorConsole = () => {
+      setShowErrorConsole(true);
+    };
     window.__toggleWayfinder = () => {
       setShowWayfinder(prev => {
         const next = !prev;
@@ -802,6 +810,10 @@ export default function App() {
                 return next;
               });
             }}
+            onOpenErrorConsole={() => {
+              if (document.pointerLockElement) document.exitPointerLock();
+              setShowErrorConsole(true);
+            }}
           />
 
         </>
@@ -1279,6 +1291,11 @@ export default function App() {
             setShowOnboarding(false);
           }}
         />
+      )}
+
+      {/* IN-GAME ERROR CONSOLE MODAL */}
+      {showErrorConsole && (
+        <ErrorConsoleModal onClose={() => setShowErrorConsole(false)} />
       )}
     </>
   );

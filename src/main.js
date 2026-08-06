@@ -2032,6 +2032,14 @@ export function bootGame() {
       if (reactBridge.updateUI) reactBridge.updateUI();
     }
 
+    // Toggle In-Game Error Console & Stack Inspector on F9 or Backquote (~)
+    if (e.code === "F9" || e.code === "Backquote") {
+      e.preventDefault();
+      if (document.pointerLockElement) document.exitPointerLock();
+      if (window.__toggleErrorConsole) window.__toggleErrorConsole();
+      return;
+    }
+
     // Cycle camera modes on F5 / KeyH press
     if(e.code === "F5" || e.code === "KeyH"){
       e.preventDefault();

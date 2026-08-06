@@ -3,6 +3,7 @@ import { player, game, hotbar, inventory, toolDurability, getTotalArmorPoints } 
 import { thingName, BLOCKS, ITEMS } from '../config.js';
 import { invCount } from '../player.js';
 import Swatch3D from './Swatch3D.jsx';
+import { capturedErrors, subscribeErrors } from '../errorLog.js';
 import { activeNavigation } from '../pathfinder.js';
 
 import { selectSlot } from '../ui.js';
@@ -10,8 +11,17 @@ import { selectSlot } from '../ui.js';
 export default function HUDOverlay({ 
   selectedSlot, targetBlockName, fps, coordsStr, clockStr, 
   notificationsCount = 0, unreadChatCount = 0, onOpenNotifications, onOpenChat,
-  bgmActive = false, onToggleBGM
+  bgmActive = false, onToggleBGM, onOpenErrorConsole
 }) {
+  const [, forceUpdate] = useState(0);
+  const [errorCount, setErrorCount] = useState(capturedErrors.length);
+
+  useEffect(() => {
+    return subscribeErrors((errs) => {
+      setErrorCount(errs.length);
+    });
+  }, []);
+
   const activeSelected = selectedSlot !== undefined ? selectedSlot : game.selected;
   const hp = Math.max(0, player.health);
   const hunger = Math.max(0, player.hunger);
@@ -235,6 +245,26 @@ export default function HUDOverlay({
               color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '9px', fontWeight: 800
             }}>
               {unreadChatCount}
+            </span>
+          </button>
+
+          <button
+            onClick={onOpenErrorConsole}
+            title="Open In-Game Error Console & Stack Inspector (Press F9 or ~)"
+            style={{
+              background: errorCount > 0 ? 'rgba(255,77,77,0.35)' : 'rgba(0,0,0,0.55)',
+              border: `1px solid ${errorCount > 0 ? '#ff4d4d' : 'rgba(255,255,255,0.15)'}`,
+              borderRadius: '6px', padding: '5px 9px', color: '#fff', fontSize: '10px',
+              fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)'
+            }}
+          >
+            <span>🐞 ERRORS</span>
+            <span style={{
+              background: errorCount > 0 ? '#ff4d4d' : 'rgba(255,255,255,0.2)',
+              color: errorCount > 0 ? '#fff' : '#aaa', borderRadius: '10px', padding: '1px 6px', fontSize: '9px', fontWeight: 800
+            }}>
+              {errorCount}
             </span>
           </button>
         </div>
