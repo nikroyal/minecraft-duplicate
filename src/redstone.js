@@ -266,11 +266,19 @@ function handlePistonUpdate(x, y, z, pistonId, power) {
     for (let i = 0; i < 12; i++) {
       const bId = getBlock(currentX, currentY, currentZ);
       if (bId === 0 || bId === 8 || bId === 9) break; // Air or fluid line end
-      if (bId === 30 || bId === 62) { canPush = false; break; } // Obsidian / immovable
+      if (bId === 30 || bId === 62 || currentY < 1 || currentY >= 127) { canPush = false; break; } // Obsidian / immovable / world boundary
       pushableChain.push({ x: currentX, y: currentY, z: currentZ, id: bId });
       currentX += pushDir.dx;
       currentY += pushDir.dy;
       currentZ += pushDir.dz;
+    }
+
+    // Strict 12-block push limit: if 12th block is solid and has no open space behind it, cancel push
+    if (pushableChain.length === 12) {
+      const tailId = getBlock(currentX, currentY, currentZ);
+      if (tailId !== 0 && tailId !== 8 && tailId !== 9) {
+        canPush = false;
+      }
     }
 
     if (canPush) {

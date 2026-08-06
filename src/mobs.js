@@ -312,6 +312,10 @@ export function trySpawnMobs(){
     }
   }
   if(topY === 0 || topY >= HEIGHT - 2) return;
+
+  // Hardened terrain verification: ensure surface under feet is solid and head clearance is open
+  if (!isSolid(getBlock(sx, topY - 1, sz))) return;
+  if (isSolid(getBlock(sx, topY, sz)) || isSolid(getBlock(sx, topY + 1, sz))) return;
   
   spawnMob(type, sx + 0.5, topY + 0.1, sz + 0.5);
 }
@@ -731,7 +735,15 @@ export function attackMob(targetMob, customDamage){
     if(child.material && child.material.emissive) child.material.emissive.setRGB(0.5, 0, 0);
   });
   
-  const kx = best.pos.x - player.pos.x, kz = best.pos.z - player.pos.z, kl = Math.hypot(kx, kz) || 1;
+  let kx = best.pos.x - player.pos.x;
+  let kz = best.pos.z - player.pos.z;
+  let kl = Math.hypot(kx, kz);
+  if (kl < 1e-4) {
+    const angle = Math.random() * Math.PI * 2;
+    kx = Math.cos(angle);
+    kz = Math.sin(angle);
+    kl = 1;
+  }
   best.vel.x = (kx / kl) * 5;
   best.vel.z = (kz / kl) * 5;
   best.vel.y = 3.5;
