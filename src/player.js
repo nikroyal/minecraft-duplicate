@@ -801,11 +801,12 @@ export function updateAutoPilotSteering(dt, wish) {
     activeNavigation.autoNodeIndex = 0;
   }
 
-  let nodeIdx = activeNavigation.autoNodeIndex;
+  let nodeIdx = Math.min(activeNavigation.autoNodeIndex || 0, pathNodes.length - 1);
 
   // Advance to next node if player has reached current node
   while (nodeIdx < pathNodes.length - 1) {
     const n = pathNodes[nodeIdx];
+    if (!n) break;
     const dx = (n.x + 0.5) - player.pos.x;
     const dz = (n.z + 0.5) - player.pos.z;
     const dy = Math.abs(n.y - player.pos.y);
@@ -820,6 +821,10 @@ export function updateAutoPilotSteering(dt, wish) {
   }
 
   const targetNode = pathNodes[nodeIdx];
+  if (!targetNode) {
+    clearActiveNavigation();
+    return;
+  }
   const finalPos   = activeNavigation.targetPos || { x: targetNode.x, y: targetNode.y, z: targetNode.z };
 
   const distToFinal = Math.hypot(
