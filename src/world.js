@@ -169,7 +169,9 @@ export function generateChunk(ch){
         const r = hash2(wx, wz, SEED+99);
         if(r>0.985 && x>1 && x<CHUNK-2 && z>1 && z<CHUNK-2){
           const th = 4 + Math.floor(hash2(wx,wz,7)*2);
-          for(let t=1;t<=th;t++) ch.set(x,h+t,z,5);
+          const treeTypeNoise = hash2(wx, wz, SEED+123);
+          const woodId = treeTypeNoise > 0.7 ? 22 : (treeTypeNoise < 0.3 ? 23 : 5); // Birch Wood (22), Spruce Wood (23), or Oak Wood (5)
+          for(let t=1;t<=th;t++) ch.set(x,h+t,z,woodId);
           for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)for(let dy=th-1;dy<=th+1;dy++){
             if(Math.abs(dx)+Math.abs(dz) + Math.max(0,dy-th) <=3){
               const lx=x+dx, lz=z+dz, ly=h+dy;
