@@ -144,6 +144,7 @@ export const ITEMS = {
   124: { name: "Yellow Dye", color: 0xe0c040 },
   125: { name: "Black Dye",  color: 0x2a2a2a },
   126: { name: "White Dye",  color: 0xf0f0f0 },
+  127: { name: "Leather",    color: 0x9a6a3a },
   130: { name: "Apple",       color: 0xd83030, food:4, heal:0 },
   131: { name: "Berries",     color: 0x9c2050, food:2, heal:0 },
   132: { name: "Mushroom",    color: 0xc08050, food:2, heal:0 },
@@ -376,7 +377,7 @@ export const RECIPES = [];
     if(hoe[ti])  R({[mat]:2,100:2}, hoe[ti], 1, `${label} Hoe`, `2 ${label} + 2 Sticks`);
   });
 
-  const armorMats = [[7,"Leather"],[102,"Iron"],[104,"Diamond"],[103,"Gold"]];
+  const armorMats = [[127,"Leather"],[102,"Iron"],[104,"Diamond"],[103,"Gold"]];
   const helm = [160,164,168,172];
   const chest = [161,165,169,173];
   const legs = [162,166,170,174];
@@ -385,7 +386,11 @@ export const RECIPES = [];
     R({[mat]:5}, helm[ai], 1, `${label} Helmet`, `5 ${label} → ${label} Helmet`);
     R({[mat]:8}, chest[ai], 1, `${label} Chestplate`, `8 ${label} → ${label} Chestplate`);
     R({[mat]:7}, legs[ai], 1, `${label} Leggings`, `7 ${label} → ${label} Leggings`);
-    R({[mat]:4}, boot[ai], 1, `${label} Boots`, `4 ${label} → ${label} Boots`);
+    if (mat === 103) {
+      R({[mat]:4, 100:1}, boot[ai], 1, `${label} Boots`, `4 ${label} + Stick → ${label} Boots`);
+    } else {
+      R({[mat]:4}, boot[ai], 1, `${label} Boots`, `4 ${label} → ${label} Boots`);
+    }
   });
 
   R({6:1},123,1,"Green Dye","Leaves → Green Dye");

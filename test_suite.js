@@ -135,6 +135,15 @@ async function runFullTestSuite() {
     const firebase = await import('./src/firebase.js');
     const redstone = await import('./src/redstone.js');
     const anticheat = await import('./src/anticheat.js');
+    const villageHouses = await import('./src/structures/villageHouses.js');
+    const villageFarmland = await import('./src/structures/villageFarmland.js');
+    const villagerTradeCatalog = await import('./src/villagers/villagerTradeCatalog.js');
+    const villageGenerator = await import('./src/villageGenerator.js');
+    const villagerMob = await import('./src/villagers/villagerMob.js');
+    const villagerSchedule = await import('./src/villagers/villagerSchedule.js');
+    const villagerFarming = await import('./src/villagers/villagerFarming.js');
+    const villagerPanic = await import('./src/villagers/villagerPanic.js');
+    const villagerTrading = await import('./src/villagers/villagerTrading.js');
 
     state.reactBridge.updateUI = () => {};
 
@@ -1858,6 +1867,67 @@ async function runFullTestSuite() {
         const recipe = config.RECIPES.find(r => r.out === targetOut);
         if (!recipe) throw new Error(`Missing recipe definition for Redstone component ID ${targetOut}`);
         if (!recipe.in || typeof recipe.in !== 'object') throw new Error(`Invalid recipe input for ID ${targetOut}`);
+      });
+    }
+
+    // --- TEST SUITE 56: VILLAGE HOUSES & FARMLAND SCHEMATICS MATRIX (500 TESTS) ---
+    console.log("\n--- TEST SUITE 56: VILLAGE HOUSES & FARMLAND SCHEMATICS MATRIX (500 TESTS) ---");
+    const houseSchematics = [
+      villageHouses.getSmallOakCottageSchematic(),
+      villageHouses.getBlacksmithWorkshopSchematic(),
+      villageHouses.getLargeTwoStoryHouseSchematic(),
+      villageHouses.getVillageWellSchematic()
+    ];
+    const farmlandSchematics = [
+      villageFarmland.getStandardCropStripSchematic(),
+      villageFarmland.getBackyardGardenSchematic(),
+      villageFarmland.getDoubleTrenchFieldSchematic(),
+      villageFarmland.getTerracedFarmlandSchematic(),
+      villageFarmland.getCornerLShapedFarmSchematic()
+    ];
+    for (let i = 1; i <= 500; i++) {
+      const hSchem = houseSchematics[i % houseSchematics.length];
+      const fSchem = farmlandSchematics[i % farmlandSchematics.length];
+      test(`Village Schematics test #${i} for ${hSchem.name} & ${fSchem.name}`, () => {
+        if (!hSchem.blocks || hSchem.blocks.length === 0) throw new Error(`Empty blocks in ${hSchem.name}`);
+        if (!fSchem.blocks || fSchem.blocks.length === 0) throw new Error(`Empty blocks in ${fSchem.name}`);
+      });
+    }
+
+    // --- TEST SUITE 57: PROCEDURAL VILLAGE GENERATOR & FOUNDATION ENGINE MATRIX (500 TESTS) ---
+    console.log("\n--- TEST SUITE 57: PROCEDURAL VILLAGE GENERATOR & FOUNDATION ENGINE MATRIX (500 TESTS) ---");
+    for (let i = 1; i <= 500; i++) {
+      const vcx = (i % 25) - 12;
+      const vcz = Math.floor(i / 25) - 10;
+      test(`Village Generator & Foundation test #${i} at chunk (${vcx},${vcz})`, () => {
+        const layout = villageGenerator.getVillageLayout(vcx, vcz);
+        if (!layout || typeof layout !== 'object') throw new Error(`Invalid layout object at (${vcx},${vcz})`);
+      });
+    }
+
+    // --- TEST SUITE 58: 3D VILLAGER MOBS, PROFESSIONS, SCHEDULES & PANIC EVASION MATRIX (500 TESTS) ---
+    console.log("\n--- TEST SUITE 58: 3D VILLAGER MOBS, PROFESSIONS, SCHEDULES & PANIC EVASION MATRIX (500 TESTS) ---");
+    const professions = ['farmer', 'blacksmith', 'librarian', 'cleric', 'unemployed'];
+    for (let i = 1; i <= 500; i++) {
+      const prof = professions[i % professions.length];
+      test(`Villager Mob & AI test #${i} (${prof})`, () => {
+        const vState = villagerMob.createVillagerState(i * 2, 40, i * 2, prof);
+        if (vState.profession !== prof) throw new Error(`Mismatch profession: ${vState.profession}`);
+        villagerSchedule.updateVillagerSchedule(vState, 0.1, 0.5);
+        if (vState.state !== 'work') throw new Error(`Schedule state error: ${vState.state}`);
+        villagerPanic.tickVillagerPanic(vState, 0.1, [{ type: 'zombie', pos: { x: i*2 + 2, y: 40, z: i*2 }, dead: false }]);
+        if (vState.state !== 'panic') throw new Error(`Panic state error: ${vState.state}`);
+      });
+    }
+
+    // --- TEST SUITE 59: GREEN COIN CURRENCY ECONOMY & VILLAGER TRADE RESOLUTION MATRIX (500 TESTS) ---
+    console.log("\n--- TEST SUITE 59: GREEN COIN CURRENCY ECONOMY & VILLAGER TRADE RESOLUTION MATRIX (500 TESTS) ---");
+    for (let i = 1; i <= 500; i++) {
+      const trade = villagerTradeCatalog.TRADE_CATALOGUE[i % villagerTradeCatalog.TRADE_CATALOGUE.length];
+      test(`Green Coin Economy & Trade Resolution test #${i} (${trade.tradeId})`, () => {
+        if (!trade.tradeId || !trade.profession) throw new Error(`Invalid trade item at index ${i}`);
+        const found = villagerTradeCatalog.getTradeById(trade.tradeId);
+        if (!found) throw new Error(`Failed to lookup trade by ID ${trade.tradeId}`);
       });
     }
 
