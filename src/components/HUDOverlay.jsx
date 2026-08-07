@@ -687,7 +687,7 @@ export default function HUDOverlay({
       )}
 
       {/* ── 📡 TNT DETONATOR ON-SCREEN REMOTE CONTROL ── */}
-      {(selectedId === 180 || (game.primedTnt && game.primedTnt.length > 0) || invCount(180) > 0) && (
+      {(selectedId === 180 || selectedId === 56 || selectedId === 117 || selectedId === 118 || selectedId === 119 || (game.primedTnt && game.primedTnt.length > 0)) && (
         <div style={{
           position: 'fixed',
           bottom: '90px',

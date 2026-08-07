@@ -461,15 +461,15 @@ export function detonateRemoteTnt() {
     }
   }
 
-  // 2. Scan nearby terrain for placed TNT blocks (56, 117, 118) and detonate them
+  // 2. Scan nearby terrain for placed TNT blocks (56, 117, 118, 119) and detonate them
   const px = Math.floor(player.pos.x);
   const py = Math.floor(player.pos.y);
   const pz = Math.floor(player.pos.z);
-  const R = 32;
+  const R = 64;
 
-  for (let dx = -R; dx <= R; dx += 2) {
-    for (let dy = -16; dy <= 16; dy += 2) {
-      for (let dz = -R; dz <= R; dz += 2) {
+  for (let dx = -R; dx <= R; dx++) {
+    for (let dy = -32; dy <= 32; dy++) {
+      for (let dz = -R; dz <= R; dz++) {
         const bx = px + dx, by = py + dy, bz = pz + dz;
         const bid = getBlock(bx, by, bz);
         if (bid === 56 || bid === 117 || bid === 118 || bid === 119) {
