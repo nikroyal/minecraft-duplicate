@@ -25,6 +25,10 @@ import ChatPanel from './ChatPanel.jsx';
 import DailyLoginModal from './DailyLoginModal.jsx';
 import NotificationCenterModal from './NotificationCenterModal.jsx';
 import ErrorConsoleModal from './ErrorConsoleModal.jsx';
+import EmeraldHUDOverlay from './EmeraldHUDOverlay.jsx';
+import TradePromptModal from './TradePromptModal.jsx';
+import { executeBuyTrade, executeSellTrade } from '../villagers/villagerTrading.js';
+import { GREEN_COIN_ITEM_ID } from '../villagers/villagerTradeCatalog.js';
 import { activeNavigation, clearActiveNavigation } from '../pathfinder.js';
 import { toggleAmbientBGM } from '../audio.js';
 import { 
@@ -41,7 +45,12 @@ export default function App() {
   const [chatTargetUser, setChatTargetUser] = useState(null);
   const [showErrorConsole, setShowErrorConsole] = useState(false);
 
+  const [activeTrade, setActiveTrade] = useState(null);
+
   useEffect(() => {
+    window.__openTradePrompt = (trade) => {
+      setActiveTrade(trade);
+    };
     window.__toggleErrorConsole = () => {
       setShowErrorConsole(prev => !prev);
     };
@@ -73,6 +82,7 @@ export default function App() {
       uiState.chatOpen = false;
     };
     return () => {
+      window.__openTradePrompt = null;
       window.__toggleWayfinder = null;
       window.__closeWayfinder = null;
       window.__openOnboarding = null;
@@ -816,6 +826,23 @@ export default function App() {
             }}
           />
 
+          <EmeraldHUDOverlay />
+
+          {activeTrade && (
+            <TradePromptModal
+              trade={activeTrade}
+              walletBalance={invCount(GREEN_COIN_ITEM_ID)}
+              onBuy={() => {
+                executeBuyTrade(activeTrade);
+                setActiveTrade(null);
+              }}
+              onSell={() => {
+                executeSellTrade(activeTrade);
+                setActiveTrade(null);
+              }}
+              onClose={() => setActiveTrade(null)}
+            />
+          )}
         </>
       )}
 

@@ -164,6 +164,7 @@ export const ITEMS = {
   148: { name: "Gunpowder",     color: 0x4a4a4a },
   150: { name: "Heart",         color: 0xff2244, food: 0, heal: 4 },
   151: { name: "Redstone Dust", color: 0xd81818 },
+  152: { name: "Green Coin",    color: 0x39ff14 },
 
   // === Armor Equipment Items ===
   160: { name: "Leather Helmet",     color: 0x9a6a3a, armorSlot: "helmet",     defense: 1, durability: 55 },

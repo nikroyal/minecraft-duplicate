@@ -26,6 +26,8 @@ import {
 import { 
   tickRedstone, toggleLever, pressButton, cycleRepeaterDelay, toggleComparatorMode 
 } from './redstone.js';
+import { openTradePrompt } from './villagers/villagerTrading.js';
+import { getTradesByProfession, TRADE_CATALOGUE } from './villagers/villagerTradeCatalog.js';
 import { 
   initUI, toast, updateHUD, updateClock, updateStatsHUD, flashDamage, 
   showDeathScreen, hideDeathScreen, buildHotbar, selectSlot, refreshCounts, 
@@ -930,7 +932,37 @@ function blockColor(id){
   return b.all !== undefined ? b.all : (b.top !== undefined ? b.top : b.side);
 }
 
+export function tryTradeWithVillager() {
+  const o = eyePos(), d = lookDir();
+  let best = null, bestT = 4.0;
+  if (Array.isArray(game.mobs)) {
+    for (const m of game.mobs) {
+      if (!m || m.dead || m.type !== 'villager') continue;
+      const cx = m.pos.x, cy = m.pos.y + (m.def?.h || 1.8) / 2, cz = m.pos.z;
+      const toM = new THREE.Vector3(cx - o.x, cy - o.y, cz - o.z);
+      const t = toM.dot(d);
+      if (t < 0 || t > bestT) continue;
+      const closest = new THREE.Vector3(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t);
+      const distHoriz = Math.hypot(closest.x - cx, closest.z - cz);
+      const distVert = Math.abs(closest.y - cy);
+      if (distHoriz < 0.8 && distVert < 1.0) {
+        best = m;
+        bestT = t;
+      }
+    }
+  }
+  if (!best) return false;
+
+  if (document.pointerLockElement) document.exitPointerLock();
+  const trades = getTradesByProfession(best.profession || 'farmer');
+  if (trades && trades.length > 0) {
+    openTradePrompt(trades[0]);
+  }
+  return true;
+}
+
 export function placeBlock(){
+  if (tryTradeWithVillager()) return;
   if (tryFeedAnimal()) return;
   if (typeof window !== 'undefined' && window.__worldSettings && window.__worldSettings.lockdown && !(window.__userRole === 'admin' || window.__userRole === 'master')) {
     toast("⚠️ Build Lockdown Active: World edits restricted by Admin.");
@@ -951,6 +983,11 @@ export function placeBlock(){
   
   // Intercept right click container interaction
   const hitBlockId = getBlock(r.hit[0], r.hit[1], r.hit[2]);
+  if(hitBlockId === 95){ // Market Showcase Stand
+    if(document.pointerLockElement) document.exitPointerLock();
+    openTradePrompt(TRADE_CATALOGUE[0]);
+    return;
+  }
   if(hitBlockId === 43){ // Chest
     if(document.pointerLockElement) document.exitPointerLock();
     openChest(r.hit[0], r.hit[1], r.hit[2]);
