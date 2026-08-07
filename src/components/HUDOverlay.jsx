@@ -682,6 +682,10 @@ export default function HUDOverlay({
             <div style={{ fontSize: '9px', color: 'rgba(200,255,200,0.6)', marginTop: '1px' }}>
               Press <strong style={{ color: '#39ff14' }}>B</strong> to go back to pathfinding page
             </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 📡 TNT DETONATOR ON-SCREEN REMOTE CONTROL ── */}
       {(selectedId === 180 || (game.primedTnt && game.primedTnt.length > 0) || invCount(180) > 0) && (
         <div style={{
