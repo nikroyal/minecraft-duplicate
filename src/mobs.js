@@ -9,6 +9,10 @@ import { spawnItemDrop, spawnXpOrbs, spawnProjectile } from './main.js';
 import { toast, scheduleSave } from './ui.js';
 import { playHissSound, stopHissSound, playExplodeSound, playHitSound, playPigSound, playSheepSound, playZombieSound } from './audio.js';
 import { findPath } from './pathfinder.js';
+import { createVillagerMesh, createVillagerState } from './villagers/villagerMob.js';
+import { updateVillagerSchedule } from './villagers/villagerSchedule.js';
+import { tickFarmerAI } from './villagers/villagerFarming.js';
+import { tickVillagerPanic } from './villagers/villagerPanic.js';
 
 const GRAV = -26;
 
@@ -19,6 +23,7 @@ export const MOB_TYPES = {
   creeper:  { name:"Creeper",  color:0x2e8b57, w:0.6, h:1.7,  hp:16, hostile:true,  drop:148, dropN:2, speed:2.4, dmg:0 },
   skeleton: { name:"Skeleton", color:0xd0d0d0, w:0.6, h:1.8,  hp:16, hostile:true,  drop:147, dropN:3, speed:2.2, dmg:2 },
   spider:   { name:"Spider",   color:0x333333, w:1.2, h:0.75, hp:10, hostile:true,  drop:115, dropN:2, speed:3.2, dmg:2, canClimb:true },
+  villager: { name:"Villager", color:0xc89d7c, w:0.6, h:1.8,  hp:20, hostile:false, drop:135, dropN:2, speed:1.8 },
 };
 
 const MAX_MOBS = 16;
@@ -250,6 +255,10 @@ export function makeMobMesh(type){
         legs.push(legGrp);
       }
     }
+  } else if (type === "villager") {
+    const vGroup = createVillagerMesh("farmer");
+    webgl.scene?.add(vGroup);
+    return vGroup;
   }
 
   group.userData = { legs, arms, head, body };
@@ -513,11 +522,18 @@ export function updateMobs(dt){
       }
     }
     
-    // Despawn far mobs
+    // Despawn far mobs (villagers do not despawn)
     const distToP = m.pos.distanceTo(player.pos);
-    if(distToP > 64 || (distToP > 36 && Math.random() < dt * 0.05)){
+    if(m.type !== 'villager' && (distToP > 64 || (distToP > 36 && Math.random() < dt * 0.05))){
       removeMob(i);
       continue;
+    }
+
+    // ── Villager AI Module Ticking ──
+    if (m.type === 'villager') {
+      updateVillagerSchedule(m, dt, game.timeOfDay);
+      tickFarmerAI(m, dt);
+      tickVillagerPanic(m, dt, game.mobs);
     }
     
     if (m.attackCd > 0) m.attackCd -= dt;

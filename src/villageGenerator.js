@@ -129,6 +129,14 @@ export function getVillageLayout(vcx, vcz) {
     layout.structures.push({ type: slot.schematic.name, x: swx, y: sBaseY, z: swz });
   }
 
+  // 4. Villager NPC Population presets
+  layout.villagers = [
+    { profession: 'farmer',     x: centerWx + 6,  y: centerBaseY + 1, z: centerWz + 14 },
+    { profession: 'blacksmith', x: centerWx + 14, y: centerBaseY + 1, z: centerWz - 12 },
+    { profession: 'librarian',  x: centerWx - 16, y: centerBaseY + 1, z: centerWz + 6 },
+    { profession: 'cleric',     x: centerWx,      y: centerBaseY + 1, z: centerWz }
+  ];
+
   villageLayoutCache.set(key, layout);
   return layout;
 }

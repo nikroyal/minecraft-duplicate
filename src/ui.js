@@ -352,8 +352,8 @@ export function loadWorld() {
   }
 }
 
-export let lastAuthStatus = null;
-export let lastSyncConflict = null;
+export var lastAuthStatus = null;
+export var lastSyncConflict = null;
 
 // Firebase initialization connector
 export function initUI(placeBlockCallback, miningStateRef) {

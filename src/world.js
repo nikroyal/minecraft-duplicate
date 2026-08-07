@@ -10,7 +10,7 @@ import {
 import { applyVillageToChunk } from './villageGenerator.js';
 
 // Streaming queue & static meshing buffers
-export const genQueue = [];
+export var genQueue = [];
 const sharedMeshMask = new Uint8Array(HEIGHT * CHUNK);
 const sharedSurfaceRow = new Uint8Array(HEIGHT * CHUNK);
 
@@ -1152,7 +1152,7 @@ export function updateChunkMesh(ch){
   ch.dirty=false;
 }
 
-let lastLoadPcx = null, lastLoadPcz = null, lastChunksSize = 0;
+var lastLoadPcx = null, lastLoadPcz = null, lastChunksSize = 0;
 
 // ---- Chunk Streaming -------------------------------------------------------
 export function updateChunkLoading(){
@@ -1232,7 +1232,7 @@ export function paintTile(ctx, col, row, painter){
   painter(px);
 }
 
-export const PAINTERS = {
+export var PAINTERS = {
   grass_top(px){ const rnd=trng(11); for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6aa84f, 0.82+n*0.36)); if(n>0.93) px(x,y, shade(0x4f8a3a,1)); } },
   grass_side(px){ const rnd=trng(12);
     for(let y=0;y<TILE;y++)for(let x=0;x<TILE;x++){ const n=rnd(); px(x,y, shade(0x6b4f34, 0.8+n*0.4)); }
@@ -1362,9 +1362,10 @@ export const PAINTERS = {
   wool_black(px){ PAINTERS._wool(px,0x2a2a2a,355); },
 };
 
-const tileDataUrlCache = {};
+var tileDataUrlCache = {};
 export function getTileDataURL(tileName) {
-  if (typeof document === 'undefined' || !tileName) return null;
+  if (typeof document === 'undefined' || !tileName || !PAINTERS) return null;
+  if (!tileDataUrlCache) tileDataUrlCache = {};
   if (tileDataUrlCache[tileName]) return tileDataUrlCache[tileName];
 
   const cv = document.createElement("canvas");
@@ -1497,7 +1498,7 @@ export function buildAtlas(){
   return tex;
 }
 
-const CRACK_STAGES = 8;
+var CRACK_STAGES = 8;
 export function buildCrackTexture(){
   const cv=document.createElement("canvas");
   cv.width=CRACK_STAGES*TILE; cv.height=TILE;
@@ -1547,7 +1548,7 @@ export function hideCrack(){
 }
 
 // ---- Particles -------------------------------------------------------------
-const PARTICLE_POOL=140;
+var PARTICLE_POOL=140;
 const particleGeo=new THREE.BoxGeometry(0.16,0.16,0.16);
 
 export function initParticles(){
