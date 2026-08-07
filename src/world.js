@@ -87,14 +87,16 @@ function oreAt(wx,wy,wz){
   if(wy<16){
     if(r>0.96) return 14;                  // diamond (deep, rare)
     if(r>0.88) return 13;                  // gold
-    if(r>0.70) return 12;                  // iron
-    if(r>0.52) return 27;                  // gravel pocket vein
-    if(r>0.30) return 11;                  // coal
+    if(r>0.78) return 76;                  // redstone ore
+    if(r>0.62) return 12;                  // iron
+    if(r>0.45) return 27;                  // gravel pocket vein
+    if(r>0.25) return 11;                  // coal
   } else if(wy<28){
     if(r>0.92) return 13;                  // gold
-    if(r>0.72) return 12;                  // iron
-    if(r>0.55) return 27;                  // gravel pocket vein
-    if(r>0.30) return 11;                  // coal
+    if(r>0.82) return 76;                  // redstone ore
+    if(r>0.68) return 12;                  // iron
+    if(r>0.50) return 27;                  // gravel pocket vein
+    if(r>0.25) return 11;                  // coal
   } else if(wy<48){
     if(r>0.82) return 27;                  // gravel pocket vein
     if(r>0.65) return 12;                  // iron
