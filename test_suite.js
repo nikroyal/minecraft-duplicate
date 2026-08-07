@@ -2044,7 +2044,7 @@ async function runFullTestSuite() {
       state.player.onGround = false;
       state.player.vel.set(0, -15.0, 0);
       state.keys["KeyF"] = true;
-      player.updatePlayerPhysics(0.016, false);
+      player.updatePlayer(0.016);
       if (!state.player.isSlowFalling) throw new Error("player.isSlowFalling was not activated when pressing KeyF in mid-air");
       if (state.player.vel.y < -2.5) throw new Error(`Downward velocity was not capped by slow fall: got ${state.player.vel.y}`);
       state.keys["KeyF"] = false;
@@ -2056,7 +2056,7 @@ async function runFullTestSuite() {
       state.player.pos.set(0, 80, 0);
       state.player.fallPeak = 120;
       state.keys["KeyF"] = true;
-      player.updatePlayerPhysics(0.016, false);
+      player.updatePlayer(0.016);
       if (state.player.fallPeak > 81) throw new Error(`fallPeak was not updated to current position: got ${state.player.fallPeak}`);
       state.keys["KeyF"] = false;
     });
