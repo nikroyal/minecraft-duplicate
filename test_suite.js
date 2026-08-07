@@ -1932,18 +1932,18 @@ async function runFullTestSuite() {
     }
 
     console.log("\n--- TEST SUITE 60: TNT VARIANTS & REMOTE DETONATOR MATRIX ---");
-    test("Basic TNT (56), Medium TNT (117), Mega TNT (118) and TNT Remote (180) exist", () => {
+    test("Basic TNT (56), Medium TNT (117), Max TNT (118) and TNT Remote (180) exist", () => {
       if (!config.BLOCKS[56]) throw new Error("Basic TNT block missing");
       if (!config.BLOCKS[117]) throw new Error("Medium TNT block missing");
-      if (!config.BLOCKS[118]) throw new Error("Mega TNT block missing");
+      if (!config.BLOCKS[118]) throw new Error("Max TNT block missing");
       if (!config.ITEMS[180]) throw new Error("TNT Remote item missing");
 
-      if (config.BLOCKS[56].radius !== 4.0) throw new Error("Basic TNT radius != 4.0");
-      if (config.BLOCKS[117].radius !== 9.0) throw new Error("Medium TNT radius != 9.0");
-      if (config.BLOCKS[118].radius !== 20.0) throw new Error("Mega TNT radius != 20.0");
+      if (config.BLOCKS[56].radius !== 2.0) throw new Error("Basic TNT radius != 2.0");
+      if (config.BLOCKS[117].radius !== 4.0) throw new Error("Medium TNT radius != 4.0");
+      if (config.BLOCKS[118].radius !== 10.0) throw new Error("Max TNT radius != 10.0");
     });
 
-    test("TNT crafting recipes resolve correctly", () => {
+    test("TNT crafting recipes resolve correctly & TNT Remote is non-craftable (included by default)", () => {
       // Basic TNT: 5 Gunpowder (148) + 4 Sand (4)
       const basicR = config.resolveRecipe({ 148: 5, 4: 4 });
       if (!basicR || basicR.out !== 56) throw new Error("Basic TNT recipe failed");
@@ -1952,23 +1952,23 @@ async function runFullTestSuite() {
       const medR = config.resolveRecipe({ 56: 2, 151: 4, 148: 3 });
       if (!medR || medR.out !== 117) throw new Error("Medium TNT recipe failed");
 
-      // Mega TNT: 2 Medium TNT (117) + 4 Redstone (151) + 3 Diamond (104)
-      const megaR = config.resolveRecipe({ 117: 2, 151: 4, 104: 3 });
-      if (!megaR || megaR.out !== 118) throw new Error("Mega TNT recipe failed");
+      // Max TNT: 2 Medium TNT (117) + 4 Redstone (151) + 3 Diamond (104)
+      const maxR = config.resolveRecipe({ 117: 2, 151: 4, 104: 3 });
+      if (!maxR || maxR.out !== 118) throw new Error("Max TNT recipe failed");
 
-      // TNT Remote: 1 Redstone Torch (61) + 2 Redstone (151) + 2 Iron Ingot (102)
+      // TNT Remote should NOT be craftable
       const remoteR = config.resolveRecipe({ 61: 1, 151: 2, 102: 2 });
-      if (!remoteR || remoteR.out !== 180) throw new Error("TNT Remote recipe failed");
+      if (remoteR) throw new Error("TNT Remote should not be craftable");
     });
 
-    test("Mega TNT (20 block explosion radius) clears 20-block sphere without crashing", () => {
-      for (let x = -20; x <= 20; x++) {
+    test("Max TNT (10 block explosion radius) clears 10-block sphere without crashing", () => {
+      for (let x = -10; x <= 10; x++) {
         for (let y = 10; y <= 30; y++) {
           world.setBlock(x, y, 0, 3);
         }
       }
-      world.triggerWorldExplosion(0, 20, 0, 20.0);
-      if (world.getBlock(0, 20, 0) !== 0) throw new Error("Mega TNT did not clear center block");
+      world.triggerWorldExplosion(0, 20, 0, 10.0);
+      if (world.getBlock(0, 20, 0) !== 0) throw new Error("Max TNT did not clear center block");
     });
 
   } catch (fatalErr) {

@@ -87,9 +87,9 @@ export const BLOCKS = {
   53:{ name: "Green Wool",  all:0x40904a, solid:true, hardness:0.8 },
   54:{ name: "Yellow Wool", all:0xe0c040, solid:true, hardness:0.8 },
   55:{ name: "Black Wool",  all:0x2a2a2a, solid:true, hardness:0.8 },
-  56:{ name: "Basic TNT",         top:0xd83030, side:0xd84030, bottom:0x9a2020, solid:true, hardness:0.1, tntType:"basic", radius:4.0 },
-  117:{ name: "Medium TNT",       top:0xff8800, side:0xe85010, bottom:0x982000, solid:true, hardness:0.1, tntType:"medium", radius:9.0 },
-  118:{ name: "Mega TNT",         top:0xa000ff, side:0x8000d0, bottom:0x500090, solid:true, hardness:0.1, tntType:"mega", radius:20.0 },
+  56:{ name: "Basic TNT",         top:0xd83030, side:0xd84030, bottom:0x9a2020, solid:true, hardness:0.1, tntType:"basic", radius:2.0 },
+  117:{ name: "Medium TNT",       top:0xff8800, side:0xe85010, bottom:0x982000, solid:true, hardness:0.1, tntType:"medium", radius:4.0 },
+  118:{ name: "Max TNT",          top:0xa000ff, side:0x8000d0, bottom:0x500090, solid:true, hardness:0.1, tntType:"max", radius:10.0 },
   57:{ name: "Bed",         top:0xd83030, side:0xe8e8e8, bottom:0x8a5a2a, solid:true, hardness:0.2 },
 
   // === Redstone & Automation Blocks ===
@@ -414,8 +414,7 @@ export const RECIPES = [];
   R({118:1,100:1,6:1},147,4,"Arrows","Flint + Stick + Leaves → 4 Arrows");
   R({148:5,4:4},56,1,"Basic TNT","5 Gunpowder + 4 Sand → Basic TNT Block");
   R({56:2,151:4,148:3},117,1,"Medium TNT","2 Basic TNT + 4 Redstone Dust + 3 Gunpowder → Medium TNT");
-  R({117:2,151:4,104:3},118,1,"Mega TNT","2 Medium TNT + 4 Redstone Dust + 3 Diamonds → Mega TNT (20 Block Explosion)");
-  R({61:1,151:2,102:2},180,1,"TNT Remote","1 Redstone Torch + 2 Redstone Dust + 2 Iron Ingots → TNT Remote");
+  R({117:2,151:4,104:3},118,1,"Max TNT","2 Medium TNT + 4 Redstone Dust + 3 Diamonds → Max TNT (10 Block Explosion)");
   R({50:3,7:3},57,1,"Bed","3 Wool + 3 Planks → Bed");
 
   for(const [pid,label] of FENCE_SOURCE){

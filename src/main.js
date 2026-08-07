@@ -414,7 +414,7 @@ const tntGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
 
 export function spawnPrimedTnt(x, y, z, blockId = 56) {
   let mesh;
-  const radius = blockId === 118 ? 20.0 : (blockId === 117 ? 9.0 : 4.0);
+  const radius = blockId === 118 ? 10.0 : (blockId === 117 ? 4.0 : 2.0);
   const colorHex = blockId === 118 ? 0xa000ff : (blockId === 117 ? 0xff8800 : 0xd83030);
 
   if (webgl.atlasTex) {
@@ -444,7 +444,7 @@ export function spawnPrimedTnt(x, y, z, blockId = 56) {
   game.primedTnt.push({
     mesh,
     pos: new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5),
-    fuse: 4.0,
+    fuse: 999999, // Standby mode: waits for user to press 1 / R / Red Button
     radius,
     blockId,
     colorHex,
@@ -497,6 +497,20 @@ export function updatePrimedTnt(dt) {
 
   for (let i = game.primedTnt.length - 1; i >= 0; i--) {
     const tnt = game.primedTnt[i];
+
+    // Standby mode: waits for user remote trigger
+    if (tnt.fuse > 9000) {
+      const pulse = 1.0 + Math.sin(now * 0.008) * 0.08;
+      tnt.mesh.scale.setScalar(pulse);
+      const hexColor = tnt.colorHex || 0xd83030;
+      if (Math.floor(now / 150) % 2 === 0) {
+        tnt.mesh.material.color.setHex(0xffffff);
+      } else {
+        tnt.mesh.material.color.setHex(hexColor);
+      }
+      continue;
+    }
+
     tnt.fuse -= dt;
 
     // Pulsing scale & flashing white effect
@@ -511,7 +525,7 @@ export function updatePrimedTnt(dt) {
     }
 
     if (tnt.fuse <= 0) {
-      const radius = tnt.radius || 4.0;
+      const radius = tnt.radius || 2.0;
       triggerWorldExplosion(tnt.pos.x, tnt.pos.y, tnt.pos.z, radius, scheduleSave);
       playExplodeSound();
       const maxDamageDist = radius + 1.0;

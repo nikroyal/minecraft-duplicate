@@ -53,9 +53,10 @@ export const player = {
 };
 
 export const inventory = {};
-export const hotbar = [15, 16, 7, 9, 5, 20, 3, 45]; // starter hotbar: cobble, stone brick, plank, glass, wood, torch, stone, ladder
+export const hotbar = [180, 15, 16, 7, 9, 5, 20, 3]; // starter hotbar: TNT Remote, cobble, stone brick, plank, glass, wood, torch, stone
 
 // Starter inventory seeding
+inventory[180] = 1; // TNT Remote permanently included
 inventory[3] = 16; // Seed stone count for hotbar slot 7
 
 export const game = {
