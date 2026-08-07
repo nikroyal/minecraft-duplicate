@@ -151,17 +151,19 @@ function placeSchematicWithFoundation(layout, originWx, originBaseY, originWz, s
     const wy = originBaseY + b.dy;
     const wz = originWz + b.dz;
 
-    // Place actual schematic voxel
-    layout.voxels.set(`${wx},${wy},${wz}`, b.id);
+    // Clamp wy within world height bounds
+    const clampedWy = Math.max(1, Math.min(HEIGHT - 1, wy));
+    layout.voxels.set(`${wx},${clampedWy},${wz}`, b.id);
 
-    // Foundation check on bottom layer (dy === -1 or dy === 0)
+    // Foundation check on bottom layer (dy <= 0)
     if (b.dy <= 0) {
-      const terrainY = surfaceHeight(wx, wz);
+      const terrainY = Math.max(1, surfaceHeight(wx, wz));
+      const minFy = Math.max(1, terrainY - 1);
       // Fill air beneath building with Cobblestone (15) or Dirt (2) down to terrain height
-      for (let fy = wy - 1; fy >= terrainY - 1; fy--) {
+      for (let fy = clampedWy - 1; fy >= minFy; fy--) {
         const fk = `${wx},${fy},${wz}`;
         if (!layout.voxels.has(fk)) {
-          layout.voxels.set(fk, (fy === wy - 1 ? 15 : 2));
+          layout.voxels.set(fk, (fy === clampedWy - 1 ? 15 : 2));
         }
       }
     }

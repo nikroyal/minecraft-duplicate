@@ -678,6 +678,12 @@ export function invCount(id){
   if (typeof id !== 'number' || isNaN(id) || id <= 0) return 0;
   return inventory[id] || 0; 
 }
+
+export function hasInventorySpace(id, qty = 1) {
+  if (typeof id !== 'number' || isNaN(id) || (!BLOCKS[id] && !ITEMS[id])) return false;
+  const current = inventory[id] || 0;
+  return (current + Math.floor(qty)) <= 64;
+}
 export function addItem(id, n=1){ 
   if (typeof id !== 'number' || isNaN(id) || (!BLOCKS[id] && !ITEMS[id])) return 0;
   if (typeof n !== 'number' || isNaN(n) || !isFinite(n) || n <= 0) return 0;
