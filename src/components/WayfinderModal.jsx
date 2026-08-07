@@ -13,6 +13,7 @@ import {
   deleteWaypoint,
   saveHomeBase,
   saveFarm,
+  findNearestVillage,
 } from '../pathfinder.js';
 import { toast } from '../ui.js';
 
@@ -565,6 +566,35 @@ export default function WayfinderModal({ currentUser, onClose }) {
                     {/* Preset buttons */}
                     <div style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--gold-bright)', marginBottom: 8 }}>📍 Presets</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6, marginBottom: 12 }}>
+                      <button
+                        onClick={() => {
+                          const village = findNearestVillage(player.pos.x, player.pos.z);
+                          if (!village) {
+                            toast("❌ No NPC Village found within 400m scan radius.");
+                            return;
+                          }
+                          handleStartPathfinding(village.x, village.y, village.z, `Nearest Village (${village.direction})`, '🏡', false);
+                        }}
+                        style={{
+                          gridColumn: 'span 2',
+                          padding: '10px 14px',
+                          background: 'linear-gradient(135deg, rgba(57,255,20,0.25), rgba(30,90,20,0.4))',
+                          border: '2px solid #39ff14',
+                          boxShadow: '0 0 15px rgba(57,255,20,0.3)',
+                          color: '#88ff88',
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          marginBottom: 4
+                        }}
+                      >
+                        🏡 Find Routes to Nearest NPC Village &amp; Auto-Pilot
+                      </button>
                       <button onClick={() => handleStartPathfinding(0, 80, 0, 'World Spawn', '🟢', true)}
                         style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--slot-line)', color: '#fff', borderRadius: 4, fontSize: 10, cursor: 'pointer', textAlign: 'left' }}>
                         🟢 World Spawn (0, 80, 0)

@@ -3,6 +3,7 @@ import { world, player, webgl, game } from './state.js';
 import { getBlock } from './world.js';
 import { isSolid, BLOCKS, surfaceHeight } from './config.js';
 import { toast } from './ui.js';
+import { isVillageCenterChunk, getVillageLayout } from './villageGenerator.js';
 
 // ---- Active Navigation State ----
 export let activeNavigation = null;
@@ -952,4 +953,45 @@ export function saveFarm(x, y, z, ownerEmail = null) {
   if (typeof localStorage !== 'undefined') localStorage.setItem(WAYPOINTS_KEY, JSON.stringify(waypoints));
   toast(`🌾 Set current position as My Farm (${Math.floor(x)}, ${Math.floor(y)}, ${Math.floor(z)})!`);
   return waypoints;
+}
+
+export function findNearestVillage(px = player.pos.x, pz = player.pos.z) {
+  const pcx = Math.floor(px / 16);
+  const pcz = Math.floor(pz / 16);
+  let best = null;
+  let bestDistSq = Infinity;
+
+  // Scan 25x25 chunk neighborhood (400 meters out)
+  for (let dx = -12; dx <= 12; dx++) {
+    for (let dz = -12; dz <= 12; dz++) {
+      const vcx = pcx + dx;
+      const vcz = pcz + dz;
+      if (isVillageCenterChunk(vcx, vcz)) {
+        const layout = getVillageLayout(vcx, vcz);
+        if (layout && layout.voxels && layout.voxels.size > 0) {
+          const vx = layout.centerWx;
+          const vy = layout.centerBaseY + 1;
+          const vz = layout.centerWz;
+          const dsq = (vx - px) * (vx - px) + (vz - pz) * (vz - pz);
+          if (dsq < bestDistSq) {
+            bestDistSq = dsq;
+            best = { x: vx, y: vy, z: vz, vcx, vcz, dist: Math.round(Math.sqrt(dsq)) };
+          }
+        }
+      }
+    }
+  }
+
+  if (!best) return null;
+
+  const dx = best.x - px;
+  const dz = best.z - pz;
+  let dirStr = '';
+  if (Math.abs(dx) > Math.abs(dz)) {
+    dirStr = dx > 0 ? 'East' : 'West';
+  } else {
+    dirStr = dz > 0 ? 'South' : 'North';
+  }
+  best.direction = `${best.dist}m ${dirStr}`;
+  return best;
 }
