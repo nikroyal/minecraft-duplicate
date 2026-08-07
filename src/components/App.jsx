@@ -424,12 +424,28 @@ export default function App() {
     return RECIPES.filter(r => thingName(r.out).toLowerCase().includes(filter));
   }, [recipeFilter]);
 
+  const NATURAL_BLOCK_IDS = useMemo(() => new Set([
+    1, 2, 3, 4, 5, 6, 8, 11, 12, 13, 14, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 37, 38, 76
+  ]), []);
+
+  const [blockCategory, setBlockCategory] = useState('all');
+
   const filteredBlocks = useMemo(() => {
     const filter = blockFilter.toLowerCase();
     return Object.keys(BLOCKS)
       .map(Number)
-      .filter(id => BLOCKS[id] && BLOCKS[id].name && BLOCKS[id].name.toLowerCase().includes(filter));
-  }, [blockFilter]);
+      .filter(id => {
+        const b = BLOCKS[id];
+        if (!b || !b.name) return false;
+        const matchesSearch = b.name.toLowerCase().includes(filter);
+        if (!matchesSearch) return false;
+
+        const isNatural = b.ore || NATURAL_BLOCK_IDS.has(id);
+        if (blockCategory === 'natural') return isNatural;
+        if (blockCategory === 'manufactured') return !isNatural;
+        return true;
+      });
+  }, [blockFilter, blockCategory, NATURAL_BLOCK_IDS]);
 
   const [showPlayerDirectory, setShowPlayerDirectory] = useState(false);
   const [incomingInvites, setIncomingInvites] = useState([]);
@@ -1006,6 +1022,31 @@ export default function App() {
                 {/* ── Encyclopedia tab ── */}
                 {craftTab === 'blocks' && (
                   <div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                      {[
+                        { key: 'all', label: '🌐 All Blocks' },
+                        { key: 'natural', label: '🌿 Naturally Occurring' },
+                        { key: 'manufactured', label: '🧱 Crafted / Manufactured' },
+                      ].map(cat => (
+                        <button
+                          key={cat.key}
+                          onClick={() => setBlockCategory(cat.key)}
+                          style={{
+                            fontFamily: 'inherit',
+                            fontSize: 10,
+                            fontWeight: blockCategory === cat.key ? 700 : 400,
+                            color: blockCategory === cat.key ? '#1a1410' : '#d6b278',
+                            background: blockCategory === cat.key ? '#f2d9a0' : 'rgba(30,24,16,0.6)',
+                            border: '1px solid rgba(214,178,120,0.3)',
+                            borderRadius: 4,
+                            padding: '4px 10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
                     <input type="text" value={blockFilter} onChange={e => setBlockFilter(e.target.value)}
                       placeholder="Search blocks…" className="recipe-search"
                       style={{ background: 'var(--ink)', width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />

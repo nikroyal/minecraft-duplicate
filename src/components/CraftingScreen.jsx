@@ -62,6 +62,20 @@ function getPlayerItems() {
   return items;
 }
 
+const NATURAL_BLOCK_IDS = new Set([
+  1, 2, 3, 4, 5, 6, 8, 11, 12, 13, 14, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 37, 38, 76
+]);
+
+function getBlockCategory(id) {
+  if (BLOCKS[id]) {
+    if (BLOCKS[id].ore || NATURAL_BLOCK_IDS.has(id)) {
+      return 'natural';
+    }
+    return 'manufactured';
+  }
+  return 'items';
+}
+
 const EMPTY_GRID = Array(9).fill(0);
 
 export default function CraftingScreen({ onClose }) {
@@ -69,6 +83,7 @@ export default function CraftingScreen({ onClose }) {
   const [grid, setGrid] = useState([...EMPTY_GRID]);
   // held = item currently on the cursor: { id, count } or null
   const [held, setHeld] = useState(null);
+  const [invCategory, setInvCategory] = useState('all');
 
   // Build a "bag" from the grid for recipe matching: { itemId: count }
   const gridBag = useMemo(() => {
@@ -722,9 +737,36 @@ export default function CraftingScreen({ onClose }) {
 
           {/* ── BOTTOM: Inventory ── */}
           <div>
-            <div style={{ fontSize: 10, letterSpacing: 2, color: '#d6b278', opacity: .7, textTransform: 'uppercase', marginBottom: 10 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2, color: '#d6b278', opacity: .7, textTransform: 'uppercase', marginBottom: 6 }}>
               Inventory — click an item to pick it up, then place into crafting grid or Hotbar
             </div>
+
+            {/* Category Filter Tabs */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+              {[
+                { key: 'all', label: '🌐 All Items', count: playerItems.length },
+                { key: 'natural', label: '🌿 Natural Blocks', count: playerItems.filter(i => getBlockCategory(i.id) === 'natural').length },
+                { key: 'manufactured', label: '🧱 Crafted Blocks', count: playerItems.filter(i => getBlockCategory(i.id) === 'manufactured').length },
+                { key: 'items', label: '⚔️ Items & Equipment', count: playerItems.filter(i => getBlockCategory(i.id) === 'items').length },
+              ].map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => setInvCategory(t.key)}
+                  style={{
+                    fontFamily: 'inherit', fontSize: 10,
+                    fontWeight: invCategory === t.key ? 700 : 400,
+                    color: invCategory === t.key ? '#1a1410' : '#f2d9a0',
+                    background: invCategory === t.key ? '#f2d9a0' : 'rgba(30,24,16,0.8)',
+                    border: `1px solid ${invCategory === t.key ? '#f2d9a0' : 'rgba(214,178,120,0.3)'}`,
+                    borderRadius: 4, padding: '4px 8px', cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {t.label} ({t.count})
+                </button>
+              ))}
+            </div>
+
             {playerItems.length === 0 ? (
               <div style={{ fontSize: 11, color: '#9a8a76', opacity: .7, padding: '12px 0' }}>
                 Your inventory is empty. Go mine some blocks!
@@ -738,7 +780,9 @@ export default function CraftingScreen({ onClose }) {
                 overflowY: 'auto',
                 paddingRight: 4,
               }}>
-                {playerItems.map(({ id, count }) => {
+                {playerItems
+                  .filter(item => invCategory === 'all' || getBlockCategory(item.id) === invCategory)
+                  .map(({ id, count }) => {
                   const isArmor = !!ITEMS[id]?.armorSlot;
                   return (
                     <div key={id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
