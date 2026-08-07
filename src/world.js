@@ -7,6 +7,8 @@ import {
   isSolid, isOpaque, tileFor, tileUV, trng, shade, TILE, ATLAS_COLS, ATLAS_ROWS
 } from './config.js';
 
+import { applyVillageToChunk } from './villageGenerator.js';
+
 // Streaming queue & static meshing buffers
 export const genQueue = [];
 const sharedMeshMask = new Uint8Array(HEIGHT * CHUNK);
@@ -173,6 +175,7 @@ export function generateChunk(ch){
   
   // pre-made structures
   carveStructures(ch, ox, oz);
+  applyVillageToChunk(ch, ox, oz);
   
   // Spawn Starter Chest in home chunk (0,0)
   if (ch.cx === 0 && ch.cz === 0) {
