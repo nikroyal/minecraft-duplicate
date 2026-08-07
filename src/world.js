@@ -151,7 +151,8 @@ export function generateChunk(ch){
           }
           else b=3;                                 // stone
         } else if(y<=SEA){
-          b=8; // water
+          const iceNoise = hash2(wx, wz, SEED+999);
+          b = (y === SEA && iceNoise > 0.82) ? 37 : 8; // Ice sheet on frozen lake/ocean surface (37), else water (8)
         }
         
         // carve caves (keep bedrock intact)
