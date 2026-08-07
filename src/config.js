@@ -346,6 +346,7 @@ export const RECIPES = [];
   R({100:7},45,3,"Ladder","7 Sticks → 3 Ladders");
   R({9:6},49,16,"Glass Pane","6 Glass → 16 Panes");
   R({2:2,4:2},28,4,"Clay","2 Dirt + 2 Sand → 4 Clay");
+  R({29:4},37,4,"Ice","4 Snow Blocks → 4 Ice");
 
   // === Redstone Recipes ===
   R({100:1,151:1},61,4,"Redstone Torch","Stick + Redstone Dust → 4 Redstone Torches");
