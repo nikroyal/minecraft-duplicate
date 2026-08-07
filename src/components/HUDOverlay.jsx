@@ -302,6 +302,23 @@ export default function HUDOverlay({
         {/* In-Game Notifications & Chat Counter Buttons */}
         <div style={{ display: 'flex', gap: '6px', pointerEvents: 'auto', marginTop: '2px' }}>
           <button
+            onClick={() => {
+              if (document.pointerLockElement) document.exitPointerLock();
+              if (window.__toggleWayfinder) window.__toggleWayfinder();
+            }}
+            title="Locate Nearest NPC Village"
+            style={{
+              background: 'linear-gradient(135deg, rgba(57,255,20,0.25), rgba(20,60,25,0.4))',
+              border: '1px solid #39ff14',
+              borderRadius: '6px', padding: '5px 9px', color: '#88ff88', fontSize: '10px',
+              fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              boxShadow: '0 0 10px rgba(57,255,20,0.3)', backdropFilter: 'blur(4px)'
+            }}
+          >
+            <span>🏡 VILLAGE</span>
+          </button>
+
+          <button
             onClick={onOpenNotifications}
             title="Open Notification Center"
             style={{

@@ -451,6 +451,53 @@ export default function WayfinderModal({ currentUser, onClose }) {
         {/* ── Normal tabs (only shown when not in route picker / calculating) ── */}
         {!calculating && !showRoutePicker && (
           <>
+            {/* Nearest NPC Village Banner - Visible on ALL tabs */}
+            <div style={{ padding: '10px 20px 0 20px', flexShrink: 0 }}>
+              <div style={{
+                padding: '10px 16px',
+                background: 'linear-gradient(135deg, rgba(57,255,20,0.18), rgba(20,60,25,0.4))',
+                border: '1px solid #39ff14',
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 0 15px rgba(57,255,20,0.15)'
+              }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 'bold', color: '#88ff88', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🏡 FIND NEAREST NPC VILLAGE
+                  </div>
+                  <div style={{ fontSize: 9, color: '#a0d8b0', marginTop: 2 }}>
+                    Scans world seed and plots 3D surface A* route with Auto-Pilot options.
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const village = findNearestVillage(player.pos.x, player.pos.z);
+                    if (!village) {
+                      toast("❌ No NPC Village found within 1,280m scan radius.");
+                      return;
+                    }
+                    handleStartPathfinding(village.x, village.y, village.z, `Nearest Village (${village.direction})`, '🏡', false);
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #39ff14, #28a80d)',
+                    color: '#051805',
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '8px 16px',
+                    fontWeight: 'bold',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    boxShadow: '0 0 12px rgba(57,255,20,0.4)',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  🧭 Find Village Routes
+                </button>
+              </div>
+            </div>
+
             {/* Tabs */}
             <div className="dashboard-tabs" style={{ flexShrink: 0, marginBottom: 0, padding: '10px 20px 0 20px' }}>
               <button className={`dash-tab ${activeTab === 'nexus'   ? 'active' : ''}`} onClick={() => setActiveTab('nexus')}>🌐 Nexus ({filteredNexus.length})</button>
