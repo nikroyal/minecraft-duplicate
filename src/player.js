@@ -885,7 +885,7 @@ export function updateAutoPilotSteering(dt, wish) {
     activeNavigation._stuckState = { lastPos: new THREE.Vector3().copy(player.pos), timer: 0 };
   }
   const stuck = activeNavigation._stuckState;
-  const distMoved = player.pos.distanceTo(stuck.lastPos);
+  const distMoved = (player && player.pos && stuck && stuck.lastPos && stuck.lastPos.x !== undefined) ? player.pos.distanceTo(stuck.lastPos) : 0;
 
   if (distMoved < 0.20 * dt) {
     stuck.timer += dt;

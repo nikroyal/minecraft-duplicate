@@ -149,7 +149,7 @@ export function updateItemDrops(dt) {
     const d = itemDrops[i];
     d.mesh.rotation.y += safeDt * 3.5;
 
-    const dist = d.pos.distanceTo(playerTarget);
+    const dist = (d && d.pos && playerTarget) ? d.pos.distanceTo(playerTarget) : 999;
     const isPickupEligible = (dist < 2.5 && now - d.spawnTime > 150 && !player.dead);
 
     d.collidedHoriz = false;
@@ -296,7 +296,7 @@ export function updateXpOrbs(dt) {
     const orb = game.xpOrbs[i];
     orb.mesh.rotation.y += dt * 5.0;
 
-    const dist = orb.pos.distanceTo(pTarget);
+    const dist = (orb && orb.pos && pTarget) ? orb.pos.distanceTo(pTarget) : 999;
     if (dist < 4.5 && now - orb.spawnTime > 150 && !player.dead) {
       orb.pos.lerp(pTarget, dt * 10.0);
       orb.mesh.position.copy(orb.pos);
@@ -376,7 +376,7 @@ export function updateProjectiles(dt) {
     // Collision check against entities
     if (proj.isPlayer) {
       for (const m of game.mobs) {
-        if (m.pos.distanceTo(nextPos) < m.def.w + 0.5) {
+        if (m && m.pos && m.pos.x !== undefined && nextPos && m.pos.distanceTo(nextPos) < m.def.w + 0.5) {
           m.hp -= 5;
           m.hurtFlash = 0.2;
           playHitSound();
@@ -395,7 +395,7 @@ export function updateProjectiles(dt) {
         }
       }
     } else { // Hostile arrow from Skeleton
-      if (player.pos.distanceTo(nextPos) < 1.4 && !player.dead) {
+      if (player && player.pos && player.pos.x !== undefined && nextPos && player.pos.distanceTo(nextPos) < 1.4 && !player.dead) {
         hurtPlayer(3, "skeleton");
         webgl.scene.remove(proj.mesh);
         game.projectiles.splice(i, 1);
@@ -529,13 +529,13 @@ export function updatePrimedTnt(dt) {
       triggerWorldExplosion(tnt.pos.x, tnt.pos.y, tnt.pos.z, radius, scheduleSave);
       playExplodeSound();
       const maxDamageDist = radius + 1.0;
-      const pDist = tnt.pos.distanceTo(player.pos);
+      const pDist = (tnt && tnt.pos && player && player.pos) ? tnt.pos.distanceTo(player.pos) : 999;
       if (pDist < maxDamageDist) {
         const tntDmg = Math.max(1, Math.ceil(30 * (1 - pDist / maxDamageDist)));
         hurtPlayer(tntDmg, "tnt");
       }
       for (const m of game.mobs) {
-        const mDist = tnt.pos.distanceTo(m.pos);
+        const mDist = (tnt && tnt.pos && m && m.pos) ? tnt.pos.distanceTo(m.pos) : 999;
         if (mDist < maxDamageDist) {
           m.hp -= Math.max(1, Math.ceil(40 * (1 - mDist / maxDamageDist)));
           m.hurtFlash = 0.3;
@@ -1516,7 +1516,7 @@ function loop(now){
     let closestMobDistSq = 3.5 * 3.5;
     if (Array.isArray(game.mobs)) {
       for (const m of game.mobs) {
-        if (m.dead) continue;
+        if (!m || m.dead || !m.pos || m.pos.x === undefined || !player || !player.pos) continue;
         const dSq = m.pos.distanceToSquared(player.pos);
         if (dSq < closestMobDistSq) {
           closestMobDistSq = dSq;
@@ -1529,6 +1529,7 @@ function loop(now){
     let closestDrop = null;
     let closestDropDistSq = 2.8 * 2.8;
     for (const d of itemDrops) {
+      if (!d || !d.pos || d.pos.x === undefined || !player || !player.pos) continue;
       const dSq = d.pos.distanceToSquared(player.pos);
       if (dSq < closestDropDistSq) {
         closestDropDistSq = dSq;
@@ -1597,7 +1598,7 @@ function loop(now){
         const wp = waypointsList[w];
         if (!wp || typeof wp.x !== 'number') continue;
         webgl.tempWpVec.set(wp.x + 0.5, wp.y + 1.2, wp.z + 0.5);
-        const dist = Math.round(webgl.tempWpVec.distanceTo(player.pos));
+        const dist = (webgl.tempWpVec && player && player.pos) ? Math.round(webgl.tempWpVec.distanceTo(player.pos)) : 0;
         
         // Project 3D pos to normalized device coordinates
         webgl.tempWpVec.project(webgl.camera);

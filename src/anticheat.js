@@ -201,8 +201,7 @@ export function runAntiCheatScan() {
   }
 
   // B. Speed & Teleport Rubber-Banding Guard
-  if (player.pos) {
-    if (lastValidatedPos && !player.flying && !player.frozen) {
+    if (lastValidatedPos && lastValidatedPos.x !== undefined && player.pos && player.pos.x !== undefined && !player.flying && !player.frozen) {
       const dist = player.pos.distanceTo(lastValidatedPos);
       const horizVel = Math.sqrt(player.vel.x * player.vel.x + player.vel.z * player.vel.z);
 
@@ -213,7 +212,6 @@ export function runAntiCheatScan() {
       }
     }
     lastValidatedPos = player.pos.clone();
-  }
 
   // C. Inventory Duplication & Stack Limit Guard (Max 64 per slot)
   validateInventoryState();

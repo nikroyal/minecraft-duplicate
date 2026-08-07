@@ -26,7 +26,7 @@ export function updateVillagerSchedule(mob, dt, timeOfDay = 0.5) {
     // 🌙 Sleep Phase
     mob.state = 'sleep';
     const target = mob.homePos || mob.pos;
-    if (mob.pos.distanceTo(target) > 1.2) {
+    if (mob.pos && target && target.x !== undefined && mob.pos.distanceTo(target) > 1.2) {
       // Walk home
       steerTowardTarget(mob, target, dt, 1.8);
       mob.isSleeping = false;
@@ -40,7 +40,7 @@ export function updateVillagerSchedule(mob, dt, timeOfDay = 0.5) {
     mob.state = 'gather';
     mob.isSleeping = false;
     const target = mob.wellPos || mob.homePos || mob.pos;
-    if (mob.pos.distanceTo(target) > 2.5) {
+    if (mob.pos && target && target.x !== undefined && mob.pos.distanceTo(target) > 2.5) {
       steerTowardTarget(mob, target, dt, 1.6);
     } else {
       // Idle at well and socialize
@@ -54,7 +54,7 @@ export function updateVillagerSchedule(mob, dt, timeOfDay = 0.5) {
     mob.state = 'work';
     mob.isSleeping = false;
     const target = mob.workplacePos || mob.homePos || mob.pos;
-    if (mob.pos.distanceTo(target) > 2.0) {
+    if (mob.pos && target && target.x !== undefined && mob.pos.distanceTo(target) > 2.0) {
       steerTowardTarget(mob, target, dt, 1.8);
     }
   }

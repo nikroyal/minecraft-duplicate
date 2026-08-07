@@ -307,8 +307,7 @@ export function mobMoveAxis(m, axis, amt){
 // ---- Alert nearby zombies to player position -----------------------------------
 function alertNearbyZombies(alerter) {
   for (const m of game.mobs) {
-    if (m === alerter) continue;
-    if (m.type !== 'zombie') continue;
+    if (!m || !m.pos || m.pos.x === undefined || !alerter || !alerter.pos || alerter.pos.x === undefined) continue;
     const dist = m.pos.distanceTo(alerter.pos);
     if (dist < 12) {
       m.alerted = true;
@@ -321,7 +320,7 @@ export function emitSoundEvent(x, y, z, loudness = 12) {
   if (!Array.isArray(game.mobs)) return;
   const soundPos = new THREE.Vector3(x, y, z);
   for (const m of game.mobs) {
-    if (!m || !m.def?.hostile) continue;
+    if (!m || !m.def?.hostile || !m.pos || m.pos.x === undefined || !soundPos) continue;
     const dist = m.pos.distanceTo(soundPos);
     if (dist <= loudness) {
       m.heardSoundTarget = soundPos.clone();
@@ -547,6 +546,7 @@ export function updateMobs(dt){
     }
     
     // Despawn far mobs (villagers do not despawn)
+    if (!m || !m.pos || m.pos.x === undefined || !player || !player.pos) continue;
     const distToP = m.pos.distanceTo(player.pos);
     if(m.type !== 'villager' && (distToP > 64 || (distToP > 36 && Math.random() < dt * 0.05))){
       removeMob(i);
@@ -741,7 +741,7 @@ export function updateMobs(dt){
         wishX = -Math.sin(m.yaw);
         wishZ = -Math.cos(m.yaw);
       }
-    } else if (isInvestigatingSound && m.heardSoundTarget && m.heardSoundTarget.x !== undefined) {
+    } else if (isInvestigatingSound && m.pos && m.pos.x !== undefined && m.heardSoundTarget && m.heardSoundTarget.x !== undefined) {
       // ── Hearing & Sound Investigation Navigation ──────────────────────────
       const soundDist = m.pos.distanceTo(m.heardSoundTarget);
       if (soundDist < 1.5) {
@@ -789,7 +789,7 @@ export function updateMobs(dt){
         if (Array.isArray(game.mobs)) {
           for (const other of game.mobs) {
             if (other !== m && other.type === m.type && (other.loveTimer || 0) > 0 && !other.isBaby) {
-              if (m.pos.distanceTo(other.pos) < 12.0) { mate = other; break; }
+              if (m.pos && other.pos && other.pos.x !== undefined && m.pos.distanceTo(other.pos) < 12.0) { mate = other; break; }
             }
           }
         }
@@ -964,7 +964,7 @@ export function updateMobs(dt){
           let herdDx = 0, herdDz = 0, herdCount = 0;
           if (Array.isArray(game.mobs)) {
             for (const other of game.mobs) {
-              if (other !== m && other.type === m.type && other.pos && other.pos.x !== undefined && other.pos.distanceTo(m.pos) < 6.0) {
+              if (other !== m && m.pos && m.pos.x !== undefined && other.type === m.type && other.pos && other.pos.x !== undefined && m.pos.distanceTo(other.pos) < 6.0) {
                 herdDx += other.pos.x - m.pos.x;
                 herdDz += other.pos.z - m.pos.z;
                 herdCount++;
@@ -1192,7 +1192,7 @@ export function updateMobs(dt){
       if(m.fuseTimer >= 1.5){
         playExplodeSound();
         triggerWorldExplosion(m.pos.x, m.pos.y, m.pos.z, 3.5, scheduleSave);
-        const curDist = m.pos.distanceTo(player.pos);
+        const curDist = (m.pos && player && player.pos) ? m.pos.distanceTo(player.pos) : 999;
         if(curDist < 4.5){
           const dmg = Math.max(1, Math.ceil(24 * (1 - curDist / 4.5)));
           hurtPlayer(dmg, "creeper");
@@ -1330,7 +1330,7 @@ export function attackMob(targetMob, customDamage){
 
   if (best.type === 'zombie') {
     for (const other of game.mobs) {
-      if (other !== best && other.type === 'zombie' && other.pos.distanceTo(best.pos) < 24) {
+      if (other !== best && other.type === 'zombie' && other.pos && other.pos.x !== undefined && best.pos && best.pos.x !== undefined && other.pos.distanceTo(best.pos) < 24) {
         other.alerted = true;
         other.alertCooldown = 10;
       }
