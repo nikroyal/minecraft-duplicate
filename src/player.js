@@ -439,10 +439,26 @@ export function updatePlayer(dt){
   player.vel.x = wish.x * sp;
   player.vel.z = wish.z * sp;
 
+  // Slow Fall / Parachute Glide Mechanic (Hold F while descending in air)
+  const isPressingSlowFall = !blockInput && (keys["KeyF"] || touch.slowFall);
+  const isDescendingInAir = !player.flying && !inWater && !player.onGround && player.vel.y < 0;
+
+  if (isDescendingInAir && isPressingSlowFall) {
+    player.isSlowFalling = true;
+    player.vel.y = Math.max(player.vel.y, -2.2); // Smooth slow descent cap (-2.2 m/s)
+    player.fallPeak = player.pos.y; // Reset fall distance peak so landing causes ZERO fall damage!
+  } else {
+    player.isSlowFalling = false;
+  }
+
   // Unconditional Gravity application when airborne
   if (!inWater) {
     player.vel.y += GRAV * dt;
-    if(player.vel.y < -55) player.vel.y = -55;
+    if (player.isSlowFalling) {
+      player.vel.y = Math.max(player.vel.y, -2.2);
+    } else if(player.vel.y < -55) {
+      player.vel.y = -55;
+    }
   }
 
   if (inWater) {

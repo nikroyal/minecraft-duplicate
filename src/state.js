@@ -115,11 +115,13 @@ if (typeof window !== 'undefined') {
 export const touch = {
   move: { x: 0, y: 0 },
   jump: false,
+  slowFall: false,
   isTouch: false,
   reset() {
     this.move.x = 0;
     this.move.y = 0;
     this.jump = false;
+    this.slowFall = false;
   }
 };
 

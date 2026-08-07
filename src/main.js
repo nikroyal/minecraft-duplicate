@@ -2145,9 +2145,12 @@ export function bootGame() {
     }
     keys[e.code] = true;
     if(e.code === "KeyF"){
-      player.flying = !player.flying;
-      toast(player.flying ? "flying enabled" : "flying disabled");
-      updateHUD();
+      // If airborne in survival, F activates slow fall / parachute (handled in updatePlayerPhysics)
+      if (!game.survival || player.onGround) {
+        player.flying = !player.flying;
+        toast(player.flying ? "flying enabled" : "flying disabled");
+        updateHUD();
+      }
     }
     if(e.code === "KeyQ"){
       const heldId = hotbar[game.selected];

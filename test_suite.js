@@ -2037,6 +2037,30 @@ async function runFullTestSuite() {
       }
     });
 
+    // TEST SUITE 62: SLOW FALL & PARACHUTE DESCENT PHYSICS MATRIX
+    console.log("\n--- TEST SUITE 62: SLOW FALL & PARACHUTE DESCENT PHYSICS MATRIX ---");
+    test("Slow fall caps downward vertical velocity to safe glide speed (-2.2 m/s)", () => {
+      state.player.flying = false;
+      state.player.onGround = false;
+      state.player.vel.set(0, -15.0, 0);
+      state.keys["KeyF"] = true;
+      playerModule.updatePlayerPhysics(0.016, false);
+      if (!state.player.isSlowFalling) throw new Error("player.isSlowFalling was not activated when pressing KeyF in mid-air");
+      if (state.player.vel.y < -2.5) throw new Error(`Downward velocity was not capped by slow fall: got ${state.player.vel.y}`);
+      state.keys["KeyF"] = false;
+    });
+
+    test("Slow fall resets fall distance peak to prevent landing fall damage", () => {
+      state.player.flying = false;
+      state.player.onGround = false;
+      state.player.pos.set(0, 80, 0);
+      state.player.fallPeak = 120;
+      state.keys["KeyF"] = true;
+      playerModule.updatePlayerPhysics(0.016, false);
+      if (state.player.fallPeak > 81) throw new Error(`fallPeak was not updated to current position: got ${state.player.fallPeak}`);
+      state.keys["KeyF"] = false;
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);

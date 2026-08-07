@@ -686,6 +686,51 @@ export default function HUDOverlay({
         </div>
       )}
 
+      {/* ── 🪂 SLOW FALL / PARACHUTE DESCENT PROMPT & GLIDE CONTROL ── */}
+      {(!player.onGround && !player.flying && player.vel && player.vel.y < -0.1) && (
+        <div style={{
+          position: 'fixed',
+          bottom: '120px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: player.isSlowFalling
+            ? 'linear-gradient(145deg, rgba(20, 80, 40, 0.95), rgba(10, 50, 25, 0.98))'
+            : 'linear-gradient(145deg, rgba(20, 25, 35, 0.9), rgba(10, 15, 20, 0.95))',
+          border: player.isSlowFalling ? '2px solid #39ff14' : '2px solid rgba(255, 255, 255, 0.3)',
+          borderRadius: '24px',
+          padding: '8px 20px',
+          zIndex: 9999,
+          boxShadow: player.isSlowFalling
+            ? '0 0 20px rgba(57, 255, 20, 0.5), inset 0 0 10px rgba(57, 255, 20, 0.3)'
+            : '0 4px 16px rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          color: '#fff',
+          fontFamily: 'Inter, sans-serif',
+          pointerEvents: 'auto',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseDown={() => { if (typeof touch !== 'undefined') touch.slowFall = true; }}
+        onMouseUp={() => { if (typeof touch !== 'undefined') touch.slowFall = false; }}
+        onTouchStart={() => { if (typeof touch !== 'undefined') touch.slowFall = true; }}
+        onTouchEnd={() => { if (typeof touch !== 'undefined') touch.slowFall = false; }}
+        >
+          <span style={{ fontSize: '20px' }}>🪂</span>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: player.isSlowFalling ? '#39ff14' : '#ffffff', letterSpacing: '0.5px' }}>
+              {player.isSlowFalling ? 'GLIDING / SLOW FALL ACTIVE' : 'PRESS [F] TO SLOW FALL'}
+            </div>
+            <div style={{ fontSize: '10px', color: player.isSlowFalling ? '#b0ffb0' : 'rgba(255, 255, 255, 0.7)' }}>
+              {player.isSlowFalling ? 'Descent speed capped • Fall damage negated!' : 'Hold [F] or Click here to prevent fall damage'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 📡 TNT DETONATOR ON-SCREEN REMOTE CONTROL ── */}
       {(selectedId === 180 || selectedId === 56 || selectedId === 117 || selectedId === 118 || selectedId === 119 || (game.primedTnt && game.primedTnt.length > 0)) && (
         <div style={{
