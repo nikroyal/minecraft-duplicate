@@ -1977,6 +1977,20 @@ async function runFullTestSuite() {
       if (world.getBlock(0, 20, 0) !== 0) throw new Error("God TNT did not clear center block");
     });
 
+    test("Gravel (ID 27) naturally generates in subterranean stone veins and shores across chunks", () => {
+      let gravelCount = 0;
+      for (let cx = -3; cx <= 3; cx++) {
+        for (let cz = -3; cz <= 3; cz++) {
+          const ch = { cx, cz, data: new Uint8Array(16*128*16), get(x,y,z){ return this.data[(y*16+z)*16+x]; }, set(x,y,z,v){ this.data[(y*16+z)*16+x]=v; } };
+          world.generateChunk(ch);
+          for (let i = 0; i < ch.data.length; i++) {
+            if (ch.data[i] === 27) gravelCount++;
+          }
+        }
+      }
+      if (gravelCount === 0) throw new Error("No natural Gravel (ID 27) blocks generated in world chunks");
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);

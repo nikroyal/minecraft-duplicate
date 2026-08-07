@@ -88,14 +88,17 @@ function oreAt(wx,wy,wz){
     if(r>0.96) return 14;                  // diamond (deep, rare)
     if(r>0.88) return 13;                  // gold
     if(r>0.70) return 12;                  // iron
-    if(r>0.40) return 11;                  // coal
+    if(r>0.52) return 27;                  // gravel pocket vein
+    if(r>0.30) return 11;                  // coal
   } else if(wy<28){
     if(r>0.92) return 13;                  // gold
     if(r>0.72) return 12;                  // iron
-    if(r>0.42) return 11;                  // coal
-  } else if(wy<38){
-    if(r>0.75) return 12;                  // iron
-    if(r>0.45) return 11;                  // coal
+    if(r>0.55) return 27;                  // gravel pocket vein
+    if(r>0.30) return 11;                  // coal
+  } else if(wy<48){
+    if(r>0.82) return 27;                  // gravel pocket vein
+    if(r>0.65) return 12;                  // iron
+    if(r>0.35) return 11;                  // coal
   }
   return 0;
 }
@@ -137,8 +140,14 @@ export function generateChunk(ch){
         if(y===0){
           b=30; // Bedrock / Obsidian bottom layer to prevent falling through map
         } else if(y<=h){
-          if(y===h){ b = (h<=SEA+1)?4:1; }        // sand near water, else grass
-          else if(y>h-4) b=2;                       // dirt
+          if(y===h){
+            const beachNoise = hash2(wx, wz, SEED+77);
+            b = (h<=SEA+1)? (beachNoise > 0.7 ? 27 : 4) : 1; // sand & gravel shores near water, else grass
+          }
+          else if(y>h-4) {
+            const subNoise = hash2(wx, wz, SEED+88);
+            b = (h<=SEA+1 && subNoise > 0.65)? 27 : 2; // gravel layers near shore/riverbed, else dirt
+          }
           else b=3;                                 // stone
         } else if(y<=SEA){
           b=8; // water
