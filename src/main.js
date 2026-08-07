@@ -414,8 +414,8 @@ const tntGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
 
 export function spawnPrimedTnt(x, y, z, blockId = 56) {
   let mesh;
-  const radius = blockId === 118 ? 10.0 : (blockId === 117 ? 4.0 : 2.0);
-  const colorHex = blockId === 118 ? 0xa000ff : (blockId === 117 ? 0xff8800 : 0xd83030);
+  const radius = blockId === 119 ? 30.0 : (blockId === 118 ? 10.0 : (blockId === 117 ? 4.0 : 2.0));
+  const colorHex = blockId === 119 ? 0xffd700 : (blockId === 118 ? 0xa000ff : (blockId === 117 ? 0xff8800 : 0xd83030));
 
   if (webgl.atlasTex) {
     const geo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
@@ -472,7 +472,7 @@ export function detonateRemoteTnt() {
       for (let dz = -R; dz <= R; dz += 2) {
         const bx = px + dx, by = py + dy, bz = pz + dz;
         const bid = getBlock(bx, by, bz);
-        if (bid === 56 || bid === 117 || bid === 118) {
+        if (bid === 56 || bid === 117 || bid === 118 || bid === 119) {
           setBlock(bx, by, bz, 0, false, scheduleSave);
           spawnPrimedTnt(bx, by, bz, bid);
           const last = game.primedTnt[game.primedTnt.length - 1];
@@ -1086,7 +1086,7 @@ export function placeBlock(){
     toast("Comparator Mode Toggled!");
     return;
   }
-  if(hitBlockId === 56 || hitBlockId === 117 || hitBlockId === 118){ // TNT Block right-click ignite
+  if(hitBlockId === 56 || hitBlockId === 117 || hitBlockId === 118 || hitBlockId === 119){ // TNT Block right-click ignite
     spawnPrimedTnt(r.hit[0], r.hit[1], r.hit[2], hitBlockId);
     setBlock(r.hit[0], r.hit[1], r.hit[2], 0, false, scheduleSave);
     updateAfterEdit(r.hit[0], r.hit[1], r.hit[2]);

@@ -90,6 +90,7 @@ export const BLOCKS = {
   56:{ name: "Basic TNT",         top:0xd83030, side:0xd84030, bottom:0x9a2020, solid:true, hardness:0.1, tntType:"basic", radius:2.0 },
   117:{ name: "Medium TNT",       top:0xff8800, side:0xe85010, bottom:0x982000, solid:true, hardness:0.1, tntType:"medium", radius:4.0 },
   118:{ name: "Max TNT",          top:0xa000ff, side:0x8000d0, bottom:0x500090, solid:true, hardness:0.1, tntType:"max", radius:10.0 },
+  119:{ name: "God TNT",          top:0xffd700, side:0xff3366, bottom:0x990033, solid:true, hardness:0.1, tntType:"god", radius:30.0 },
   57:{ name: "Bed",         top:0xd83030, side:0xe8e8e8, bottom:0x8a5a2a, solid:true, hardness:0.2 },
 
   // === Redstone & Automation Blocks ===
@@ -415,6 +416,7 @@ export const RECIPES = [];
   R({148:5,4:4},56,1,"Basic TNT","5 Gunpowder + 4 Sand → Basic TNT Block");
   R({56:2,151:4,148:3},117,1,"Medium TNT","2 Basic TNT + 4 Redstone Dust + 3 Gunpowder → Medium TNT");
   R({117:2,151:4,104:3},118,1,"Max TNT","2 Medium TNT + 4 Redstone Dust + 3 Diamonds → Max TNT (10 Block Explosion)");
+  R({118:2,151:4,104:3},119,1,"God TNT","2 Max TNT + 4 Redstone Dust + 3 Diamonds → God TNT (30 Block Explosion)");
   R({50:3,7:3},57,1,"Bed","3 Wool + 3 Planks → Bed");
 
   for(const [pid,label] of FENCE_SOURCE){
@@ -515,6 +517,7 @@ export const BLOCK_TILES = {
   56:{top:"wool_red", side:"wool_red", bottom:"wool_red"},
   117:{top:"wool_yellow", side:"wool_red", bottom:"wool_red"},
   118:{top:"wool_blue", side:"wool_blue", bottom:"wool_black"},
+  119:{top:"wool_yellow", side:"wool_red", bottom:"wool_yellow"},
   57:{top:"wool_red", side:"wool_white", bottom:"plank"},
   89:{top:"terracotta",side:"dirt",bottom:"dirt"},
   90:{all:"grass_side"}, 91:{all:"wool_yellow"}, 92:{all:"wool_yellow"}

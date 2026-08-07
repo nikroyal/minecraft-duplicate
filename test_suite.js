@@ -1932,15 +1932,17 @@ async function runFullTestSuite() {
     }
 
     console.log("\n--- TEST SUITE 60: TNT VARIANTS & REMOTE DETONATOR MATRIX ---");
-    test("Basic TNT (56), Medium TNT (117), Max TNT (118) and TNT Remote (180) exist", () => {
+    test("Basic TNT (56), Medium TNT (117), Max TNT (118), God TNT (119) and TNT Remote (180) exist", () => {
       if (!config.BLOCKS[56]) throw new Error("Basic TNT block missing");
       if (!config.BLOCKS[117]) throw new Error("Medium TNT block missing");
       if (!config.BLOCKS[118]) throw new Error("Max TNT block missing");
+      if (!config.BLOCKS[119]) throw new Error("God TNT block missing");
       if (!config.ITEMS[180]) throw new Error("TNT Remote item missing");
 
       if (config.BLOCKS[56].radius !== 2.0) throw new Error("Basic TNT radius != 2.0");
       if (config.BLOCKS[117].radius !== 4.0) throw new Error("Medium TNT radius != 4.0");
       if (config.BLOCKS[118].radius !== 10.0) throw new Error("Max TNT radius != 10.0");
+      if (config.BLOCKS[119].radius !== 30.0) throw new Error("God TNT radius != 30.0");
     });
 
     test("TNT crafting recipes resolve correctly & TNT Remote is non-craftable (included by default)", () => {
@@ -1956,19 +1958,23 @@ async function runFullTestSuite() {
       const maxR = config.resolveRecipe({ 117: 2, 151: 4, 104: 3 });
       if (!maxR || maxR.out !== 118) throw new Error("Max TNT recipe failed");
 
+      // God TNT: 2 Max TNT (118) + 4 Redstone (151) + 3 Diamond (104)
+      const godR = config.resolveRecipe({ 118: 2, 151: 4, 104: 3 });
+      if (!godR || godR.out !== 119) throw new Error("God TNT recipe failed");
+
       // TNT Remote should NOT be craftable
       const remoteR = config.resolveRecipe({ 61: 1, 151: 2, 102: 2 });
       if (remoteR) throw new Error("TNT Remote should not be craftable");
     });
 
-    test("Max TNT (10 block explosion radius) clears 10-block sphere without crashing", () => {
-      for (let x = -10; x <= 10; x++) {
-        for (let y = 10; y <= 30; y++) {
+    test("God TNT (30 block explosion radius) clears 30-block sphere without crashing", () => {
+      for (let x = -30; x <= 30; x++) {
+        for (let y = 0; y <= 40; y++) {
           world.setBlock(x, y, 0, 3);
         }
       }
-      world.triggerWorldExplosion(0, 20, 0, 10.0);
-      if (world.getBlock(0, 20, 0) !== 0) throw new Error("Max TNT did not clear center block");
+      world.triggerWorldExplosion(0, 20, 0, 30.0);
+      if (world.getBlock(0, 20, 0) !== 0) throw new Error("God TNT did not clear center block");
     });
 
   } catch (fatalErr) {

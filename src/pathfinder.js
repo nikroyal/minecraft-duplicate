@@ -123,8 +123,8 @@ function hasGround(x, y, z) {
 
 // ── Is block lava or dangerous hazard? ───────────────────────────────────────
 function isHazard(blockId) {
-  // TNT (56, 117, 118) or future lava definitions
-  return blockId === 56 || blockId === 117 || blockId === 118;
+  // TNT (56, 117, 118, 119) or future lava definitions
+  return blockId === 56 || blockId === 117 || blockId === 118 || blockId === 119;
 }
 
 // ── Mining cost for a block (0 if non-solid) ─────────────────────────────────
