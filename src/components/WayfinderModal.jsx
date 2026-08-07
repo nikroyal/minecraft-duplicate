@@ -14,6 +14,7 @@ import {
   saveHomeBase,
   saveFarm,
   findNearestVillage,
+  getRealSurfaceY,
 } from '../pathfinder.js';
 import { toast } from '../ui.js';
 
