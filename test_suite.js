@@ -2008,10 +2008,10 @@ async function runFullTestSuite() {
     test("Every block in BLOCKS is obtainable (via natural terrain generation, schematics, or crafting)", () => {
       const blockIds = Object.keys(config.BLOCKS).map(Number);
       
-      // 1. Collect naturally generated block IDs across 25 chunks
+      // 1. Collect naturally generated block IDs across 121 chunks (-5..5)
       const generatedIds = new Set();
-      for (let cx = -2; cx <= 2; cx++) {
-        for (let cz = -2; cz <= 2; cz++) {
+      for (let cx = -5; cx <= 5; cx++) {
+        for (let cz = -5; cz <= 5; cz++) {
           const ch = { cx, cz, data: new Uint8Array(16*128*16), get(x,y,z){ return this.data[(y*16+z)*16+x]; }, set(x,y,z,v){ this.data[(y*16+z)*16+x]=v; } };
           world.generateChunk(ch);
           for (let i = 0; i < ch.data.length; i++) {
