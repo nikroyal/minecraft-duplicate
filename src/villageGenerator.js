@@ -195,6 +195,16 @@ export function applyVillageToChunk(ch, ox, oz) {
             }
           }
         }
+
+        // Spawn Village Villager NPCs on initial chunk generation
+        if (vcx === ch.cx && vcz === ch.cz && layout.villagers && !layout.villagersSpawned) {
+          layout.villagersSpawned = true;
+          for (const v of layout.villagers) {
+            if (typeof window !== 'undefined' && window.__spawnVillageVillager) {
+              window.__spawnVillageVillager(v.profession, v.x, v.y, v.z);
+            }
+          }
+        }
       }
     }
   }

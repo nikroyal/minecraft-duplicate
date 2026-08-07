@@ -452,6 +452,16 @@ export function spawnMob(type, x, y, z, isBaby = false, parent = null){
   return mob;
 }
 
+if (typeof window !== 'undefined') {
+  window.__spawnVillageVillager = (profession, x, y, z) => {
+    const mob = spawnMob('villager', x, y, z);
+    if (mob) {
+      mob.profession = profession;
+      mob.state = 'work';
+    }
+  };
+}
+
 export function trySpawnMobs(){
   if(game.mobs.length >= MAX_MOBS) return;
   const isNight = game.timeOfDay < 0.22 || game.timeOfDay > 0.78;
