@@ -10,7 +10,7 @@ export function tickVillagerPanic(mob, dt, allMobs = []) {
 
   if (Array.isArray(allMobs)) {
     for (const m of allMobs) {
-      if (!m || m.dead || m.type !== 'zombie') continue;
+      if (!m || m.dead || m.type !== 'zombie' || !m.pos || !mob.pos) continue;
       const d = mob.pos.distanceTo(m.pos);
       if (d < minThreatDist) {
         minThreatDist = d;

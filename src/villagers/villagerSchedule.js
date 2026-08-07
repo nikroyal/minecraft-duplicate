@@ -6,7 +6,11 @@ import * as THREE from 'three';
  * Dawn: 0.25 - 0.35 | Midday: 0.35 - 0.65 | Afternoon: 0.65 - 0.75 | Night: 0.75 - 0.25
  */
 export function updateVillagerSchedule(mob, dt, timeOfDay = 0.5) {
-  if (!mob || mob.dead) return;
+  if (!mob || mob.dead || !mob.pos) return;
+
+  if (!mob.homePos) mob.homePos = mob.pos.clone();
+  if (!mob.wellPos) mob.wellPos = mob.homePos.clone();
+  if (!mob.workplacePos) mob.workplacePos = mob.homePos.clone().add(new THREE.Vector3(4, 0, 4));
 
   // Panic overrides schedule
   if (mob.panicTimer > 0) {
@@ -21,9 +25,10 @@ export function updateVillagerSchedule(mob, dt, timeOfDay = 0.5) {
   if (isNight) {
     // 🌙 Sleep Phase
     mob.state = 'sleep';
-    if (mob.pos.distanceTo(mob.homePos) > 1.2) {
+    const target = mob.homePos || mob.pos;
+    if (mob.pos.distanceTo(target) > 1.2) {
       // Walk home
-      steerTowardTarget(mob, mob.homePos, dt, 1.8);
+      steerTowardTarget(mob, target, dt, 1.8);
       mob.isSleeping = false;
     } else {
       // Arrived home, enter sleep state
@@ -34,8 +39,9 @@ export function updateVillagerSchedule(mob, dt, timeOfDay = 0.5) {
     // 🌇 Afternoon Gathering at Village Well
     mob.state = 'gather';
     mob.isSleeping = false;
-    if (mob.pos.distanceTo(mob.wellPos) > 2.5) {
-      steerTowardTarget(mob, mob.wellPos, dt, 1.6);
+    const target = mob.wellPos || mob.homePos || mob.pos;
+    if (mob.pos.distanceTo(target) > 2.5) {
+      steerTowardTarget(mob, target, dt, 1.6);
     } else {
       // Idle at well and socialize
       mob.vel.set(0, 0, 0);
@@ -47,8 +53,9 @@ export function updateVillagerSchedule(mob, dt, timeOfDay = 0.5) {
     // ☀️ Work Phase (Dawn & Midday)
     mob.state = 'work';
     mob.isSleeping = false;
-    if (mob.pos.distanceTo(mob.workplacePos) > 2.0) {
-      steerTowardTarget(mob, mob.workplacePos, dt, 1.8);
+    const target = mob.workplacePos || mob.homePos || mob.pos;
+    if (mob.pos.distanceTo(target) > 2.0) {
+      steerTowardTarget(mob, target, dt, 1.8);
     }
   }
 }

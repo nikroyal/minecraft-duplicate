@@ -23,7 +23,9 @@ export function tickFarmerAI(mob, dt) {
         if (bid === 92) { // Ripe Wheat
           // Harvest ripe crop and replant seeds (ID 90)
           setBlock(vx, vy, vz, 90, false);
-          mob.workplacePos.set(vx + 0.5, vy, vz + 0.5);
+          if (mob.workplacePos) {
+            mob.workplacePos.set(vx + 0.5, vy, vz + 0.5);
+          }
 
           // Add harvested wheat to farmer inventory
           if (Array.isArray(mob.inventory)) {

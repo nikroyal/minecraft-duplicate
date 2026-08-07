@@ -26,7 +26,7 @@ export const MOB_TYPES = {
   villager: { name:"Villager", color:0xc89d7c, w:0.6, h:1.8,  hp:20, hostile:false, drop:135, dropN:2, speed:1.8 },
 };
 
-const MAX_MOBS = 16;
+const MAX_MOBS = 48;
 let mobSpawnTimer = 0;
 
 // ---- LOS raycast through voxels -------------------------------------------------
@@ -101,12 +101,12 @@ function findNearbyWaterOrDirt(mobX, mobY, mobZ, radius = 8) {
 }
 
 // ---- Mesh builders --------------------------------------------------------------
-export function makeMobMesh(type){
+export function makeMobMesh(type, profession = 'farmer'){
   const t = MOB_TYPES[type];
   const group = new THREE.Group();
   webgl.scene?.add(group);
   
-  const mat = new THREE.MeshLambertMaterial({ color: t.color });
+  const mat = new THREE.MeshLambertMaterial({ color: t?.color || 0x888888 });
   const legs = [];
   const arms = [];
   let head = null;
@@ -121,7 +121,7 @@ export function makeMobMesh(type){
     group.add(head);
     const snoutMat = new THREE.MeshLambertMaterial({ color: 0xd87070 });
     const snout = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 0.15), snoutMat);
-    snout.position.set(0, -0.05, -0.28);
+    snout.position.set(0, -0.08, -0.28);
     head.add(snout);
 
     const legGeo = new THREE.BoxGeometry(0.22, 0.4, 0.22);
@@ -256,7 +256,7 @@ export function makeMobMesh(type){
       }
     }
   } else if (type === "villager") {
-    const vGroup = createVillagerMesh("farmer");
+    const vGroup = createVillagerMesh(profession);
     webgl.scene?.add(vGroup);
     return vGroup;
   }
@@ -448,6 +448,17 @@ export function spawnMob(type, x, y, z, isBaby = false, parent = null){
     bathTimer: 15 + Math.random() * 20,
     bathDuration: 0,
   };
+
+  if (type === 'villager') {
+    mob.profession = 'farmer';
+    mob.homePos = new THREE.Vector3(x, y, z);
+    mob.workplacePos = new THREE.Vector3(x + 4, y, z + 4);
+    mob.wellPos = new THREE.Vector3(x, y, z);
+    mob.inventory = [{ id: 135, count: 4 }];
+    mob.state = 'work';
+    mob.isSleeping = false;
+  }
+
   game.mobs.push(mob);
   return mob;
 }
@@ -456,8 +467,11 @@ if (typeof window !== 'undefined') {
   window.__spawnVillageVillager = (profession, x, y, z) => {
     const mob = spawnMob('villager', x, y, z);
     if (mob) {
-      mob.profession = profession;
+      mob.profession = profession || 'farmer';
       mob.state = 'work';
+      mob.homePos = new THREE.Vector3(x, y, z);
+      mob.workplacePos = new THREE.Vector3(x + 4, y, z + 4);
+      mob.wellPos = new THREE.Vector3(x, y, z);
     }
   };
 }
@@ -727,7 +741,7 @@ export function updateMobs(dt){
         wishX = -Math.sin(m.yaw);
         wishZ = -Math.cos(m.yaw);
       }
-    } else if (isInvestigatingSound) {
+    } else if (isInvestigatingSound && m.heardSoundTarget && m.heardSoundTarget.x !== undefined) {
       // ── Hearing & Sound Investigation Navigation ──────────────────────────
       const soundDist = m.pos.distanceTo(m.heardSoundTarget);
       if (soundDist < 1.5) {
@@ -830,7 +844,7 @@ export function updateMobs(dt){
       if (m.isBaby && (m.panicTimer || 0) > 0 && Array.isArray(game.mobs)) {
         for (const parentMob of game.mobs) {
           if (parentMob !== m && parentMob.type === m.type && !parentMob.isBaby && (parentMob.panicTimer || 0) <= 0) {
-            if (parentMob.pos.distanceTo(m.pos) < 10.0) {
+            if (parentMob.pos && parentMob.pos.x !== undefined && parentMob.pos.distanceTo(m.pos) < 10.0) {
               parentMob.panicTimer = 3.0;
               parentMob.panicThreatPos = m.panicThreatPos || player.pos;
             }
@@ -871,7 +885,7 @@ export function updateMobs(dt){
           m.bathTimer = 25.0;
           m.bathTarget = findNearbyWaterOrDirt(m.pos.x, m.pos.y, m.pos.z, 8);
         }
-        if (m.bathTarget) {
+        if (m.bathTarget && m.bathTarget.x !== undefined) {
           const bDist = m.pos.distanceTo(m.bathTarget);
           if (bDist < 1.2) {
             m.isBathing = true;
@@ -906,7 +920,7 @@ export function updateMobs(dt){
         let nearestPredator = null, minPredDist = 9.0;
         if (Array.isArray(game.mobs)) {
           for (const other of game.mobs) {
-            if (other.def?.hostile) {
+            if (other.def?.hostile && other.pos && other.pos.x !== undefined) {
               const d = m.pos.distanceTo(other.pos);
               if (d < minPredDist) { minPredDist = d; nearestPredator = other; }
             }
@@ -928,7 +942,7 @@ export function updateMobs(dt){
           m.yaw = Math.atan2(-fleeDx, -fleeDz);
           wishX = -Math.sin(m.yaw) * 1.8;
           wishZ = -Math.cos(m.yaw) * 1.8;
-        } else if (m.isBaby && m.parent && m.parent.mesh && game.mobs.includes(m.parent)) {
+        } else if (m.isBaby && m.parent && m.parent.pos && m.parent.pos.x !== undefined && m.parent.mesh && game.mobs.includes(m.parent)) {
           // Baby animal follows parent everywhere!
           const pDist = m.pos.distanceTo(m.parent.pos);
           if (pDist > 2.2) {
@@ -950,7 +964,7 @@ export function updateMobs(dt){
           let herdDx = 0, herdDz = 0, herdCount = 0;
           if (Array.isArray(game.mobs)) {
             for (const other of game.mobs) {
-              if (other !== m && other.type === m.type && other.pos.distanceTo(m.pos) < 6.0) {
+              if (other !== m && other.type === m.type && other.pos && other.pos.x !== undefined && other.pos.distanceTo(m.pos) < 6.0) {
                 herdDx += other.pos.x - m.pos.x;
                 herdDz += other.pos.z - m.pos.z;
                 herdCount++;
@@ -1027,7 +1041,7 @@ export function updateMobs(dt){
     if (m.isStealthAmbush) currentSpeed *= 0.7;
     
     // Check if player is trapped in active spider web trap
-    if (m.webTrapTimer > 0 && m.webTrapPos) {
+    if (m.webTrapTimer > 0 && m.webTrapPos && m.webTrapPos.x !== undefined && player.pos) {
       m.webTrapTimer -= dt;
       if (player.pos.distanceTo(m.webTrapPos) < 2.0) {
         player.vel.x *= 0.65;

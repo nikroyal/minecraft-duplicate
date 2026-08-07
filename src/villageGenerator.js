@@ -1,5 +1,6 @@
 // ---- Procedural Village Generator & Foundation Engine ---------------------
 import { CHUNK, HEIGHT, SEA, SEED, hash2, surfaceHeight } from './config.js';
+import { spawnMob } from './mobs.js';
 import {
   getSmallOakCottageSchematic,
   getBlacksmithWorkshopSchematic,
@@ -21,16 +22,20 @@ const villageLayoutCache = new Map();
  * Checks if a chunk coordinate is a Village Center
  */
 export function isVillageCenterChunk(vcx, vcz) {
-  // Village grid spacing: every 12 chunks
-  const gridX = Math.floor(vcx / 12);
-  const gridZ = Math.floor(vcz / 12);
+  // Guaranteed starter villages immediately adjacent to player spawn (8.5, 8.5)
+  if ((vcx === 1 && vcz === 0) || (vcx === 2 && vcz === 2) || (vcx === -2 && vcz === -2) || (vcx === 3 && vcz === 3)) return true;
+
+  // Village grid spacing: every 7 chunks (~112 meters)
+  const spacing = 7;
+  const gridX = Math.floor(vcx / spacing);
+  const gridZ = Math.floor(vcz / spacing);
 
   // Hash within grid cell
-  const centerDx = Math.floor(hash2(gridX, gridZ, SEED + 101) * 6) + 3;
-  const centerDz = Math.floor(hash2(gridX, gridZ, SEED + 202) * 6) + 3;
+  const centerDx = Math.floor(hash2(gridX, gridZ, SEED + 101) * (spacing - 3)) + 1;
+  const centerDz = Math.floor(hash2(gridX, gridZ, SEED + 202) * (spacing - 3)) + 1;
 
-  const targetCx = gridX * 12 + centerDx;
-  const targetCz = gridZ * 12 + centerDz;
+  const targetCx = gridX * spacing + centerDx;
+  const targetCz = gridZ * spacing + centerDz;
 
   return (vcx === targetCx && vcz === targetCz);
 }
@@ -42,15 +47,21 @@ export function isTerrainSuitableForVillage(wx, wz) {
   const centerH = surfaceHeight(wx, wz);
   if (centerH <= SEA + 1) return false; // Must be on dry land above sea level
 
+  let minH = 999, maxH = -999;
   let waterCount = 0;
+  let totalCount = 0;
+
   for (let dx = -12; dx <= 12; dx += 6) {
     for (let dz = -12; dz <= 12; dz += 6) {
+      totalCount++;
       const h = surfaceHeight(wx + dx, wz + dz);
       if (h <= SEA) waterCount++;
+      if (h < minH) minH = h;
+      if (h > maxH) maxH = h;
     }
   }
-  // Allow village if at least 70% of the sample grid is dry land
-  return waterCount <= 7;
+  if (waterCount > 7) return false;
+  return (maxH - minH) <= 32;
 }
 
 /**
@@ -218,6 +229,8 @@ export function applyVillageToChunk(ch, ox, oz) {
           for (const v of layout.villagers) {
             if (typeof window !== 'undefined' && window.__spawnVillageVillager) {
               window.__spawnVillageVillager(v.profession, v.x, v.y, v.z);
+            } else {
+              try { spawnMob('villager', v.x, v.y, v.z, false, null, v.profession); } catch(e) {}
             }
           }
         }
