@@ -682,6 +682,69 @@ export default function HUDOverlay({
             <div style={{ fontSize: '9px', color: 'rgba(200,255,200,0.6)', marginTop: '1px' }}>
               Press <strong style={{ color: '#39ff14' }}>B</strong> to go back to pathfinding page
             </div>
+      {/* ── 📡 TNT DETONATOR ON-SCREEN REMOTE CONTROL ── */}
+      {(selectedId === 180 || (game.primedTnt && game.primedTnt.length > 0) || invCount(180) > 0) && (
+        <div style={{
+          position: 'fixed',
+          bottom: '90px',
+          right: '24px',
+          background: 'linear-gradient(145deg, rgba(28, 12, 12, 0.92), rgba(16, 8, 8, 0.95))',
+          border: '2px solid #ff3333',
+          borderRadius: '16px',
+          padding: '14px 18px',
+          zIndex: 9999,
+          boxShadow: '0 8px 32px rgba(255, 0, 0, 0.4), inset 0 0 12px rgba(255, 51, 51, 0.2)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '10px',
+          minWidth: '220px',
+          userSelect: 'none',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>📡</span>
+            <span style={{ color: '#ff4444', fontWeight: 800, fontSize: '13px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              TNT Detonator Remote
+            </span>
+          </div>
+
+          <div style={{ fontSize: '11px', color: '#ffaaaa', textAlign: 'center', background: 'rgba(0,0,0,0.5)', padding: '3px 8px', borderRadius: '4px' }}>
+            {game.primedTnt && game.primedTnt.length > 0
+              ? `💣 ${game.primedTnt.length} TNT(s) Primed & Ready!`
+              : 'READY TO DETONATE REMOTE TNTs'}
+          </div>
+
+          {/* BIG RED BUTTON */}
+          <button
+            onClick={() => {
+              if (typeof window !== 'undefined' && typeof window.__detonateRemoteTnt === 'function') {
+                window.__detonateRemoteTnt();
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '10px 16px',
+              background: 'linear-gradient(180deg, #ff4444 0%, #cc0000 100%)',
+              border: '2px solid #ffaaaa',
+              borderRadius: '8px',
+              color: '#ffffff',
+              fontWeight: 900,
+              fontSize: '14px',
+              letterSpacing: '0.5px',
+              cursor: 'pointer',
+              boxShadow: '0 4px 15px rgba(255, 0, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            <span style={{ fontSize: '16px' }}>🔴</span> PRESS RED BUTTON
+          </button>
+
+          <div style={{ fontSize: '10px', color: '#aaa', fontStyle: 'italic' }}>
+            Press <kbd style={{ background: '#333', color: '#fff', padding: '1px 4px', borderRadius: '3px' }}>1</kbd> or <kbd style={{ background: '#333', color: '#fff', padding: '1px 4px', borderRadius: '3px' }}>R</kbd> on Keyboard
           </div>
         </div>
       )}

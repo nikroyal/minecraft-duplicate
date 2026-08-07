@@ -10,7 +10,7 @@ import {
   updateChunkLoading, processGenBudget, buildAtlas, buildCrackTexture, 
   showCrack, hideCrack, spawnBreakBurst, updateParticles, initParticles,
   disturbWater, tickWater, wkey, setWater, WATER_TICK, queueWater, genQueue,
-  createWaterMaterial, getTileDataURL
+  createWaterMaterial, getTileDataURL, triggerWorldExplosion
 } from './world.js';
 import { 
   spawnPlayer, collidesAt, moveAxis, updatePlayer, hurtPlayer, healPlayer, 
@@ -36,7 +36,7 @@ import {
   setChestOpen, setFurnaceOpen, setActiveChestCoords, setActiveFurnaceCoords,
   unlockAchievement
 } from './ui.js';
-import { playPlaceSound, playMineSound } from './audio.js';
+import { playPlaceSound, playMineSound, playHitSound, playHissSound, playExplodeSound } from './audio.js';
 import { activeNavigation, findPath, updatePathTrail, tickPathTrail, clearActiveNavigation } from './pathfinder.js';
 
 export const itemDrops = [];
@@ -82,6 +82,7 @@ export function spawnItemDrop(id, count, x, y, z) {
   if (typeof window !== 'undefined') {
     window.__spawnItemDrop = spawnItemDrop;
     window.__spawnPrimedTnt = spawnPrimedTnt;
+    window.__detonateRemoteTnt = detonateRemoteTnt;
     window.__spawnProjectile = spawnProjectile;
   }
   const col = thingColor(id);
@@ -408,18 +409,21 @@ export function updateProjectiles(dt) {
   }
 }
 
-// ---- Primed TNT System ----
+// ---- Primed TNT & Remote Detonator System ----
 const tntGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
 
-export function spawnPrimedTnt(x, y, z) {
+export function spawnPrimedTnt(x, y, z, blockId = 56) {
   let mesh;
+  const radius = blockId === 118 ? 20.0 : (blockId === 117 ? 9.0 : 4.0);
+  const colorHex = blockId === 118 ? 0xa000ff : (blockId === 117 ? 0xff8800 : 0xd83030);
+
   if (webgl.atlasTex) {
     const geo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
     const faceMap = [4, 5, 0, 1, 2, 3];
     const uvAttr = geo.attributes.uv;
     for (let f = 0; f < 6; f++) {
       const faceIdx = faceMap[f];
-      const tile = tileFor(56, faceIdx); // ID 56 = TNT
+      const tile = tileFor(blockId, faceIdx);
       const uv = tileUV(tile);
       const baseIdx = f * 4;
       uvAttr.setXY(baseIdx + 0, uv.u0, uv.v1);
@@ -431,7 +435,7 @@ export function spawnPrimedTnt(x, y, z) {
     const mat = new THREE.MeshLambertMaterial({ map: webgl.atlasTex, transparent: true, alphaTest: 0.1 });
     mesh = new THREE.Mesh(geo, mat);
   } else {
-    const tntMat = new THREE.MeshLambertMaterial({ color: 0xd83030 });
+    const tntMat = new THREE.MeshLambertMaterial({ color: colorHex });
     mesh = new THREE.Mesh(tntGeo, tntMat);
   }
   mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
@@ -440,8 +444,51 @@ export function spawnPrimedTnt(x, y, z) {
   game.primedTnt.push({
     mesh,
     pos: new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5),
-    fuse: 3.0,
+    fuse: 4.0,
+    radius,
+    blockId,
+    colorHex,
   });
+}
+
+export function detonateRemoteTnt() {
+  let count = 0;
+  // 1. Instantly detonate any primed TNTs in game.primedTnt
+  if (game.primedTnt && game.primedTnt.length > 0) {
+    for (let i = 0; i < game.primedTnt.length; i++) {
+      game.primedTnt[i].fuse = 0;
+      count++;
+    }
+  }
+
+  // 2. Scan nearby terrain for placed TNT blocks (56, 117, 118) and detonate them
+  const px = Math.floor(player.pos.x);
+  const py = Math.floor(player.pos.y);
+  const pz = Math.floor(player.pos.z);
+  const R = 32;
+
+  for (let dx = -R; dx <= R; dx += 2) {
+    for (let dy = -16; dy <= 16; dy += 2) {
+      for (let dz = -R; dz <= R; dz += 2) {
+        const bx = px + dx, by = py + dy, bz = pz + dz;
+        const bid = getBlock(bx, by, bz);
+        if (bid === 56 || bid === 117 || bid === 118) {
+          setBlock(bx, by, bz, 0, false, scheduleSave);
+          spawnPrimedTnt(bx, by, bz, bid);
+          const last = game.primedTnt[game.primedTnt.length - 1];
+          if (last) last.fuse = 0;
+          count++;
+        }
+      }
+    }
+  }
+
+  if (count > 0) {
+    playExplodeSound();
+    toast(`💥 TNT REMOTE: ${count} TNT(s) DETONATED!`);
+  } else {
+    toast("📡 TNT Remote: No TNT active or nearby.");
+  }
 }
 
 export function updatePrimedTnt(dt) {
@@ -456,24 +503,27 @@ export function updatePrimedTnt(dt) {
     const pulse = 1.0 + Math.sin(tnt.fuse * 14) * 0.08;
     tnt.mesh.scale.setScalar(pulse);
     
+    const hexColor = tnt.colorHex || 0xd83030;
     if (Math.floor(now / 100) % 2 === 0) {
       tnt.mesh.material.color.setHex(0xffffff);
     } else {
-      tnt.mesh.material.color.setHex(0xd83030);
+      tnt.mesh.material.color.setHex(hexColor);
     }
 
     if (tnt.fuse <= 0) {
-      triggerWorldExplosion(tnt.pos.x, tnt.pos.y, tnt.pos.z, 4.0, scheduleSave);
+      const radius = tnt.radius || 4.0;
+      triggerWorldExplosion(tnt.pos.x, tnt.pos.y, tnt.pos.z, radius, scheduleSave);
       playExplodeSound();
+      const maxDamageDist = radius + 1.0;
       const pDist = tnt.pos.distanceTo(player.pos);
-      if (pDist < 5.0) {
-        const tntDmg = Math.max(1, Math.ceil(20 * (1 - pDist / 5.0)));
+      if (pDist < maxDamageDist) {
+        const tntDmg = Math.max(1, Math.ceil(30 * (1 - pDist / maxDamageDist)));
         hurtPlayer(tntDmg, "tnt");
       }
       for (const m of game.mobs) {
         const mDist = tnt.pos.distanceTo(m.pos);
-        if (mDist < 5.0) {
-          m.hp -= Math.max(1, Math.ceil(25 * (1 - mDist / 5.0)));
+        if (mDist < maxDamageDist) {
+          m.hp -= Math.max(1, Math.ceil(40 * (1 - mDist / maxDamageDist)));
           m.hurtFlash = 0.3;
         }
       }
@@ -1022,12 +1072,13 @@ export function placeBlock(){
     toast("Comparator Mode Toggled!");
     return;
   }
-  if(hitBlockId === 56){ // TNT Block right-click ignite
-    spawnPrimedTnt(r.hit[0], r.hit[1], r.hit[2]);
+  if(hitBlockId === 56 || hitBlockId === 117 || hitBlockId === 118){ // TNT Block right-click ignite
+    spawnPrimedTnt(r.hit[0], r.hit[1], r.hit[2], hitBlockId);
     setBlock(r.hit[0], r.hit[1], r.hit[2], 0, false, scheduleSave);
     updateAfterEdit(r.hit[0], r.hit[1], r.hit[2]);
     playHissSound();
-    toast("TNT Primed!");
+    const name = thingName(hitBlockId) || "TNT";
+    toast(`${name} Primed! Use Remote (Key 1 / Red Button) to Detonate!`);
     return;
   }
   if(hitBlockId === 57){ // Bed right-click sleep
@@ -2094,6 +2145,10 @@ export function bootGame() {
         toast(`Dropped 1 ${thingName(heldId)}`);
         updateHeldItemMesh();
       }
+    }
+    // Key 1 (Digit1) or Key R triggers remote TNT detonation if holding TNT remote or TNT is active
+    if (e.code === "KeyR" || (e.code === "Digit1" && (hotbar[game.selected] === 180 || (game.primedTnt && game.primedTnt.length > 0)))) {
+      detonateRemoteTnt();
     }
     // hotbar numbers 1..8
     if(e.code.startsWith("Digit")){

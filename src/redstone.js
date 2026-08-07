@@ -195,7 +195,7 @@ export function updateRedstoneNetworkAround(centerX, centerY, centerZ, radius = 
       const targetId = getBlock(nx, ny, nz);
 
       // Redstone Wire receives power decaying by 1 per block
-      if (targetId === 60 || targetId === 61 || targetId === 63 || targetId === 64 || targetId === 70 || targetId === 71 || targetId === 56 || targetId === 72 || targetId === 73) {
+      if (targetId === 60 || targetId === 61 || targetId === 63 || targetId === 64 || targetId === 70 || targetId === 71 || targetId === 56 || targetId === 117 || targetId === 118 || targetId === 72 || targetId === 73) {
         const nextPower = power - 1;
         const currentP = redstonePowerMap.get(nKey) || 0;
         if (nextPower > currentP) {
@@ -214,11 +214,11 @@ export function updateRedstoneNetworkAround(centerX, centerY, centerZ, radius = 
         const id = getBlock(x, y, z);
         const p = getRedstonePower(x, y, z);
 
-        // TNT (ID 56) ignition
-        if (id === 56 && p > 0) {
+        // TNT (ID 56, 117, 118) ignition
+        if ((id === 56 || id === 117 || id === 118) && p > 0) {
           setBlock(x, y, z, 0, false);
           if (typeof window !== 'undefined' && typeof window.__spawnPrimedTnt === 'function') {
-            window.__spawnPrimedTnt(x, y, z);
+            window.__spawnPrimedTnt(x, y, z, id);
           }
         }
 

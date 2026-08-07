@@ -123,8 +123,8 @@ function hasGround(x, y, z) {
 
 // ── Is block lava or dangerous hazard? ───────────────────────────────────────
 function isHazard(blockId) {
-  // TNT (56) or future lava definitions
-  return blockId === 56;
+  // TNT (56, 117, 118) or future lava definitions
+  return blockId === 56 || blockId === 117 || blockId === 118;
 }
 
 // ── Mining cost for a block (0 if non-solid) ─────────────────────────────────
@@ -1026,7 +1026,7 @@ export function findNearestVillage(px = player.pos.x, pz = player.pos.z) {
       const vcz = pcz + dz;
       if (isVillageCenterChunk(vcx, vcz)) {
         const layout = getVillageLayout(vcx, vcz);
-        if (layout && layout.centerWx !== undefined) {
+        if (layout && layout.voxels && layout.voxels.size > 0) {
           const vx = layout.centerWx;
           const vy = (layout.centerBaseY || surfaceHeight(vx, layout.centerWz)) + 1;
           const vz = layout.centerWz;

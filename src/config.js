@@ -87,7 +87,9 @@ export const BLOCKS = {
   53:{ name: "Green Wool",  all:0x40904a, solid:true, hardness:0.8 },
   54:{ name: "Yellow Wool", all:0xe0c040, solid:true, hardness:0.8 },
   55:{ name: "Black Wool",  all:0x2a2a2a, solid:true, hardness:0.8 },
-  56:{ name: "TNT",         top:0xd83030, side:0xd84030, bottom:0x9a2020, solid:true, hardness:0.1 },
+  56:{ name: "Basic TNT",         top:0xd83030, side:0xd84030, bottom:0x9a2020, solid:true, hardness:0.1, tntType:"basic", radius:4.0 },
+  117:{ name: "Medium TNT",       top:0xff8800, side:0xe85010, bottom:0x982000, solid:true, hardness:0.1, tntType:"medium", radius:9.0 },
+  118:{ name: "Mega TNT",         top:0xa000ff, side:0x8000d0, bottom:0x500090, solid:true, hardness:0.1, tntType:"mega", radius:20.0 },
   57:{ name: "Bed",         top:0xd83030, side:0xe8e8e8, bottom:0x8a5a2a, solid:true, hardness:0.2 },
 
   // === Redstone & Automation Blocks ===
@@ -187,6 +189,7 @@ export const ITEMS = {
   173: { name: "Gold Chestplate",    color: 0xf2d24a, armorSlot: "chestplate", defense: 5, durability: 112 },
   174: { name: "Gold Leggings",      color: 0xf2d24a, armorSlot: "leggings",   defense: 3, durability: 105 },
   175: { name: "Gold Boots",         color: 0xf2d24a, armorSlot: "boots",      defense: 1, durability: 91 },
+  180: { name: "TNT Remote",         color: 0xff2222, remote: true },
 };
 
 for (const id in ITEMS) {
@@ -409,7 +412,10 @@ export const RECIPES = [];
   R({130:1,103:4},137,1,"Golden Apple","Apple + 4 Gold → Golden Apple");
   R({100:3,115:3},146,1,"Bow","3 Sticks + 3 String → Bow");
   R({118:1,100:1,6:1},147,4,"Arrows","Flint + Stick + Leaves → 4 Arrows");
-  R({148:5,4:4},56,1,"TNT","5 Gunpowder + 4 Sand → TNT Block");
+  R({148:5,4:4},56,1,"Basic TNT","5 Gunpowder + 4 Sand → Basic TNT Block");
+  R({56:2,151:4,148:3},117,1,"Medium TNT","2 Basic TNT + 4 Redstone Dust + 3 Gunpowder → Medium TNT");
+  R({117:2,151:4,104:3},118,1,"Mega TNT","2 Medium TNT + 4 Redstone Dust + 3 Diamonds → Mega TNT (20 Block Explosion)");
+  R({61:1,151:2,102:2},180,1,"TNT Remote","1 Redstone Torch + 2 Redstone Dust + 2 Iron Ingots → TNT Remote");
   R({50:3,7:3},57,1,"Bed","3 Wool + 3 Planks → Bed");
 
   for(const [pid,label] of FENCE_SOURCE){
@@ -508,6 +514,8 @@ export const BLOCK_TILES = {
   50:{all:"wool_white"}, 51:{all:"wool_red"}, 52:{all:"wool_blue"},
   53:{all:"wool_green"}, 54:{all:"wool_yellow"}, 55:{all:"wool_black"},
   56:{top:"wool_red", side:"wool_red", bottom:"wool_red"},
+  117:{top:"wool_yellow", side:"wool_red", bottom:"wool_red"},
+  118:{top:"wool_blue", side:"wool_blue", bottom:"wool_black"},
   57:{top:"wool_red", side:"wool_white", bottom:"plank"},
   89:{top:"terracotta",side:"dirt",bottom:"dirt"},
   90:{all:"grass_side"}, 91:{all:"wool_yellow"}, 92:{all:"wool_yellow"}

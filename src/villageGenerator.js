@@ -39,16 +39,18 @@ export function isVillageCenterChunk(vcx, vcz) {
  * Evaluates terrain flatness & suitability around (wx, wz)
  */
 export function isTerrainSuitableForVillage(wx, wz) {
-  let minH = 999, maxH = -999;
+  const centerH = surfaceHeight(wx, wz);
+  if (centerH <= SEA + 1) return false; // Must be on dry land above sea level
+
+  let waterCount = 0;
   for (let dx = -12; dx <= 12; dx += 6) {
     for (let dz = -12; dz <= 12; dz += 6) {
       const h = surfaceHeight(wx + dx, wz + dz);
-      if (h <= SEA) return false; // Must be on dry land above sea level
-      if (h < minH) minH = h;
-      if (h > maxH) maxH = h;
+      if (h <= SEA) waterCount++;
     }
   }
-  return (maxH - minH) <= 24; // Flat/gentle terrain slope variance <= 24 blocks
+  // Allow village if at least 70% of the sample grid is dry land
+  return waterCount <= 7;
 }
 
 /**
@@ -145,7 +147,19 @@ export function getVillageLayout(vcx, vcz) {
  * Places a schematic and builds solid cobblestone/dirt foundations down to ground level
  */
 function placeSchematicWithFoundation(layout, originWx, originBaseY, originWz, schematic) {
-  // 1. Foundation levelling scanner
+  // 1. Clear tree foliage in building footprint
+  for (let b of schematic.blocks) {
+    const wx = originWx + b.dx;
+    const wy = originBaseY + b.dy;
+    const wz = originWz + b.dz;
+    for (let cy = wy; cy <= wy + 4; cy++) {
+      if (cy < HEIGHT) {
+        layout.voxels.set(`${wx},${cy},${wz}`, 0);
+      }
+    }
+  }
+
+  // 2. Foundation levelling scanner & block placement
   for (let b of schematic.blocks) {
     const wx = originWx + b.dx;
     const wy = originBaseY + b.dy;
