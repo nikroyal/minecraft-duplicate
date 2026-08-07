@@ -165,8 +165,10 @@ export function generateChunk(ch){
           b = (y === SEA && iceNoise > 0.82) ? 37 : 8; // Ice sheet on frozen lake/ocean surface (37), else water (8)
         }
         
-        // carve caves (keep bedrock intact)
-        if(b!==AIR && b!==8 && b!==30 && y<h && isCave(wx,y,wz)){ b=AIR; }
+        // carve caves (keep bedrock intact; underwater cave openings fill with water instead of leaving floating roofs)
+        if(b!==AIR && b!==8 && b!==30 && y<=h && isCave(wx,y,wz)){
+          b = (y<=SEA) ? 8 : AIR;
+        }
         
         // ores in stone
         if(b===3){
