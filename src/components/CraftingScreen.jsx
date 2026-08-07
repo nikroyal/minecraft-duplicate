@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { inventory, hotbar, game, reactBridge, player, getTotalArmorPoints } from '../state.js';
+import { inventory, hotbar, game, reactBridge, player, getTotalArmorPoints, toolDurability } from '../state.js';
 import { RECIPES, BLOCKS, ITEMS, thingName, isPlaceable, resolveRecipe } from '../config.js';
 import { invCount, addItem, removeItem } from '../player.js';
 import { craft, scheduleSave, toast } from '../ui.js';
