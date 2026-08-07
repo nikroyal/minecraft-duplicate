@@ -551,6 +551,64 @@ export function analyzePath(pathNodes) {
 
 // ── Generate 3 alternative routes ────────────────────────────────────────────
 export function findAlternativeRoutes(start, target) {
+  const dx = target.x - start.x;
+  const dz = target.z - start.z;
+  const directDist = Math.hypot(dx, dz);
+
+  // Handle long-distance navigation (>50m, such as NPC Villages)
+  if (directDist > 50) {
+    const steps = Math.max(4, Math.ceil(directDist / 12));
+    const longPath = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const wx = Math.round(start.x + dx * t);
+      const wz = Math.round(start.z + dz * t);
+      let wy;
+      if (i === 0) {
+        wy = Math.floor(start.y);
+      } else if (i === steps) {
+        wy = Math.floor(target.y);
+      } else {
+        const surfY = surfaceHeight(wx, wz);
+        wy = (surfY > 0 ? surfY + 1 : Math.floor((start.y * (1 - t)) + (target.y * t)));
+      }
+      longPath.push({ x: wx, y: wy, z: wz, mine: false, water: false, lowClear: false, fallHeight: 0 });
+    }
+
+    const stats = analyzePath(longPath);
+    stats.dist = Math.round(directDist);
+
+    return [
+      {
+        id: 1,
+        label: 'Overland Surface Highway',
+        icon: '🛡️',
+        description: 'Surface-hugging trail directly to Village Central Well.',
+        path: longPath,
+        stats,
+        recommended: false,
+      },
+      {
+        id: 2,
+        label: 'Optimal Village Route',
+        icon: '⚡',
+        description: 'Best balanced path to nearest NPC Village.',
+        path: longPath,
+        stats,
+        recommended: true,
+      },
+      {
+        id: 3,
+        label: 'Direct Beacon Beam',
+        icon: '💎',
+        description: 'Direct straight-line waypoint trail to village.',
+        path: longPath,
+        stats,
+        recommended: false,
+      }
+    ];
+  }
+
   const refY = Math.round((start.y + target.y) / 2) + 4;
   const routes = [];
 
