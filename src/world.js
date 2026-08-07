@@ -1188,30 +1188,30 @@ export function updateChunkLoading(){
 }
 
 export function processGenBudget(){
-  let genBudget=2;
-  while(genBudget>0 && Array.isArray(genQueue) && genQueue.length){
-    const ch=genQueue.shift();
+  let genBudget = 1;
+  while(genBudget > 0 && Array.isArray(genQueue) && genQueue.length){
+    const ch = genQueue.shift();
     if(ch && !ch.generated){
       generateChunk(ch);
       for(const [dx,dz] of [[-1,0],[1,0],[0,-1],[0,1]]){
-        const nc=getChunk(ch.cx+dx, ch.cz+dz);
-        if(nc && nc.generated){ nc.dirty=true; nc.lit=false; }
+        const nc = getChunk(ch.cx+dx, ch.cz+dz);
+        if(nc && nc.generated){ nc.dirty = true; nc.lit = false; }
       }
     }
     genBudget--;
   }
   
-  const pcx=Math.floor(player.pos.x/CHUNK), pcz=Math.floor(player.pos.z/CHUNK);
-  const dirty=[];
+  const pcx = Math.floor(player.pos.x/CHUNK), pcz = Math.floor(player.pos.z/CHUNK);
+  const dirty = [];
   for(const ch of world.chunks.values()){
     if(ch.generated && ch.dirty) dirty.push(ch);
   }
   if (dirty.length === 0) return;
 
   dirty.sort((a,b)=>((a.cx-pcx)**2+(a.cz-pcz)**2)-((b.cx-pcx)**2+(b.cz-pcz)**2));
-  let meshBudget=2;
+  let meshBudget = 1;
   for(const ch of dirty){
-    if(meshBudget<=0) break;
+    if(meshBudget <= 0) break;
     computeChunkLight(ch);
     ch.lit = true;
     updateChunkMesh(ch);

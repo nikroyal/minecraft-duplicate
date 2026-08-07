@@ -1411,13 +1411,13 @@ function loop(now){
 
     // 1. Check if looking at or close to a mob
     let closestMob = null;
-    let closestMobDist = 3.5;
+    let closestMobDistSq = 3.5 * 3.5;
     if (Array.isArray(game.mobs)) {
       for (const m of game.mobs) {
         if (m.dead) continue;
-        const d = m.pos.distanceTo(player.pos);
-        if (d < closestMobDist) {
-          closestMobDist = d;
+        const dSq = m.pos.distanceToSquared(player.pos);
+        if (dSq < closestMobDistSq) {
+          closestMobDistSq = dSq;
           closestMob = m;
         }
       }
@@ -1425,11 +1425,11 @@ function loop(now){
 
     // 2. Check if close to a dropped item entity
     let closestDrop = null;
-    let closestDropDist = 2.8;
+    let closestDropDistSq = 2.8 * 2.8;
     for (const d of itemDrops) {
-      const dist = d.pos.distanceTo(player.pos);
-      if (dist < closestDropDist) {
-        closestDropDist = dist;
+      const dSq = d.pos.distanceToSquared(player.pos);
+      if (dSq < closestDropDistSq) {
+        closestDropDistSq = dSq;
         closestDrop = d;
       }
     }
@@ -1453,13 +1453,13 @@ function loop(now){
       window.__targetBlockId = 0;
     }
 
-    if (closestMob && closestMobDist < 3.2) {
+    if (closestMob && closestMobDistSq < (3.2 * 3.2)) {
       targetInfo = {
         type: 'mob',
         name: `${closestMob.def?.name || 'Mob'} (${closestMob.hp}/${closestMob.def?.maxHp || 10} HP)`,
         action: '⚔️ Left Click to Attack'
       };
-    } else if (closestDrop && closestDropDist < 2.8 && !targetInfo) {
+    } else if (closestDrop && closestDropDistSq < (2.8 * 2.8) && !targetInfo) {
       targetInfo = {
         type: 'item',
         name: `${thingName(closestDrop.id)} ×${closestDrop.count}`,
@@ -1469,15 +1469,14 @@ function loop(now){
 
     window.__hudTargetInfo = targetInfo;
 
-    // 4. Project saved Waypoints (Base 🏡, Farm 🌾, Online Teammates 👤) to 2D Screen Space for 3D Markers
+    // 4. Project saved Waypoints (Base 🏡, Farm 🌾, Online Teammates 👤) to 2D Screen Space (Reusing static Vector3)
     if (webgl.camera && typeof window !== 'undefined') {
+      if (!webgl.tempWpVec) webgl.tempWpVec = new THREE.Vector3();
       const waypoints = typeof window.__getWaypoints === 'function' ? window.__getWaypoints() : [];
       const projectedWaypoints = [];
 
-      // Combine local waypoints with online players & shared bases
-      const waypointsList = [...waypoints];
-
-      if (Array.isArray(game.otherPlayersList)) {
+      const waypointsList = waypoints;
+      if (Array.isArray(game.otherPlayersList) && game.otherPlayersList.length > 0) {
         for (const op of game.otherPlayersList) {
           if (!op || !op.pos || typeof op.pos.x !== 'number') continue;
           const shortEmail = op.email ? op.email.split('@')[0] : 'Player';
@@ -1489,33 +1488,21 @@ function loop(now){
             y: op.pos.y,
             z: op.pos.z
           });
-
-          if (Array.isArray(op.bases)) {
-            for (const b of op.bases) {
-              waypointsList.push({
-                id: `op_base_${b.id || Math.random()}`,
-                name: `${shortEmail}'s ${b.name || 'Base'}`,
-                icon: b.icon || '🏡',
-                x: b.x,
-                y: b.y,
-                z: b.z
-              });
-            }
-          }
         }
       }
 
-      for (const wp of waypointsList) {
+      for (let w = 0; w < waypointsList.length; w++) {
+        const wp = waypointsList[w];
         if (!wp || typeof wp.x !== 'number') continue;
-        const wpVec = new THREE.Vector3(wp.x + 0.5, wp.y + 1.2, wp.z + 0.5);
-        const dist = Math.round(wpVec.distanceTo(player.pos));
+        webgl.tempWpVec.set(wp.x + 0.5, wp.y + 1.2, wp.z + 0.5);
+        const dist = Math.round(webgl.tempWpVec.distanceTo(player.pos));
         
         // Project 3D pos to normalized device coordinates
-        const proj = wpVec.clone().project(webgl.camera);
+        webgl.tempWpVec.project(webgl.camera);
         // Check if in front of camera
-        if (proj.z < 1.0) {
-          const screenX = (proj.x * 0.5 + 0.5) * window.innerWidth;
-          const screenY = (-(proj.y * 0.5) + 0.5) * window.innerHeight;
+        if (webgl.tempWpVec.z < 1.0) {
+          const screenX = (webgl.tempWpVec.x * 0.5 + 0.5) * window.innerWidth;
+          const screenY = (-(webgl.tempWpVec.y * 0.5) + 0.5) * window.innerHeight;
           // Check within screen bounds
           if (screenX >= 25 && screenX <= window.innerWidth - 25 && screenY >= 25 && screenY <= window.innerHeight - 25) {
             projectedWaypoints.push({
@@ -1743,7 +1730,7 @@ export function bootGame() {
     });
   }
   webgl.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  webgl.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+  webgl.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
   webgl.renderer.setSize(window.innerWidth, window.innerHeight);
   webgl.renderer.setClearColor(0x8fc3e8);
 
