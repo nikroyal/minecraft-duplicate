@@ -213,12 +213,14 @@ export function generateChunk(ch){
     }
   }
 
-  // apply persisted edits
+  // apply persisted edits (ignoring legacy terrain clay edits)
   for(const k in world.edits){
+    const v = world.edits[k];
+    if (v === 28) continue;
     const [ex,ey,ez]=k.split(",").map(Number);
     if(Math.floor(ex/CHUNK)===ch.cx && Math.floor(ez/CHUNK)===ch.cz){
       const lx=((ex%CHUNK)+CHUNK)%CHUNK, lz=((ez%CHUNK)+CHUNK)%CHUNK;
-      if(ey>=0&&ey<HEIGHT) ch.set(lx,ey,lz,world.edits[k]);
+      ch.set(lx,ey,lz,v);
     }
   }
   ch.generated=true;

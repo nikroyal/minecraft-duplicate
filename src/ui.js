@@ -318,6 +318,10 @@ export function loadWorld() {
       return res;
     };
     world.edits = normalizeKeys(p.edits);
+    // Purge any legacy saved Clay (28) terrain edits from saved state
+    for (const k in world.edits) {
+      if (world.edits[k] === 28) delete world.edits[k];
+    }
     world.chests = normalizeKeys(p.chests);
     world.furnaces = normalizeKeys(p.furnaces);
     if (p.inventory && typeof p.inventory === 'object') Object.assign(inventory, p.inventory);
