@@ -1157,12 +1157,23 @@ export default function App() {
                       <li><strong>Dispensers &amp; Droppers:</strong> Fire arrows, place water, or eject items automatically / deposit into adjacent chests when triggered by Redstone power.</li>
                     </ul>
 
-                    <h3>🧟 Mobs, Undead Sunlight Burning &amp; Combat</h3>
+                    <h3>🧟 Advanced Hostile Mob AI &amp; Combat</h3>
                     <ul>
-                      <li>🧟 <strong>Zombies:</strong> Melee attackers. Burn in direct sunlight during daytime!</li>
-                      <li>💀 <strong>Skeletons:</strong> Ranged archers. Burn in direct sunlight during daytime!</li>
-                      <li>💥 <strong>Creepers:</strong> Stealth explosive mobs! Back away immediately when they start flashing and hissing!</li>
+                      <li>🧟 <strong>Zombies:</strong> Melee attackers. Feature horde call-for-reinforcements, encirclement swarming, sound event pathfinding (hearing block breaking/explosions), and sun shade-seeking in daylight!</li>
+                      <li>💀 <strong>Skeletons:</strong> Predictive archers. Feature tactical jump-dodging when player aims at them, strafe maneuvers, and sun shade-seeking.</li>
+                      <li>💥 <strong>Creepers:</strong> Feature <strong>Stealth Ambush AI</strong> (sneaks quietly when approaching from behind your view), inflating and hissing before detonating a 4-block terrain explosion.</li>
+                      <li>🕷️ <strong>Spiders:</strong> Wall-climbing ambushers. Feature high leaps and <strong>Cobweb Trap Spinning</strong> (spins sticky web zones in combat that slow player movement).</li>
                       <li><strong>Weapons &amp; TNT:</strong> Craft Swords for melee knockback, Bow &amp; Arrows for ranged attacks, or place TNT (ignite with right-click, 3s fuse, 4-block explosion radius).</li>
+                    </ul>
+
+                    <h3>🐖 🐑 Passive Animal AI &amp; Ecosystem</h3>
+                    <ul>
+                      <li>❤️ <strong>Love Mode &amp; Breeding:</strong> Feed Wheat, Carrots, Potatoes, or Seeds to Pigs and Sheep to enter Love Mode and breed baby animals ($0.5\times$ scale) with XP drops. Babies follow parents everywhere and mature in 120s!</li>
+                      <li>😱 <strong>Prey-Predator &amp; Startle AI:</strong> Passive animals panic and flee from monsters (or when players fast-sprint at them without food).</li>
+                      <li>🛡️ <strong>Maternal Herd Protection:</strong> Adult animals step in to protect threatened baby animals.</li>
+                      <li>🌾 <strong>Sheep Grazing &amp; Wool Regrowth:</strong> Sheep dip their heads to eat grass blocks (turning them to dirt), regrowing wool and speeding baby growth.</li>
+                      <li>😴 <strong>Nighttime Resting &amp; Sleeping:</strong> Animals cluster together and enter a crouched sleeping state at night.</li>
+                      <li>🐷 <strong>Pig Mud Bathing:</strong> Pigs seek shallow water edges and dirt blocks to wallow and cool off.</li>
                     </ul>
 
                     <h3>🪣 Bucket &amp; Fluid Interactions</h3>

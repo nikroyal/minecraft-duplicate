@@ -88,12 +88,27 @@ An advanced, browser-based 3D Voxel Sandbox game built with **Three.js**, **Reac
 
 ---
 
-## 🏹 Combat, Bows & Explosives
+## 🏹 Combat, Hostile Mobs & Advanced Mob AI
 
-- **Zombie**: Hostile melee mob spawning in dark areas or at night. Drops Rotten Flesh/Loot.
-- **Creeper**: Hostile mob that approaches the player, inflates, and hisses before detonating a 4-block radius terrain explosion.
+- **Zombie**: Hostile melee mob. Calls nearby horde reinforcements when attacked or when spotting players. Features flanking tactics, hearing pathfinding for sound events (block breaking, explosions), and shade-seeking behavior in daylight.
+- **Creeper**: Hostile explosive mob. Features **Stealth Ambush AI** (sneaks quietly when approaching from behind player's camera view) and inflates/hisses before triggering a 4-block radius terrain explosion.
+- **Skeleton**: Ranged archer mob. Features **Predictive Aim Leading**, **Tactical Jump-Dodge** (jumps sideways when player aims at them), strafing, and sun shade-seeking.
+- **Spider**: Wall-climbing mob. Features high-jump leaps and **Cobweb Trap Spinning** (spins sticky web zones in combat that slow player movement).
+- **Hearing & Noise System**: Hostile mobs hear sound events (block breaking, placing, explosions) and pathfind toward sound origins even without line-of-sight.
 - **Bow & Arrow**: Craft a Bow (`ID 146`) and Arrows (`ID 147`). Right-clicking with a Bow fires high-velocity physics arrows (`24 m/s`).
-- **TNT Explosions**: Place TNT (`ID 56`) and right-click to ignite. Primed TNT pulses and flashes white for $3.0\text{s}$ before triggering a 4-block terrain explosion that damages nearby mobs and players.
+- **TNT Explosions**: Place TNT (`ID 56`) and right-click to ignite. Primed TNT pulses and flashes white for $3.0\text{s}$ before triggering a 4-block terrain explosion.
+
+---
+
+## 🐖 🐑 Passive Animal AI & Ecosystem
+
+- **Animal Breeding & Baby Growth**: Feed wheat/carrots/potatoes/seeds to pigs and sheep to enter Love Mode. Breeding partners spawn scaled baby animals ($0.5\times$ scale) with XP. Babies follow parents and grow into adults over 120 seconds.
+- **Prey-Predator Dynamics**: Passive animals detect hostile monsters within 9m and sprint away in panic.
+- **Startle Response**: Animals get startled and sprint away if a player fast-sprints toward them without holding food.
+- **Maternal Herd Protection**: When a baby animal is threatened or panicked, nearby adult herd members step in between the threat and the baby.
+- **Sheep Grazing & Wool Regrowth**: Sheep dip their heads to graze on grass blocks (converting grass to dirt), restoring wool and speeding baby growth.
+- **Nighttime Resting & Sleeping**: Animals cluster together at night and enter a crouched sleeping state until sunrise.
+- **Pig Mud & Water Bathing**: Pigs seek shallow water edges and dirt blocks to sit and wallow.
 
 ---
 

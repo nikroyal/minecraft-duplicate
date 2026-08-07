@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { player, game, webgl, toolDurability, hotbar } from './state.js';
 import { HEIGHT, isSolid, surfaceHeight, thingName } from './config.js';
-import { getBlock, triggerWorldExplosion } from './world.js';
+import { getBlock, triggerWorldExplosion, setBlock, spawnBreakBurst } from './world.js';
 import { 
   hurtPlayer, addItem, removeItem, heldTool, collisionSolid, eyePos, lookDir 
 } from './player.js';
@@ -49,6 +49,50 @@ function waterDepthAt(x, z) {
     else if (b !== 0) break;
   }
   return depth;
+}
+
+// ---- Shade & Water Search --------------------------------------------------------
+function findNearbyShadeOrWater(mobX, mobY, mobZ, radius = 10) {
+  let bestPos = null, minD = Infinity;
+  const startX = Math.floor(mobX), startZ = Math.floor(mobZ), startZFloor = Math.floor(mobZ);
+  for (let dx = -radius; dx <= radius; dx += 3) {
+    for (let dz = -radius; dz <= radius; dz += 3) {
+      const cx = startX + dx, cz = startZFloor + dz;
+      const cy = Math.floor(surfaceHeight(cx, cz)) + 1;
+      if (cy <= 0 || cy >= HEIGHT - 2) continue;
+      const b = getBlock(cx, cy, cz);
+      const isWater = (b === 8);
+      let isShaded = false;
+      if (!isWater) {
+        for (let y = cy + 1; y < cy + 15 && y < 128; y++) {
+          if (isSolid(getBlock(cx, y, cz))) { isShaded = true; break; }
+        }
+      }
+      if (isWater || isShaded) {
+        const dist = Math.hypot(cx + 0.5 - mobX, cz + 0.5 - mobZ);
+        if (dist < minD) { minD = dist; bestPos = new THREE.Vector3(cx + 0.5, cy, cz + 0.5); }
+      }
+    }
+  }
+  return bestPos;
+}
+
+function findNearbyWaterOrDirt(mobX, mobY, mobZ, radius = 8) {
+  let bestPos = null, minD = Infinity;
+  const startX = Math.floor(mobX), startZ = Math.floor(mobZ);
+  for (let dx = -radius; dx <= radius; dx += 3) {
+    for (let dz = -radius; dz <= radius; dz += 3) {
+      const cx = startX + dx, cz = startZ + dz;
+      const cy = Math.floor(surfaceHeight(cx, cz));
+      if (cy <= 0 || cy >= HEIGHT - 2) continue;
+      const b = getBlock(cx, cy, cz);
+      if (b === 8 || b === 3) {
+        const dist = Math.hypot(cx + 0.5 - mobX, cz + 0.5 - mobZ);
+        if (dist < minD) { minD = dist; bestPos = new THREE.Vector3(cx + 0.5, cy + 1, cz + 0.5); }
+      }
+    }
+  }
+  return bestPos;
 }
 
 // ---- Mesh builders --------------------------------------------------------------
@@ -376,6 +420,24 @@ export function spawnMob(type, x, y, z, isBaby = false, parent = null){
     // climb (spider)
     climbing: false,
     climbY: 0,
+    // Advanced Hostile Mob AI
+    shadeTarget: null,
+    shadeSearchTimer: 0,
+    flankAngleOffset: (Math.random() - 0.5) * 1.3,
+    isStealthAmbush: false,
+    dodgeCd: 0,
+    webSpinCd: 0,
+    webTrapTimer: 0,
+    webTrapPos: null,
+    // Advanced Passive Animal AI
+    grazeTimer: 10 + Math.random() * 15,
+    isGrazing: false,
+    grazeDuration: 0,
+    sleeping: false,
+    isBathing: false,
+    bathTarget: null,
+    bathTimer: 15 + Math.random() * 20,
+    bathDuration: 0,
   };
   game.mobs.push(mob);
   return mob;
@@ -537,7 +599,55 @@ export function updateMobs(dt){
     // ── Movement computation ──────────────────────────────────────────────────
     if (canAggro) {
       const dx = px - m.pos.x, dz = pz - m.pos.z;
-      m.yaw = Math.atan2(-dx, -dz);
+      const rawYaw = Math.atan2(-dx, -dz);
+
+      // ── Flanking & Encircling Swarms AI ──────────────────────────────────
+      if (distToP < 10 && distToP > 1.8) {
+        m.yaw = rawYaw + (m.flankAngleOffset || 0);
+      } else {
+        m.yaw = rawYaw;
+      }
+      
+      // ── Creeper Stealth & Ambush AI ────────────────────────────────────────
+      if (m.type === 'creeper') {
+        const toCreeperX = m.pos.x - px, toCreeperZ = m.pos.z - pz;
+        const cLen = Math.hypot(toCreeperX, toCreeperZ) || 1;
+        const lookD = lookDir();
+        const lookDot = (lookD.x * (toCreeperX / cLen)) + (lookD.z * (toCreeperZ / cLen));
+        if (lookDot < -0.25) {
+          m.isStealthAmbush = true;
+        } else {
+          m.isStealthAmbush = false;
+        }
+      }
+
+      // ── Skeleton Tactical Jump-Dodge AI ────────────────────────────────────
+      if (m.type === 'skeleton') {
+        m.dodgeCd = (m.dodgeCd || 0) - dt;
+        const toSkX = m.pos.x - px, toSkZ = m.pos.z - pz;
+        const skLen = Math.hypot(toSkX, toSkZ) || 1;
+        const lookD = lookDir();
+        const aimDot = (lookD.x * (toSkX / skLen)) + (lookD.z * (toSkZ / skLen));
+        if (aimDot > 0.85 && distToP < 12 && m.onGround && m.dodgeCd <= 0) {
+          m.dodgeCd = 3.5;
+          m.vel.y = 6.2;
+          m.onGround = false;
+          m.strafeDir = Math.random() < 0.5 ? 1 : -1;
+          toast("💀 Skeleton dodged your line of sight!");
+        }
+      }
+
+      // ── Spider Cobweb Trap Spinning AI ─────────────────────────────────────
+      if (m.type === 'spider') {
+        m.webSpinCd = (m.webSpinCd || 0) - dt;
+        if (m.webSpinCd <= 0 && distToP < 5.0 && m.onGround) {
+          m.webSpinCd = 8.5;
+          m.webTrapTimer = 4.0;
+          m.webTrapPos = m.pos.clone();
+          spawnBreakBurst(m.pos.x, m.pos.y + 0.2, m.pos.z, 50); // web wool particles
+          toast("🕸️ Spider spun a sticky cobweb trap!");
+        }
+      }
       
       // Water-aware: hostile mobs avoid water >2 blocks deep (except spiders)
       if (m.type !== 'spider') {
@@ -682,6 +792,88 @@ export function updateMobs(dt){
         }
       }
 
+      // ── Startle Response to Player Sprinting ───────────────────────────────
+      const pSpeed = Math.hypot(player.vel?.x || 0, player.vel?.z || 0);
+      if (pSpeed > 4.5 && distToP < 6.0 && !isFood && (m.panicTimer || 0) <= 0) {
+        m.panicTimer = 2.2;
+        m.panicThreatPos = player.pos.clone();
+        toast(`🐗 ${m.def.name} was startled by your sprinting!`);
+      }
+
+      // ── Maternal Protection (Herd Defense) ─────────────────────────────────
+      if (m.isBaby && (m.panicTimer || 0) > 0 && Array.isArray(game.mobs)) {
+        for (const parentMob of game.mobs) {
+          if (parentMob !== m && parentMob.type === m.type && !parentMob.isBaby && (parentMob.panicTimer || 0) <= 0) {
+            if (parentMob.pos.distanceTo(m.pos) < 10.0) {
+              parentMob.panicTimer = 3.0;
+              parentMob.panicThreatPos = m.panicThreatPos || player.pos;
+            }
+          }
+        }
+      }
+
+      // ── Sheep Grazing & Wool Regrowth ──────────────────────────────────────
+      if (m.type === 'sheep' && !isBreedingTarget && (m.panicTimer || 0) <= 0) {
+        m.grazeTimer = (m.grazeTimer || 0) - dt;
+        if (m.isGrazing) {
+          m.grazeDuration -= dt;
+          wishX = 0; wishZ = 0;
+          if (m.grazeDuration <= 0) {
+            m.isGrazing = false;
+            const gx = Math.floor(m.pos.x), gy = Math.floor(m.pos.y - 0.4), gz = Math.floor(m.pos.z);
+            if (getBlock(gx, gy, gz) === 2) {
+              setBlock(gx, gy, gz, 3, false, scheduleSave); // Grass -> Dirt
+              spawnBreakBurst(m.pos.x, m.pos.y - 0.3, m.pos.z, 2);
+              if (m.isBaby) m.growTimer = Math.max(0, m.growTimer - 15);
+              playSheepSound();
+            }
+          }
+        } else if (m.grazeTimer <= 0 && m.onGround) {
+          const gx = Math.floor(m.pos.x), gy = Math.floor(m.pos.y - 0.4), gz = Math.floor(m.pos.z);
+          if (getBlock(gx, gy, gz) === 2) {
+            m.isGrazing = true;
+            m.grazeDuration = 1.8;
+            m.grazeTimer = 15.0 + Math.random() * 12.0;
+          }
+        }
+      }
+
+      // ── Pig Mud & Water Bathing ───────────────────────────────────────────
+      if (m.type === 'pig' && !isBreedingTarget && (m.panicTimer || 0) <= 0) {
+        m.bathTimer = (m.bathTimer || 0) - dt;
+        if (m.bathTimer <= 0 && !m.bathTarget) {
+          m.bathTimer = 25.0;
+          m.bathTarget = findNearbyWaterOrDirt(m.pos.x, m.pos.y, m.pos.z, 8);
+        }
+        if (m.bathTarget) {
+          const bDist = m.pos.distanceTo(m.bathTarget);
+          if (bDist < 1.2) {
+            m.isBathing = true;
+            m.bathDuration = 4.0;
+            m.bathTarget = null;
+          } else if (bDist < 8.0) {
+            const bdx = m.bathTarget.x - m.pos.x, bdz = m.bathTarget.z - m.pos.z;
+            m.yaw = Math.atan2(-bdx, -bdz);
+            wishX = -Math.sin(m.yaw) * 0.9;
+            wishZ = -Math.cos(m.yaw) * 0.9;
+          }
+        }
+        if (m.isBathing) {
+          m.bathDuration -= dt;
+          wishX = 0; wishZ = 0;
+          if (m.bathDuration <= 0) m.isBathing = false;
+        }
+      }
+
+      // ── Nighttime Resting & Sleeping AI ───────────────────────────────────
+      const isNightTime = (game.timeOfDay < 0.22 || game.timeOfDay > 0.78);
+      if (isNightTime && !isBreedingTarget && (m.panicTimer || 0) <= 0 && !isFood) {
+        m.sleeping = true;
+        wishX = 0; wishZ = 0;
+      } else {
+        m.sleeping = false;
+      }
+
       // Predator Detection (Flee from monsters!)
       let predatorDetected = false;
       if (!isBreedingTarget) {
@@ -701,7 +893,7 @@ export function updateMobs(dt){
         }
       }
 
-      if (!isBreedingTarget) {
+      if (!isBreedingTarget && !m.sleeping && !m.isGrazing && !m.isBathing) {
         if ((m.panicTimer || 0) > 0) {
           m.panicTimer -= dt;
           const threatPos = m.panicThreatPos || player.pos;
@@ -804,8 +996,21 @@ export function updateMobs(dt){
       }
     }
     
-    m.vel.x = wishX * m.def.speed;
-    m.vel.z = wishZ * m.def.speed;
+    // Stealth Creeper speed multiplier & Spider web trap slow down
+    let currentSpeed = m.def.speed;
+    if (m.isStealthAmbush) currentSpeed *= 0.7;
+    
+    // Check if player is trapped in active spider web trap
+    if (m.webTrapTimer > 0 && m.webTrapPos) {
+      m.webTrapTimer -= dt;
+      if (player.pos.distanceTo(m.webTrapPos) < 2.0) {
+        player.vel.x *= 0.65;
+        player.vel.z *= 0.65;
+      }
+    }
+
+    m.vel.x = wishX * currentSpeed;
+    m.vel.z = wishZ * currentSpeed;
     
     // Gravity / climbing
     if (m.climbing) {
@@ -906,7 +1111,11 @@ export function updateMobs(dt){
         lookTarget = m.parent.pos.clone().add(new THREE.Vector3(0, m.parent.def.h * 0.8, 0));
       }
 
-      if (lookTarget) {
+      if (m.isGrazing) {
+        ud.head.rotation.x = 0.75; // head down grazing
+      } else if (m.sleeping) {
+        ud.head.rotation.x = 0.45; // head lowered sleeping
+      } else if (lookTarget) {
         const headWorldPos = new THREE.Vector3();
         ud.head.getWorldPosition(headWorldPos);
         const lookDx = lookTarget.x - headWorldPos.x;
