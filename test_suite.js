@@ -2026,8 +2026,8 @@ async function runFullTestSuite() {
         if (config.BLOCKS[r.out]) craftableIds.add(r.out);
       }
 
-      // 3. Special/State blocks (bedrock 30, redstone wire 60, piston head 65, crops 90-92)
-      const stateBlockIds = new Set([30, 60, 65, 90, 91, 92]);
+      // 3. Special/State blocks (bedrock 30, redstone wire 60, piston head 65, farmland 89, crops 90-92)
+      const stateBlockIds = new Set([30, 60, 65, 89, 90, 91, 92]);
 
       for (const id of blockIds) {
         const isAccessible = generatedIds.has(id) || craftableIds.has(id) || stateBlockIds.has(id);
