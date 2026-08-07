@@ -961,16 +961,16 @@ export function findNearestVillage(px = player.pos.x, pz = player.pos.z) {
   let best = null;
   let bestDistSq = Infinity;
 
-  // Scan 25x25 chunk neighborhood (400 meters out)
-  for (let dx = -12; dx <= 12; dx++) {
-    for (let dz = -12; dz <= 12; dz++) {
+  // Scan 80x80 chunk neighborhood (1,280 meters out)
+  for (let dx = -40; dx <= 40; dx++) {
+    for (let dz = -40; dz <= 40; dz++) {
       const vcx = pcx + dx;
       const vcz = pcz + dz;
       if (isVillageCenterChunk(vcx, vcz)) {
         const layout = getVillageLayout(vcx, vcz);
-        if (layout && layout.voxels && layout.voxels.size > 0) {
+        if (layout && layout.centerWx !== undefined) {
           const vx = layout.centerWx;
-          const vy = layout.centerBaseY + 1;
+          const vy = (layout.centerBaseY || surfaceHeight(vx, layout.centerWz)) + 1;
           const vz = layout.centerWz;
           const dsq = (vx - px) * (vx - px) + (vz - pz) * (vz - pz);
           if (dsq < bestDistSq) {

@@ -48,7 +48,7 @@ export function isTerrainSuitableForVillage(wx, wz) {
       if (h > maxH) maxH = h;
     }
   }
-  return (maxH - minH) <= 12; // Flat/gentle terrain slope variance <= 12 blocks
+  return (maxH - minH) <= 24; // Flat/gentle terrain slope variance <= 24 blocks
 }
 
 /**
