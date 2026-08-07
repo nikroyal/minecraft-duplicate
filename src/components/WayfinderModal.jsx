@@ -201,44 +201,55 @@ export default function WayfinderModal({ currentUser, onClose }) {
 
   // ── Compute all 3 route alternatives ──────────────────────────────────────
   const handleStartPathfinding = useCallback((targetX, targetY, targetZ, label = 'Destination', icon = '📍', forceExplicitY = false) => {
-    let finalY = Math.floor(targetY);
-    if (autoY && !forceExplicitY) {
-      finalY = getRealSurfaceY(Math.floor(targetX), Math.floor(targetZ), Math.floor(targetY));
-    }
-
-    setCalculating(true);
-    setPendingRoutes(null);
-    setSelectedRouteId(null);
-    setPendingLabel(`${icon} ${label}`);
-
-    // Defer to next tick so React can render the loading spinner first
-    setTimeout(() => {
-      const startPos  = { x: player.pos.x, y: player.pos.y, z: player.pos.z };
-      const targetPos = { x: targetX, y: finalY, z: targetZ };
-
-      toast(`🧭 Analysing 3 route options to ${label}…`);
-      const routes = findAlternativeRoutes(startPos, targetPos);
-
-      if (!routes || routes.length === 0) {
-        toast(`⚠️ No path found to ${label}. Destination may be unreachable.`);
-        setCalculating(false);
-        return;
+    try {
+      let finalY = Math.floor(targetY);
+      if (autoY && !forceExplicitY) {
+        finalY = getRealSurfaceY(Math.floor(targetX), Math.floor(targetZ), Math.floor(targetY));
       }
 
-      // Tag each route with navigation metadata for later activation
-      routes.forEach(r => {
-        r._targetName = label;
-        r._targetIcon = icon;
-        r._targetPos  = targetPos;
-        r._dist       = getDistance(targetX, finalY, targetZ);
-      });
+      setCalculating(true);
+      setPendingRoutes(null);
+      setSelectedRouteId(null);
+      setPendingLabel(`${icon} ${label}`);
 
+      setTimeout(() => {
+        try {
+          const px = player?.pos?.x ?? 0;
+          const py = player?.pos?.y ?? 80;
+          const pz = player?.pos?.z ?? 0;
+          const startPos  = { x: px, y: py, z: pz };
+          const targetPos = { x: Number(targetX) || 0, y: Number(finalY) || 80, z: Number(targetZ) || 0 };
+
+          toast(`🧭 Analysing 3 route options to ${label}…`);
+          const routes = findAlternativeRoutes(startPos, targetPos);
+
+          if (!routes || routes.length === 0) {
+            toast(`⚠️ No path found to ${label}. Destination may be unreachable.`);
+            setCalculating(false);
+            return;
+          }
+
+          routes.forEach(r => {
+            r._targetName = label;
+            r._targetIcon = icon;
+            r._targetPos  = targetPos;
+            r._dist       = getDistance(targetPos.x, targetPos.y, targetPos.z);
+          });
+
+          setPendingRoutes(routes);
+          const rec = routes.find(r => r.recommended) ?? routes[0];
+          setSelectedRouteId(rec.id);
+        } catch (err) {
+          console.error('Pathfinding calculation error:', err);
+          toast(`⚠️ Navigation error: ${err.message}`);
+        } finally {
+          setCalculating(false);
+        }
+      }, 30);
+    } catch (outerErr) {
+      console.error('Outer pathfinding error:', outerErr);
       setCalculating(false);
-      setPendingRoutes(routes);
-      // Auto-select the recommended route
-      const rec = routes.find(r => r.recommended) ?? routes[0];
-      setSelectedRouteId(rec.id);
-    }, 50);
+    }
   }, [autoY]);
 
   // ── Activate a chosen route ────────────────────────────────────────────────
