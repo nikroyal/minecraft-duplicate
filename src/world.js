@@ -1507,7 +1507,6 @@ export function buildAtlas(){
   const ctx=cv.getContext("2d");
   ctx.imageSmoothingEnabled=false;
 
-  const TILE_NAMES = Object.keys(PAINTERS || {}).filter(k => !k.startsWith('_'));
   TILE_NAMES.forEach((name,i)=>{
     const col=i%ATLAS_COLS, row=(i/ATLAS_COLS)|0;
     paintTile(ctx, col, row, PAINTERS[name]||PAINTERS.stone);
