@@ -21,7 +21,7 @@ import {
 import { updatePlayerPresenceInRoom } from './firebase.js';
 import { initAntiCheatShield, validateMiningReach } from './anticheat.js';
 import { 
-  MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob 
+  MOB_TYPES, makeMobMesh, spawnMob, trySpawnMobs, updateMobs, removeMob, attackMob, tryFeedAnimal, emitSoundEvent 
 } from './mobs.js';
 import { 
   tickRedstone, toggleLever, pressButton, cycleRepeaterDelay, toggleComparatorMode 
@@ -684,6 +684,7 @@ function updateMining(dt){
 }
 
 function completeMine(x, y, z, id){
+  emitSoundEvent(x, y, z, 10);
   spawnBreakBurst(x, y, z, id);
   setBlock(x, y, z, 0, false, scheduleSave);
   mining.active = false; mining.progress = 0; hideCrack();
@@ -930,10 +931,12 @@ function blockColor(id){
 }
 
 export function placeBlock(){
+  if (tryFeedAnimal()) return;
   if (typeof window !== 'undefined' && window.__worldSettings && window.__worldSettings.lockdown && !(window.__userRole === 'admin' || window.__userRole === 'master')) {
     toast("⚠️ Build Lockdown Active: World edits restricted by Admin.");
     return;
   }
+  emitSoundEvent(player.pos.x, player.pos.y, player.pos.z, 8);
   const heldId = hotbar[game.selected];
   const isBucket = (heldId === 144 || heldId === 145);
   const isLilyPad = (heldId === 139);

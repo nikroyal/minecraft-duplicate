@@ -1597,6 +1597,7 @@ export function updateParticles(dt){
 }
 
 export function triggerWorldExplosion(ex, ey, ez, radius, scheduleSaveCallback) {
+  if (typeof window !== 'undefined' && window.__emitSoundEvent) window.__emitSoundEvent(ex, ey, ez, 24);
   const affectedChunks = new Set();
   const rCeil = Math.ceil(radius);
   const keyOfLocal = (cx, cz) => cx + "," + cz;

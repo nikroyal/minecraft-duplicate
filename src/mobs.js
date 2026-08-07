@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { player, game, webgl, toolDurability } from './state.js';
+import { player, game, webgl, toolDurability, hotbar } from './state.js';
 import { HEIGHT, isSolid, surfaceHeight, thingName } from './config.js';
 import { getBlock, triggerWorldExplosion } from './world.js';
 import { 
-  hurtPlayer, addItem, heldTool, collisionSolid, eyePos, lookDir 
+  hurtPlayer, addItem, removeItem, heldTool, collisionSolid, eyePos, lookDir 
 } from './player.js';
 import { spawnItemDrop, spawnXpOrbs, spawnProjectile } from './main.js';
 import { toast, scheduleSave } from './ui.js';
@@ -264,20 +264,83 @@ function alertNearbyZombies(alerter) {
   }
 }
 
-export function spawnMob(type, x, y, z){
+export function emitSoundEvent(x, y, z, loudness = 12) {
+  if (!Array.isArray(game.mobs)) return;
+  const soundPos = new THREE.Vector3(x, y, z);
+  for (const m of game.mobs) {
+    if (!m || !m.def?.hostile) continue;
+    const dist = m.pos.distanceTo(soundPos);
+    if (dist <= loudness) {
+      m.heardSoundTarget = soundPos.clone();
+      m.soundInvestigateTimer = 6.0;
+      m.alerted = true;
+      m.alertCooldown = 6.0;
+    }
+  }
+}
+
+export function tryFeedAnimal() {
+  const heldId = hotbar ? hotbar[game.selected] : 0;
+  const isFood = (heldId === 136 || heldId === 138 || heldId === 135 || heldId === 149);
+  if (!isFood) return false;
+
+  const o = eyePos(), d = lookDir();
+  let best = null, bestT = 4.0;
+  for (const m of game.mobs) {
+    if (!m || m.isBaby || m.def?.hostile) continue;
+    if (m.type === 'pig' && !(heldId === 136 || heldId === 138 || heldId === 135)) continue;
+    if (m.type === 'sheep' && !(heldId === 136 || heldId === 138 || heldId === 149)) continue;
+    const cx = m.pos.x, cy = m.pos.y + m.def.h / 2, cz = m.pos.z;
+    const toM = new THREE.Vector3(cx - o.x, cy - o.y, cz - o.z);
+    const t = toM.dot(d);
+    if (t < 0 || t > bestT) continue;
+    const closest = new THREE.Vector3(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t);
+    const distHoriz = Math.hypot(closest.x - cx, closest.z - cz);
+    const distVert = Math.abs(closest.y - cy);
+    if (distHoriz < m.def.w / 2 + 0.3 && distVert < m.def.h / 2 + 0.4) {
+      best = m;
+      bestT = t;
+    }
+  }
+  if (!best) return false;
+
+  if ((best.breedCooldown || 0) > 0) {
+    toast(`⏳ ${best.def.name} cannot breed yet!`);
+    return true;
+  }
+  if ((best.loveTimer || 0) > 0) {
+    toast(`❤️ ${best.def.name} is already in Love Mode!`);
+    return true;
+  }
+
+  if (removeItem(heldId, 1)) {
+    best.loveTimer = 20.0;
+    playSheepSound();
+    toast(`❤️ Fed ${best.def.name}! Entered Love Mode!`);
+    return true;
+  }
+  return false;
+}
+
+export function spawnMob(type, x, y, z, isBaby = false, parent = null){
   if (!MOB_TYPES[type]) return null;
   if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return null;
   if (game.mobs.length >= MAX_MOBS) return null;
   const def = { ...MOB_TYPES[type] };
   const mesh = makeMobMesh(type);
   mesh.position.set(x, y, z);
+  const spawnYaw = Math.random() * Math.PI * 2;
+  mesh.rotation.y = spawnYaw;
+  if (isBaby && mesh) {
+    mesh.scale.set(0.5, 0.5, 0.5);
+  }
   
   const mob = {
     type, def, mesh,
     pos: new THREE.Vector3(x, y, z),
     vel: new THREE.Vector3(),
-    yaw: Math.random() * Math.PI * 2,
-    hp: def.hp,
+    yaw: spawnYaw,
+    hp: isBaby ? Math.ceil(def.hp / 2) : def.hp,
     onGround: false,
     wanderTimer: 0,
     fuseTimer: 0,
@@ -292,6 +355,17 @@ export function spawnMob(type, x, y, z){
     losTimer: 0,
     alerted: false,
     alertCooldown: 0,
+    // Breeding & Growth
+    isBaby,
+    growTimer: isBaby ? 120 : 0,
+    loveTimer: 0,
+    breedCooldown: 0,
+    parent,
+    panicThreatPos: null,
+    panicTimer: 0,
+    // Hearing AI
+    heardSoundTarget: null,
+    soundInvestigateTimer: 0,
     // A* pathfinding
     path: [],
     pathTimer: 0,
@@ -384,9 +458,10 @@ export function updateMobs(dt){
       continue;
     }
     
-    if(m.attackCd > 0) m.attackCd -= dt;
-    if(m.alertCooldown > 0) m.alertCooldown -= dt;
-    if(m.alertCooldown <= 0) m.alerted = false;
+    if (m.attackCd > 0) m.attackCd -= dt;
+    if (m.alertCooldown > 0) m.alertCooldown -= dt;
+    if (m.alertCooldown <= 0) m.alerted = false;
+    if (m.soundInvestigateTimer > 0) m.soundInvestigateTimer -= dt;
     
     // Ground check
     if(m.vel.y === 0 && mobCollides(m, m.pos.x, m.pos.y - 0.05, m.pos.z)){
@@ -407,7 +482,9 @@ export function updateMobs(dt){
       }
     }
     
-    const canAggro = m.def.hostile && distToP < 18 && !player.dead && (m.hasLOS || m.alerted);
+    const maxAggroDist = m.alerted ? 28 : 18;
+    const canAggro = m.def.hostile && distToP < maxAggroDist && !player.dead && (m.hasLOS || m.alerted);
+    const isInvestigatingSound = m.def.hostile && !canAggro && m.soundInvestigateTimer > 0 && m.heardSoundTarget;
     
     let wishX = 0, wishZ = 0;
     
@@ -514,65 +591,177 @@ export function updateMobs(dt){
         wishX = -Math.sin(m.yaw);
         wishZ = -Math.cos(m.yaw);
       }
+    } else if (isInvestigatingSound) {
+      // ── Hearing & Sound Investigation Navigation ──────────────────────────
+      const soundDist = m.pos.distanceTo(m.heardSoundTarget);
+      if (soundDist < 1.5) {
+        m.soundInvestigateTimer = 0;
+        m.heardSoundTarget = null;
+      } else {
+        const sdx = m.heardSoundTarget.x - m.pos.x;
+        const sdz = m.heardSoundTarget.z - m.pos.z;
+        m.yaw = Math.atan2(-sdx, -sdz);
+        wishX = -Math.sin(m.yaw);
+        wishZ = -Math.cos(m.yaw);
+      }
     } else {
-      // ── Passive Animal AI (Food Temptation, Herd Instinct & Panic Fleeing) ───
+      // ── Passive Animal AI (Food Temptation, Herd Instinct & Panic Fleeing & Love Mode & Mating) ───
       const heldId = hotbar ? hotbar[game.selected] : 0;
       const isFood = (
         (m.type === 'pig' && (heldId === 136 || heldId === 138 || heldId === 135)) ||
-        (m.type === 'sheep' && (heldId === 136 || heldId === 138))
+        (m.type === 'sheep' && (heldId === 136 || heldId === 138 || heldId === 149))
       );
 
-      if ((m.panicTimer || 0) > 0) {
-        m.panicTimer -= dt;
-        // Sprint away from attacker when damaged
-        const fleeDx = m.pos.x - px;
-        const fleeDz = m.pos.z - pz;
-        m.yaw = Math.atan2(-fleeDx, -fleeDz);
-        wishX = -Math.sin(m.yaw) * 1.8;
-        wishZ = -Math.cos(m.yaw) * 1.8;
-      } else if (isFood && distToP < 10.0) {
-        // Look at player holding food and follow player!
-        const dx = px - m.pos.x;
-        const dz = pz - m.pos.z;
-        m.yaw = Math.atan2(-dx, -dz);
-        if (distToP > 1.8) {
-          wishX = -Math.sin(m.yaw) * 0.9;
-          wishZ = -Math.cos(m.yaw) * 0.9;
+      // Growth update for baby animals
+      if (m.isBaby) {
+        m.growTimer -= dt;
+        if (m.growTimer <= 0) {
+          m.isBaby = false;
+          if (m.mesh) m.mesh.scale.set(1.0, 1.0, 1.0);
+          toast(`🎉 A baby ${m.def.name} grew into an adult!`);
         }
-      } else {
-        // Herd instinct: wander near nearby animals of same type
-        let herdDx = 0, herdDz = 0, herdCount = 0;
+      }
+      if ((m.breedCooldown || 0) > 0) m.breedCooldown -= dt;
+
+      // Love Mode & Mating Search
+      let isBreedingTarget = false;
+      if ((m.loveTimer || 0) > 0) {
+        m.loveTimer -= dt;
+        if (m.mesh) {
+          m.mesh.traverse(child => {
+            if (child.material && child.material.emissive) {
+              const pulse = (Math.sin(performance.now() * 0.01) + 1) * 0.25;
+              child.material.emissive.setRGB(pulse, 0, pulse * 0.5);
+            }
+          });
+        }
+        let mate = null;
         if (Array.isArray(game.mobs)) {
           for (const other of game.mobs) {
-            if (other !== m && other.type === m.type && other.pos.distanceTo(m.pos) < 6.0) {
-              herdDx += other.pos.x - m.pos.x;
-              herdDz += other.pos.z - m.pos.z;
-              herdCount++;
+            if (other !== m && other.type === m.type && (other.loveTimer || 0) > 0 && !other.isBaby) {
+              if (m.pos.distanceTo(other.pos) < 12.0) { mate = other; break; }
             }
           }
         }
+        if (mate) {
+          isBreedingTarget = true;
+          const mateDx = mate.pos.x - m.pos.x;
+          const mateDz = mate.pos.z - m.pos.z;
+          const mateDist = Math.hypot(mateDx, mateDz);
+          m.yaw = Math.atan2(-mateDx, -mateDz);
+          wishX = -Math.sin(m.yaw) * 1.2;
+          wishZ = -Math.cos(m.yaw) * 1.2;
 
-        m.wanderTimer -= dt;
-        if(m.wanderTimer <= 0){
-          m.wanderTimer = 2.5 + Math.random() * 3.5;
-          if (herdCount > 0 && Math.random() < 0.5) {
-            m.yaw = Math.atan2(-herdDx, -herdDz);
-          } else if(Math.random() < 0.65){
-            let attempts = 0;
-            do {
-              m.yaw = Math.random() * Math.PI * 2;
-              const nx = m.pos.x + (-Math.sin(m.yaw)) * 1.5;
-              const nz = m.pos.z + (-Math.cos(m.yaw)) * 1.5;
-              if (waterDepthAt(nx, nz) <= 1) break;
-              attempts++;
-            } while (attempts < 4);
-          } else {
-            m.yaw = null; // idle
+          if (mateDist < 1.4) {
+            m.loveTimer = 0;
+            mate.loveTimer = 0;
+            m.breedCooldown = 180;
+            mate.breedCooldown = 180;
+
+            [m, mate].forEach(parentMob => {
+              if (parentMob.mesh) {
+                parentMob.mesh.traverse(c => {
+                  if (c.material && c.material.emissive) c.material.emissive.setRGB(0, 0, 0);
+                });
+              }
+            });
+
+            const babyX = (m.pos.x + mate.pos.x) / 2;
+            const babyY = (m.pos.y + mate.pos.y) / 2;
+            const babyZ = (m.pos.z + mate.pos.z) / 2;
+            spawnMob(m.type, babyX, babyY, babyZ, true, m);
+            spawnXpOrbs(babyX, babyY + 0.5, babyZ, 4);
+            toast(`✨ A baby ${m.def.name} was born! ❤️`);
           }
         }
-        if(m.yaw !== null && m.yaw !== undefined){
-          wishX = -Math.sin(m.yaw);
-          wishZ = -Math.cos(m.yaw);
+      } else if (m.hurtFlash <= 0 && (!m.fuseTimer || m.fuseTimer <= 0)) {
+        if (m.mesh) {
+          m.mesh.traverse(c => {
+            if (c.material && c.material.emissive) c.material.emissive.setRGB(0, 0, 0);
+          });
+        }
+      }
+
+      // Predator Detection (Flee from monsters!)
+      let predatorDetected = false;
+      if (!isBreedingTarget) {
+        let nearestPredator = null, minPredDist = 9.0;
+        if (Array.isArray(game.mobs)) {
+          for (const other of game.mobs) {
+            if (other.def?.hostile) {
+              const d = m.pos.distanceTo(other.pos);
+              if (d < minPredDist) { minPredDist = d; nearestPredator = other; }
+            }
+          }
+        }
+        if (nearestPredator) {
+          predatorDetected = true;
+          m.panicTimer = 3.0;
+          m.panicThreatPos = nearestPredator.pos.clone();
+        }
+      }
+
+      if (!isBreedingTarget) {
+        if ((m.panicTimer || 0) > 0) {
+          m.panicTimer -= dt;
+          const threatPos = m.panicThreatPos || player.pos;
+          const fleeDx = m.pos.x - threatPos.x;
+          const fleeDz = m.pos.z - threatPos.z;
+          m.yaw = Math.atan2(-fleeDx, -fleeDz);
+          wishX = -Math.sin(m.yaw) * 1.8;
+          wishZ = -Math.cos(m.yaw) * 1.8;
+        } else if (m.isBaby && m.parent && m.parent.mesh && game.mobs.includes(m.parent)) {
+          // Baby animal follows parent everywhere!
+          const pDist = m.pos.distanceTo(m.parent.pos);
+          if (pDist > 2.2) {
+            const pdx = m.parent.pos.x - m.pos.x;
+            const pdz = m.parent.pos.z - m.pos.z;
+            m.yaw = Math.atan2(-pdx, -pdz);
+            wishX = -Math.sin(m.yaw) * 1.3;
+            wishZ = -Math.cos(m.yaw) * 1.3;
+          }
+        } else if (isFood && distToP < 10.0) {
+          const dx = px - m.pos.x;
+          const dz = pz - m.pos.z;
+          m.yaw = Math.atan2(-dx, -dz);
+          if (distToP > 1.8) {
+            wishX = -Math.sin(m.yaw) * 0.9;
+            wishZ = -Math.cos(m.yaw) * 0.9;
+          }
+        } else {
+          let herdDx = 0, herdDz = 0, herdCount = 0;
+          if (Array.isArray(game.mobs)) {
+            for (const other of game.mobs) {
+              if (other !== m && other.type === m.type && other.pos.distanceTo(m.pos) < 6.0) {
+                herdDx += other.pos.x - m.pos.x;
+                herdDz += other.pos.z - m.pos.z;
+                herdCount++;
+              }
+            }
+          }
+
+          m.wanderTimer -= dt;
+          if(m.wanderTimer <= 0){
+            m.wanderTimer = 2.5 + Math.random() * 3.5;
+            if (herdCount > 0 && Math.random() < 0.5) {
+              m.yaw = Math.atan2(-herdDx, -herdDz);
+            } else if(Math.random() < 0.65){
+              let attempts = 0;
+              do {
+                m.yaw = Math.random() * Math.PI * 2;
+                const nx = m.pos.x + (-Math.sin(m.yaw)) * 1.5;
+                const nz = m.pos.z + (-Math.cos(m.yaw)) * 1.5;
+                if (waterDepthAt(nx, nz) <= 1) break;
+                attempts++;
+              } while (attempts < 4);
+            } else {
+              m.yaw = null; // idle
+            }
+          }
+          if(m.yaw !== null && m.yaw !== undefined){
+            wishX = -Math.sin(m.yaw);
+            wishZ = -Math.cos(m.yaw);
+          }
         }
       }
     }
@@ -638,7 +827,14 @@ export function updateMobs(dt){
     mobMoveAxis(m, "z", m.vel.z * dt);
     mobMoveAxis(m, "y", m.vel.y * dt);
     
-    m.mesh.position.copy(m.pos);
+    if (m.mesh) {
+      m.mesh.position.copy(m.pos);
+      if (typeof m.yaw === 'number' && !isNaN(m.yaw)) {
+        let diff = m.yaw - m.mesh.rotation.y;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        m.mesh.rotation.y += diff * Math.min(1.0, dt * 10.0);
+      }
+    }
     // ── 3D Articulated Limb Animations & Spider Wall Climbing Pitch ─────────────
     const ud = m.mesh.userData || {};
     const isMoving = (wishX !== 0 || wishZ !== 0);
@@ -684,15 +880,53 @@ export function updateMobs(dt){
         }
       }
     } else {
-      // Idle pose reset & head breathing tilt
+      // Idle pose reset
       m.animPhase = 0;
       if (Array.isArray(ud.legs)) {
         ud.legs.forEach(leg => {
           leg.rotation.x += (0 - leg.rotation.x) * Math.min(1.0, dt * 8.0);
         });
       }
-      if (ud.head) {
-        ud.head.rotation.y = Math.sin(now * 0.0015 + i) * 0.12;
+    }
+
+    // ── Head Pitch/Yaw Articulation & Eye Contact (runs moving or idle) ──────
+    if (ud.head) {
+      let lookTarget = null;
+      const heldId = hotbar ? hotbar[game.selected] : 0;
+      const isHoldingFood = (
+        (m.type === 'pig' && (heldId === 136 || heldId === 138 || heldId === 135)) ||
+        (m.type === 'sheep' && (heldId === 136 || heldId === 138 || heldId === 149))
+      );
+
+      if (canAggro || (isHoldingFood && distToP < 10.0)) {
+        lookTarget = playerEye;
+      } else if (m.soundInvestigateTimer > 0 && m.heardSoundTarget) {
+        lookTarget = m.heardSoundTarget;
+      } else if (m.isBaby && m.parent && m.parent.pos) {
+        lookTarget = m.parent.pos.clone().add(new THREE.Vector3(0, m.parent.def.h * 0.8, 0));
+      }
+
+      if (lookTarget) {
+        const headWorldPos = new THREE.Vector3();
+        ud.head.getWorldPosition(headWorldPos);
+        const lookDx = lookTarget.x - headWorldPos.x;
+        const lookDy = lookTarget.y - headWorldPos.y;
+        const lookDz = lookTarget.z - headWorldPos.z;
+        const horizDist = Math.hypot(lookDx, lookDz) || 1;
+
+        const targetYaw = Math.atan2(-lookDx, -lookDz);
+        let relYaw = targetYaw - (m.mesh ? m.mesh.rotation.y : 0);
+        relYaw = Math.atan2(Math.sin(relYaw), Math.cos(relYaw));
+        const clampedYaw = Math.max(-1.1, Math.min(1.1, relYaw));
+
+        const targetPitch = -Math.atan2(lookDy, horizDist);
+        const clampedPitch = Math.max(-0.7, Math.min(0.7, targetPitch));
+
+        ud.head.rotation.y += (clampedYaw - ud.head.rotation.y) * Math.min(1.0, dt * 8.0);
+        ud.head.rotation.x += (clampedPitch - ud.head.rotation.x) * Math.min(1.0, dt * 8.0);
+      } else {
+        ud.head.rotation.y += (0 - ud.head.rotation.y) * Math.min(1.0, dt * 5.0);
+        ud.head.rotation.x += (Math.sin(now * 0.0015 + i) * 0.08 - ud.head.rotation.x) * Math.min(1.0, dt * 5.0);
       }
     }
     
@@ -844,8 +1078,30 @@ export function attackMob(targetMob, customDamage){
   best.hp -= dmg;
   best.hurtFlash = 0.2;
   playHitSound();
+
+  if (best.type === 'zombie') {
+    for (const other of game.mobs) {
+      if (other !== best && other.type === 'zombie' && other.pos.distanceTo(best.pos) < 24) {
+        other.alerted = true;
+        other.alertCooldown = 10;
+      }
+    }
+    if (Math.random() < 0.40 && game.mobs.length < MAX_MOBS) {
+      const angle = Math.random() * Math.PI * 2;
+      const rDist = 8 + Math.random() * 6;
+      const rX = Math.floor(player.pos.x + Math.cos(angle) * rDist);
+      const rZ = Math.floor(player.pos.z + Math.sin(angle) * rDist);
+      const rY = surfaceHeight(rX, rZ) + 1;
+      if (rY > 0 && rY < HEIGHT - 2) {
+        spawnMob('zombie', rX + 0.5, rY + 0.1, rZ + 0.5);
+        toast("🧟 Zombie called for reinforcements!");
+      }
+    }
+  }
+
   if (!best.def.hostile) {
     best.panicTimer = 4.0;
+    best.panicThreatPos = player.pos.clone();
     if (best.type === 'pig') playPigSound();
     else if (best.type === 'sheep') playSheepSound();
   }
@@ -886,4 +1142,8 @@ export function attackMob(targetMob, customDamage){
     if(idx >= 0) removeMob(idx);
   }
   return true;
+}
+
+if (typeof window !== 'undefined') {
+  window.__emitSoundEvent = emitSoundEvent;
 }
