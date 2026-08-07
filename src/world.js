@@ -142,11 +142,11 @@ export function generateChunk(ch){
         } else if(y<=h){
           if(y===h){
             const beachNoise = hash2(wx, wz, SEED+77);
-            b = (h<=SEA+1)? (beachNoise > 0.7 ? 27 : 4) : 1; // sand & gravel shores near water, else grass
+            b = (h<=SEA+1)? (beachNoise > 0.75 ? 27 : (beachNoise < 0.25 ? 28 : 4)) : 1; // sand, gravel & clay shores near water, else grass
           }
           else if(y>h-4) {
             const subNoise = hash2(wx, wz, SEED+88);
-            b = (h<=SEA+1 && subNoise > 0.65)? 27 : 2; // gravel layers near shore/riverbed, else dirt
+            b = (h<=SEA+1 && subNoise > 0.65)? (subNoise > 0.82 ? 28 : 27) : 2; // gravel & clay layers near shore/riverbed, else dirt
           }
           else b=3;                                 // stone
         } else if(y<=SEA){
