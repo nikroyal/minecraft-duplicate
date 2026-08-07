@@ -4,7 +4,7 @@ import { uiState, setChestOpen, setFurnaceOpen } from './ui.js';
 import { 
   CHUNK, HEIGHT, RENDER_DIST, SEA, SEED, MAX_LIGHT, AIR, BLOCKS, VARIANTS, ITEMS,
   keyOf, hash2, hash3, vnoise3, surfaceHeight, isCave,
-  isSolid, isOpaque, tileFor, tileUV, trng, shade, TILE, ATLAS_COLS, ATLAS_ROWS
+  isSolid, isOpaque, tileFor, tileUV, trng, shade, TILE, ATLAS_COLS, ATLAS_ROWS, TILE_NAMES
 } from './config.js';
 
 import { applyVillageToChunk } from './villageGenerator.js';
