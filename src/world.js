@@ -145,11 +145,19 @@ export function generateChunk(ch){
           if(y===h){
             const beachNoise = hash2(wx, wz, SEED+77);
             const peakNoise = hash2(wx, wz, SEED+88);
-            b = (h >= 45 && peakNoise > 0.6) ? 29 : ((h<=SEA+1)? (beachNoise > 0.75 ? 27 : (beachNoise < 0.25 ? 28 : 4)) : 1); // Snow on extreme peaks (h>=45), sand/gravel/clay near water, else green Grass
+            if (h >= 45 && peakNoise > 0.6) {
+              b = 29; // Snow on extreme peaks (h >= 45)
+            } else if (h < SEA) {
+              b = (beachNoise > 0.75) ? 27 : ((beachNoise < 0.35) ? 28 : 4); // Underwater bed: gravel, clay, or sand beneath water
+            } else if (h <= SEA + 1) {
+              b = (beachNoise > 0.75) ? 27 : 4; // Dry shore at water edge: gravel or sand
+            } else {
+              b = 1; // Green Grass on land
+            }
           }
           else if(y>h-4) {
             const subNoise = hash2(wx, wz, SEED+88);
-            b = (h<=SEA+1 && subNoise > 0.65)? (subNoise > 0.82 ? 28 : 27) : 2; // gravel & clay layers near shore/riverbed, else dirt
+            b = (h < SEA && subNoise > 0.65)? (subNoise > 0.82 ? 28 : 27) : 2; // Sub-surface gravel & clay beneath underwater bed, else dirt
           }
           else b=3;                                 // stone
         } else if(y<=SEA){
