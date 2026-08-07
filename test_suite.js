@@ -1991,6 +1991,52 @@ async function runFullTestSuite() {
       if (gravelCount === 0) throw new Error("No natural Gravel (ID 27) blocks generated in world chunks");
     });
 
+    console.log("\n--- TEST SUITE 61: COMPREHENSIVE BLOCK REGISTRY & WORLD ACCESSIBILITY MATRIX ---");
+    test("Every registered block in BLOCKS has valid metadata, hardness, and name", () => {
+      const blockIds = Object.keys(config.BLOCKS).map(Number);
+      if (blockIds.length < 70) throw new Error(`Expected >70 registered block types, found ${blockIds.length}`);
+
+      for (const id of blockIds) {
+        const b = config.BLOCKS[id];
+        if (!b) throw new Error(`Block ID ${id} is undefined`);
+        if (!b.name || typeof b.name !== 'string') throw new Error(`Block ID ${id} missing name`);
+        if (typeof b.hardness !== 'number' || isNaN(b.hardness)) throw new Error(`Block ID ${id} missing hardness`);
+        if (typeof b.solid !== 'boolean') throw new Error(`Block ID ${id} missing solid flag`);
+      }
+    });
+
+    test("Every block in BLOCKS is obtainable (via natural terrain generation, schematics, or crafting)", () => {
+      const blockIds = Object.keys(config.BLOCKS).map(Number);
+      
+      // 1. Collect naturally generated block IDs across 25 chunks
+      const generatedIds = new Set();
+      for (let cx = -2; cx <= 2; cx++) {
+        for (let cz = -2; cz <= 2; cz++) {
+          const ch = { cx, cz, data: new Uint8Array(16*128*16), get(x,y,z){ return this.data[(y*16+z)*16+x]; }, set(x,y,z,v){ this.data[(y*16+z)*16+x]=v; } };
+          world.generateChunk(ch);
+          for (let i = 0; i < ch.data.length; i++) {
+            if (ch.data[i] !== 0) generatedIds.add(ch.data[i]);
+          }
+        }
+      }
+
+      // 2. Collect craftable block IDs
+      const craftableIds = new Set();
+      for (const r of config.RECIPES) {
+        if (config.BLOCKS[r.out]) craftableIds.add(r.out);
+      }
+
+      // 3. Special/State blocks (bedrock 30, piston head 65, crops 90-92)
+      const stateBlockIds = new Set([30, 65, 90, 91, 92]);
+
+      for (const id of blockIds) {
+        const isAccessible = generatedIds.has(id) || craftableIds.has(id) || stateBlockIds.has(id);
+        if (!isAccessible) {
+          throw new Error(`Block ID ${id} (${config.BLOCKS[id].name}) is neither generated naturally nor craftable`);
+        }
+      }
+    });
+
   } catch (fatalErr) {
     console.error("FATAL ERROR LOADING TEST SUITE MODULES:", fatalErr);
     process.exit(1);
