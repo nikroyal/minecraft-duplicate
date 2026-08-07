@@ -165,10 +165,8 @@ export function generateChunk(ch){
           b = (y === SEA && iceNoise > 0.82) ? 37 : 8; // Ice sheet on frozen lake/ocean surface (37), else water (8)
         }
         
-        // carve caves (keep bedrock intact; underwater cave openings fill with water instead of leaving floating roofs)
-        if(b!==AIR && b!==8 && b!==30 && y<=h && isCave(wx,y,wz)){
-          b = (y<=SEA) ? 8 : AIR;
-        }
+        // carve caves (keep bedrock intact)
+        if(b!==AIR && b!==8 && b!==30 && y<h && isCave(wx,y,wz)){ b=AIR; }
         
         // ores in stone
         if(b===3){
@@ -555,14 +553,7 @@ export function buildChunkMesh(ch){
       const base = g.pos.length/3;
       const dirS = F.f===0?1.0 : F.f===1?0.5 : (F.f===2||F.f===3)?0.82:0.68;
       const useOwnLight = (id === 20 || id === 45 || id === 49 || Boolean(bl.shape));
-      let lvl;
-      if (useOwnLight) {
-        lvl = getLightGlobal(ox+x, y, oz+z);
-      } else {
-        const nLvl = getLightGlobal(ox+nx, ny, oz+nz);
-        const topLvl = getLightGlobal(ox+x, y+1, oz+z);
-        lvl = Math.max(nLvl, Math.min(topLvl, MAX_LIGHT - 1));
-      }
+      const lvl = useOwnLight ? getLightGlobal(ox+x, y, oz+z) : getLightGlobal(ox+nx, ny, oz+nz);
       const ln = lvl/MAX_LIGHT;
       const lightB = 0.35 + Math.sqrt(ln)*0.65;
       const warm = lvl>8 ? (lvl-8)/7 : 0;
